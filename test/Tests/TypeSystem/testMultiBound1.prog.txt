@@ -1,0 +1,14 @@
+type T a = TT a
+
+{* val f : App (TT String) (App Int (App String (Tuple2 String Int))) *}
+let f
+	| (TT x) y "hello" -> (x, y)
+	| (TT _) k p -> (p, k)
+	| _ n s -> (s, n)
+
+type AB = A | B
+
+val g : Num x => App AB (App (T AB) (App x String))
+let g
+	| m (TT d) 42 -> "42"
+	| _ _ _ -> "this is not what you are looking for"

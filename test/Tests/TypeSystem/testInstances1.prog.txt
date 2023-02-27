@@ -1,0 +1,41 @@
+property A a b c =
+	val f : App a (App b (App c Char))
+;;
+
+type T a = T a
+
+instance A Int (T Int) a =
+	{* val f : App Int (App (T Int) (App a Char)) *}
+	let f x y z = 'a'
+;;
+
+instance A b (T (T b)) String =
+	{* val f : App b (App (T (T b)) (App String Char)) *}
+	let f x y z = 'd'
+;;
+
+let g = f
+
+{* f : App a (App (T a) (App String Char)) *}
+let g1 x = f x (T x) "enjoy fp!"
+
+property B a b =
+	val f' : App (Tuple2 a b) Char
+;;
+
+instance Num x => B x y =
+	let f' p = 'a'
+;;
+
+instance B Int w =
+	let f' p = 'b'
+;;
+
+instance Num k => B Int k =
+	let f' p = 'c'
+;;
+
+let g2 = f' (4, 2)	// should be 'a'
+
+type Key = Key
+let g3 = f' (3, Key)	// should be 'b'

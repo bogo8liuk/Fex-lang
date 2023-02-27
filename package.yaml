@@ -1,0 +1,67 @@
+name:                Fex
+version:             0.1.0.0
+# github:              "githubuser/mylang"
+license:             MIT
+author:              Luca Borghi
+copyright:           "2022 Luca Borghi"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/mylang#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- transformers
+- mtl
+- ghc
+- parsec >= 3.1.13.0 && <= 3.1.14.0
+- containers >= 0.6.5.1
+- array >= 0.5.4.0
+- pretty-simple >= 4.0.0.0
+- core-comp-unit
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+- -Wno-unused-do-bind
+
+library:
+  source-dirs: src
+
+executables:
+  mylang-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Fex
+
+tests:
+  mylang-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Fex

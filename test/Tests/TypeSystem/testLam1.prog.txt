@@ -1,0 +1,8 @@
+val f : App Char (App Int Int)
+let f x = lam x -> x
+
+let g = lam a b c d -> a b c * d
+
+let h x =
+	let f y x = x + 1 in
+		lam y -> x - f y x

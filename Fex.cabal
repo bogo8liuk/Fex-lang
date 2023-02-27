@@ -1,0 +1,155 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           Fex
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/mylang#readme>
+author:         Luca Borghi
+maintainer:     Luca Borghi
+copyright:      2022 Luca Borghi
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+library
+  exposed-modules:
+      Cli
+      Compiler
+      Compiler.Args.Check
+      Compiler.Args.Check.Correct
+      Compiler.Args.Check.Count
+      Compiler.Ast.Common
+      Compiler.Ast.Tree
+      Compiler.Ast.Typed
+      Compiler.Builtin.Tokens
+      Compiler.Codegen.Env
+      Compiler.Codegen.Lib
+      Compiler.Codegen.ToCore
+      Compiler.Codegen.Type
+      Compiler.Config.Lexer
+      Compiler.Config.Props
+      Compiler.Config.Types
+      Compiler.Constraints.Check
+      Compiler.Desugar.AdHoc
+      Compiler.Desugar.AdHoc.Accumulate
+      Compiler.Desugar.AdHoc.Create
+      Compiler.Desugar.AdHoc.Lib
+      Compiler.Desugar.Alias.Lib.Alias
+      Compiler.Desugar.Alias.Lib.Error
+      Compiler.Desugar.Alias.Replace
+      Compiler.Desugar.BreadthPM
+      Compiler.Desugar.DeepPM
+      Compiler.Desugar.Lambda
+      Compiler.Desugar.Names
+      Compiler.Desugar.Nested
+      Compiler.Desugar.Scrutinee
+      Compiler.Desugar.Sigs
+      Compiler.Desugar.TyVars
+      Compiler.Names.Check
+      Compiler.Names.Check.Correct
+      Compiler.Names.Check.Fetch
+      Compiler.Names.Check.Lib
+      Compiler.NameSpace
+      Compiler.State
+      Compiler.Syntax.Grammar
+      Compiler.Syntax.Lib.Info
+      Compiler.Syntax.Lib.Lex
+      Compiler.Syntax.Lib.SimpleParser
+      Compiler.Syntax.NonTranzitInsertion
+      Compiler.Syntax.Operators
+      Compiler.Syntax.Parser
+      Compiler.Types.Builder.Cons
+      Compiler.Types.Builder.Constraints
+      Compiler.Types.Builder.Instances
+      Compiler.Types.Builder.Kind
+      Compiler.Types.Builder.New
+      Compiler.Types.Builder.Type
+      Compiler.Types.Lib.Create
+      Compiler.Types.Lib.Error
+      Compiler.Types.Lib.FreeVars
+      Compiler.Types.Lib.InferKind
+      Compiler.Types.Lib.SpecialExpr
+      Compiler.Types.Lib.State
+      Compiler.Types.Make
+      Compiler.Types.Prepare
+      Compiler.Types.Prepare.Lib
+      Compiler.Types.Prepare.Recursion
+      Compiler.Types.Prepare.Sort
+      Compiler.Types.Tables
+      Lib.Counter
+      Lib.Monad.Repeat
+      Lib.Monad.Tape
+      Lib.Monad.Utils
+      Lib.Result
+      Lib.Table
+      Lib.Utils
+      ModuleSys.HsModl
+  other-modules:
+      Paths_Fex
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind
+  build-depends:
+      array >=0.5.4.0
+    , base >=4.7 && <5
+    , containers >=0.6.5.1
+    , core-comp-unit
+    , ghc
+    , mtl
+    , parsec >=3.1.13.0 && <=3.1.14.0
+    , pretty-simple >=4.0.0.0
+    , transformers
+  default-language: Haskell2010
+
+executable mylang-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_Fex
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Fex
+    , array >=0.5.4.0
+    , base >=4.7 && <5
+    , containers >=0.6.5.1
+    , core-comp-unit
+    , ghc
+    , mtl
+    , parsec >=3.1.13.0 && <=3.1.14.0
+    , pretty-simple >=4.0.0.0
+    , transformers
+  default-language: Haskell2010
+
+test-suite mylang-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Tests.TestUtils
+      Tests.TypeSystem
+      Tests.TypeSystem.TestBound1
+      Tests.TypeSystem.TestMultiBound1
+      Tests.TypeSystem.TestRec1
+      Tests.TypeSystem.TestState
+      Paths_Fex
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Fex
+    , array >=0.5.4.0
+    , base >=4.7 && <5
+    , containers >=0.6.5.1
+    , core-comp-unit
+    , ghc
+    , mtl
+    , parsec >=3.1.13.0 && <=3.1.14.0
+    , pretty-simple >=4.0.0.0
+    , transformers
+  default-language: Haskell2010

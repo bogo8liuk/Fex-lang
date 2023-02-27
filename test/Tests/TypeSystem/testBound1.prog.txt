@@ -1,0 +1,16 @@
+{* val f : Num b => App a (App b b) *}
+let f x y =
+	let g x = x + y in g y
+
+let f' x y =
+	let k = x * y in
+	let c = x + y in
+	let q = x - y + 5 in
+		k - c + q
+
+val f'' : Num a => App a a
+let f'' x =
+	let q = x in q
+
+let f''' x =
+	let f = x in f
