@@ -45,7 +45,7 @@ library:
   source-dirs: src
 
 executables:
-  mylang-exe:
+  fexc:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
