@@ -1,6 +1,6 @@
 name:                Fex
 version:             0.1.0.0
-# github:              "githubuser/mylang"
+github:              bogo8liuk/Fex-lang
 license:             GPL-3
 author:              Luca Borghi
 copyright:           "2022 Luca Borghi"
@@ -16,7 +16,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/mylang#readme>
+description:         Please see the README.md on GitHub at https://github.com/bogo8liuk/Fex-lang#readme
 
 dependencies:
 - base >= 4.7 && < 5

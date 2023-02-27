@@ -6,7 +6,9 @@ cabal-version: 1.12
 
 name:           Fex
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/mylang#readme>
+description:    Please see the README.md on GitHub at https://github.com/bogo8liuk/Fex-lang#readme
+homepage:       https://github.com/bogo8liuk/Fex-lang#readme
+bug-reports:    https://github.com/bogo8liuk/Fex-lang/issues
 author:         Luca Borghi
 maintainer:     Luca Borghi
 copyright:      2022 Luca Borghi
@@ -16,6 +18,10 @@ build-type:     Simple
 extra-source-files:
     README.md
     ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/bogo8liuk/Fex-lang
 
 library
   exposed-modules:
