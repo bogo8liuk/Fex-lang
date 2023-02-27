@@ -27,7 +27,9 @@ module Compiler.Syntax.Lib.SimpleParser
     , argApplication
     , orTokens
     , thenBetween
-    , thenSeparated
+    , mappingBetween
+    , mappingSeparated
+    , mappingParensSeparated
     , andSeparated
     , letStatement
     , partialLetStatement
@@ -410,15 +412,29 @@ thenBetween p1 p2 = do
     st <- getState
     st' <- ThenSequence |> setObjectToParse st |> Lex.setState'
     left <- p1
-    Tokens.reservedOp Lex.lexer Keys.caseThenKeyword
+    Tokens.reservedOp Lex.lexer Keys.functionAppKeyword
     right <- p2
     return (left, right) <?> show st'
 
-thenSeparated :: CustomParsec a -> CustomParsec [a]
-thenSeparated pars = do
+mappingBetween :: CustomParsec a -> CustomParsec b -> CustomParsec (a, b)
+mappingBetween p1 p2 = do
     st <- getState
-    st' <- ThenSequence |> setObjectToParse st |> Lex.setState'
+    st' <- MappingSequence |> setObjectToParse st |> Lex.setState'
+    left <- p1
+    Tokens.reservedOp Lex.lexer Keys.functionAppKeyword
+    right <- p2
+    return (left, right) <?> show st'
+
+mappingSeparated :: CustomParsec a -> CustomParsec [a]
+mappingSeparated pars = do
+    st <- getState
+    st' <- MappingSequence |> setObjectToParse st |> Lex.setState'
     separatedBy1 Keys.functionAppKeyword pars <?> show st'
+
+mappingParensSeparated :: CustomParsec a -> CustomParsec [a]
+mappingParensSeparated pars = mappingSeparated tryInParens
+    where
+        tryInParens = try (parens pars) <|> pars
 
 andSeparated :: CustomParsec a -> CustomParsec [a]
 andSeparated p = do
@@ -483,13 +499,7 @@ multiMatchStatement :: CustomParsec a -> CustomParsec b -> CustomParsec [(a, b)]
 multiMatchStatement p1 p2 = do
     st <- getState
     st' <- MatchExpression |> setObjectToParse st |> Lex.setState'
-    caseStarted comb <?> show st'
-    where
-        comb = do
-            left <- p1
-            Tokens.reservedOp Lex.lexer Keys.caseThenKeyword
-            right <- p2
-            return (left, right)
+    caseStarted (thenBetween p1 p2) <?> show st'
 
 constraintStatement :: CustomParsec a -> CustomParsec a
 constraintStatement p = do
@@ -554,7 +564,7 @@ lambdaStatement p1 p2 = do
     st' <- LambdaExpression |> setObjectToParse st |> Lex.setState'
     Tokens.reserved Lex.lexer Keys.lambdaKeyword
     left <- p1
-    Tokens.reservedOp Lex.lexer Keys.functionAppKeyword
+    Tokens.reservedOp Lex.lexer Keys.lambdaContKeyword
     right <- p2
     return (left, right) <?> show st'
 

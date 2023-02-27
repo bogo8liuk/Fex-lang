@@ -201,8 +201,7 @@ interfaceIdentifier = do
     i <- Pars.interfaceIdentifier id
     return $ Tree.IntfName (i, tst)
 
-matchCase :: CustomOpTable (Tree.Expression With.ProgState)
-          -> CustomParsec (Tree.MatchCase With.ProgState)
+matchCase :: CustomOpTable (Tree.Expression With.ProgState) -> CustomParsec (Tree.MatchCase With.ProgState)
 matchCase table = do
     tst <- fetchTokenState
     st <- getState
@@ -523,8 +522,7 @@ typeComposite = do
     return $ Tree.TyComp (a, as, tst)
 
 {- compositeInUnCon and singletonInUnCon are just wrapper for UnConType type. The entire
-UnConType parser is unConTypeToken. -}
-
+UnConType parser is functionUnConTypeToken. -}
 compositeInUnCon :: CustomParsec (Tree.UnConType With.ProgState)
 compositeInUnCon = do
     con <- typeComposite
@@ -536,18 +534,48 @@ singletonInUnCon = do
     return $ Tree.Singleton sin
 
 {- NB: if you have to parse unconstrained type tokens as arguments of another token, do NOT use
-this, look for `argUnCon`. -}
+this, look for `argUnCon`.
+NB: this is not the top-level parser of unconstrained types, look at functionUnConTypeToken instead.
+-}
 unConTypeToken :: CustomParsec (Tree.UnConType With.ProgState)
 unConTypeToken = try compositeInUnCon <|> singletonInUnCon
 
 constraints :: CustomParsec [Tree.Constraint With.ProgState]
 constraints = parConstraints interfaceIdentifier
 
+functionUnConTypeToken :: CustomParsec (Tree.UnConType With.ProgState)
+functionUnConTypeToken = do
+    {- Trying firstly the non-function type without parenthesys, then trying the function type with parenthesys,
+    else trying the non-function type with parenthesys. -}
+    unCons <- Pars.mappingSeparated
+        (choice
+            [ try $ withState unConTypeToken
+            , try . Pars.parens $ withState functionUnConTypeToken
+            , Pars.parens $ withState unConTypeToken
+            ]
+        )
+    createFunType unCons
+    where
+        withState unConParser = do
+            tst <- fetchTokenState
+            unCon <- unConParser
+            return (unCon, tst)
+
+        createFunType [] =
+            parserZero <?> "Zero types available to build a type token"
+        createFunType [(unCon, _)] =
+            return unCon
+        createFunType ((unCon, tst) : t) = do
+            resUnCon <- createFunType t
+            {- Creating the function type -}
+            return . Tree.Composite $
+                Tree.TyComp (Tree.Real (Tree.ADTName (BITy.nameFunctionApp, tst)), [unCon, resUnCon], tst)
+
 typeToken :: CustomParsec (Tree.Type With.ProgState)
 typeToken = do
     tst <- fetchTokenState
     cs <- constraints
-    ty <- unConTypeToken
+    ty <- functionUnConTypeToken
     return $ Tree.Type (cs, ty, tst)
 
 parAdtConstructor :: CustomParsec (Tree.ADTConName With.ProgState) -> CustomParsec (Tree.ADTConstructor With.ProgState)
@@ -585,7 +613,7 @@ declarationAdt = do
 alias :: CustomParsec (Tree.AliasAlgebraicDataType With.ProgState)
 alias = do
     tst <- fetchTokenState
-    (b, t) <- Pars.aliasStatement adtDeclare unConTypeToken
+    (b, t) <- Pars.aliasStatement adtDeclare functionUnConTypeToken
     return $ Tree.AliasTok (b, t, tst)
 
 declarationAlias :: CustomParsec (Tree.Declaration With.ProgState)

@@ -30,6 +30,7 @@ data Component =
     Declaration             | -- A Declaration can be an ADT, an Interface, an Instance, a Binding or a Note
     CaseSequence            | -- A CaseSequence is everything that is separated by pipes |
     ThenSequence            |
+    MappingSequence         |
     Application             | -- An Application is everything that is separated by space (where a space has a semantic)
     ADT                     | -- An ADT is Algebraic Data Type declaration
     Alias                   | -- An Alias is an alias declaration

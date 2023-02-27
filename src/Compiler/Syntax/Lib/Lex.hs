@@ -114,6 +114,7 @@ definition = T.LanguageDef {
     reservedNames =
         [ Keys.symbolDeclarationKeyword
         , Keys.lambdaKeyword
+        , Keys.lambdaContKeyword
         , Keys.adtKeyword
         , Keys.aliasKeyword
         , Keys.exprBindKeyword
