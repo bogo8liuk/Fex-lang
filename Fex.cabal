@@ -10,7 +10,7 @@ description:    Please see the README on GitHub at <https://github.com/githubuse
 author:         Luca Borghi
 maintainer:     Luca Borghi
 copyright:      2022 Luca Borghi
-license:        MIT
+license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
