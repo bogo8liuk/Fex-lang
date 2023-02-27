@@ -13,6 +13,7 @@ module Compiler.Config.Lexer
     , specificsKeyword
     , exprBindKeyword
     , lambdaKeyword
+    , lambdaContKeyword
     , signatureKeyword
     , functionAppKeyword
     , constraintAppKeyword
@@ -107,6 +108,9 @@ exprBindKeyword = "in"
 
 lambdaKeyword :: String
 lambdaKeyword = "lam"
+
+lambdaContKeyword :: String
+lambdaContKeyword = "->"
 
 signatureKeyword :: String
 signatureKeyword = "val"
