@@ -1,8 +1,10 @@
 module ModuleSys.HsModl
     ( topLevelModl
+    , mainModl
 ) where
 
 import Module
+import PrelNames
 
 topLevel :: String
 topLevel = "top-level"
@@ -14,3 +16,6 @@ topLevelModl :: Module
 topLevelModl =
     let modlName = mkModuleName topLevel in
         mkMainModl modlName
+
+mainModl :: Module
+mainModl = mAIN

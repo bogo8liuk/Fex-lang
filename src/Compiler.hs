@@ -425,7 +425,7 @@ backend :: FilePath -> HscTarget -> GhcLink -> IO ()
 backend path target link = do
     (cp, tyCons) <- genCore path
     print "Compiler backend"
-    coreCompUnit HsModl.topLevelModl target link cp tyCons []    --TODO: it misses instances
+    coreCompUnit HsModl.mainModl target link cp tyCons []    --TODO: it misses instances
 
 compile :: FilePath -> HscTarget -> GhcLink -> IO ()
 compile = backend
