@@ -2,3 +2,6 @@
 *~
 Test.txt
 *.asm
+*.ll
+*.s
+*.o
