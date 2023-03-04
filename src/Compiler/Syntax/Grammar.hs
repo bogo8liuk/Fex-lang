@@ -35,11 +35,10 @@ parConstraints :: CustomParsec (Tree.IntfName With.ProgState) -> CustomParsec [T
 to parse a situation like that. -}
 parConstraints intfId = option [] . try . Pars.constraintStatement $ parManyConstraints intfId
 
-{- It does not really parse an IntfDeclare statement, it misses constraints. -}
-parInterfaceDeclare
+parInterfaceHeader
     :: CustomParsec (Tree.IntfName With.ProgState)
     -> CustomParsec (Tree.IntfName With.ProgState, [Tree.ParamTypeName With.ProgState], ProgState)
-parInterfaceDeclare intfId = do
+parInterfaceHeader intfId = do
     tst <- fetchTokenState
     (a, as) <- Pars.application' intfId paramTypeIdentifier
     return (a, as, tst)
@@ -62,9 +61,9 @@ parInterface
     :: CustomParsec (Tree.IntfName With.ProgState, [Tree.ParamTypeName With.ProgState], ProgState)
     -> CustomParsec [Tree.Constraint With.ProgState]
     -> CustomParsec (Tree.Interface With.ProgState)
-parInterface intfDecl conts = do
+parInterface intfHead conts = do
     tst <- fetchTokenState
-    ((n, args, hst), (cs, sigs)) <- Pars.interfaceStatement intfDecl $ parInterfaceBody conts
+    ((n, args, hst), (cs, sigs)) <- Pars.interfaceStatement intfHead $ parInterfaceBody conts
     return $ Tree.IntfTok (Tree.IntfDecl (n, cs, args, hst), sigs, tst)
 
 parAdt
@@ -645,7 +644,7 @@ declarationSignature = do
     return $ Tree.Sig s
 
 interface :: CustomParsec (Tree.Interface With.ProgState)
-interface = parInterface (parInterfaceDeclare interfaceIdentifier) constraints
+interface = parInterface (parInterfaceHeader interfaceIdentifier) constraints
 
 declarationInterface :: CustomParsec (Tree.Declaration With.ProgState)
 declarationInterface = do
@@ -666,20 +665,24 @@ declarationSymbol table = do
         Right msd -> return $ Tree.LetMulti msd
 
 instanceHeader
-    :: CustomParsec
+    :: CustomParsec (Tree.IntfName With.ProgState, [Tree.UnConType With.ProgState])
+instanceHeader = Pars.application' interfaceIdentifier argUnCon
+
+instanceBody
+    :: CustomOpTable (Tree.Expression With.ProgState)
+    -> CustomParsec
         ( [Tree.Constraint With.ProgState]
-        , Tree.IntfName With.ProgState
-        , [Tree.UnConType With.ProgState]
+        , [Tree.SDUnion With.ProgState]
         )
-instanceHeader = do
+instanceBody table = do
     cs <- constraints
-    (i, ts) <- Pars.application' interfaceIdentifier argUnCon
-    return (cs, i, ts)
+    sds <- many $ genericSymbolDeclaration table
+    return (cs, sds)
 
 intfInstance :: CustomOpTable (Tree.Expression With.ProgState) -> CustomParsec (Tree.Instance With.ProgState)
 intfInstance table = do
     tst <- fetchTokenState
-    ((cs, intf, inst), symbols) <- Pars.instanceStatement instanceHeader . many $ genericSymbolDeclaration table
+    ((intf, inst), (cs, symbols)) <- Pars.instanceStatement instanceHeader $ instanceBody table
     return $ Tree.InstTok (intf, cs, inst, symbols, tst)
 
 declarationInstance :: CustomOpTable (Tree.Expression With.ProgState) -> CustomParsec (Tree.Declaration With.ProgState)
@@ -758,7 +761,7 @@ specialConstraints = parConstraints specialInterfaceIdentifier
 {- It parses an interface declaration, but with a special interface identifier which goes out of the
 language parsing rules. -}
 specialInterface :: CustomParsec (Tree.Interface With.ProgState)
-specialInterface = parInterface (parInterfaceDeclare specialInterfaceIdentifier) specialConstraints
+specialInterface = parInterface (parInterfaceHeader specialInterfaceIdentifier) specialConstraints
 
 specialAdtDeclare :: CustomParsec (Tree.ADTDeclare With.ProgState)
 specialAdtDeclare = parAdtDeclare specialTypeIdentifier
