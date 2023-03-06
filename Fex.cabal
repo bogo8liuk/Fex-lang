@@ -35,6 +35,7 @@ library
       Compiler.Ast.Typed
       Compiler.Builtin.Tokens
       Compiler.Codegen.Env
+      Compiler.Codegen.IO
       Compiler.Codegen.Lib
       Compiler.Codegen.ToCore
       Compiler.Codegen.Type
