@@ -326,7 +326,8 @@ monoTyGen lhty =
             then return stringTy
             else cont
 
-        --TODO: what to do if it necessary to build types like (a ->) or (->)???
+        --TODO: what to do if it necessary to build types like (a ->) or (->)??? Answer: look at `funTyCon` in `TysPrim`
+        -- module
         genFun [lhty1, lhty2] = do
             ty1 <- monoTyGen lhty1
             ty2 <- monoTyGen lhty2
