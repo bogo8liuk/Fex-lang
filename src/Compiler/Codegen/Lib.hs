@@ -1,5 +1,5 @@
 module Compiler.Codegen.Lib
-    ( mkUniqueVal
+    ( newUniqueVal
     , mkName
     , mkTypeName
     , mkDataConName
@@ -11,24 +11,39 @@ import qualified ModuleSys.HsModl as HsModl
 import Compiler.State as With
 import qualified Compiler.Desugar.Names as Desugar
 import Compiler.Codegen.Env
-import Unique
-import Name
+import Unique hiding (getUnique)
+import Name hiding (getSrcSpan)
 import SrcLoc
 
-mkUniqueVal :: CodegenEnv Unique
-mkUniqueVal = do
+newUniqueVal :: CodegenEnv Unique
+newUniqueVal = do
     c <- getCounter
     let (unq, newC) = Desugar.mkUniqueObj c
     putCounter newC
     return unq
 
-mkName :: NameSpace -> String -> ProgState -> CodegenEnv Name
-mkName nameSpace nameRep st = do
+getOrMkUniqueVal :: String -> NameSpace -> CodegenEnv Unique
+getOrMkUniqueVal rep sp = do
+    mayuq <- getUnique rep sp
+    case mayuq of
+        Nothing -> do
+            uq <- newUniqueVal
+            putUnique rep sp uq
+            return uq
+        Just uq ->
+            return uq
+
+getSrcSpan :: ProgState -> CodegenEnv SrcSpan
+getSrcSpan st = do
     let startLoc = startSrcLocFromState st
     let endLoc = endSrcLocFromState st
-    let srcSpan = mkSrcSpan startLoc endLoc
+    return $ mkSrcSpan startLoc endLoc
+
+mkName :: NameSpace -> String -> ProgState -> CodegenEnv Name
+mkName nameSpace nameRep st = do
+    srcSpan <- getSrcSpan st
     let name = mkOccName nameSpace nameRep
-    unq <- mkUniqueVal
+    unq <- getOrMkUniqueVal nameRep nameSpace
     return $ mkExternalName unq HsModl.topLevelModl name srcSpan
 
 mkTypeName :: String -> ProgState -> CodegenEnv Name
@@ -39,6 +54,9 @@ mkDataConName = mkName srcDataName    --TODO: should I use `dataName` instead of
 
 mkBindingName :: String -> ProgState -> CodegenEnv Name
 mkBindingName = mkName varName
+
+mkSystemIOName :: String -> ProgState -> NameSpace -> CodegenEnv Name
+mkSystemIOName nameRep st nameSpace = undefined
 
 {- It creates a new name which should be useless in the program. -}
 mkFoolBindingName :: ProgState -> CodegenEnv Name
