@@ -38,6 +38,7 @@ import Lib.Result
 --import Text.Pretty.Simple(pPrint)
 import qualified Lib.Counter as C
 import qualified Compiler.State as With
+import Compiler.Config.Lexer
 import qualified Compiler.Builtin.Tokens as Builtin.Tokens
 import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Syntax.Parser as Parser
@@ -56,8 +57,15 @@ import CoreSyn(CoreProgram)
 import TyCon(TyCon)
 import qualified Compiler.Codegen.ToCore as ToCore
 import qualified ModuleSys.HsModl as HsModl
-import GHC(HscTarget, GhcLink)
+import GHC
+import HscTypes
+import IfaceSyn
+import Var
+import Avail
 import FromCore
+import OccName hiding (varName)
+import FastString
+import Fingerprint
 
 compilerExecName :: String
 compilerExecName = "mylang-exe"
@@ -412,7 +420,9 @@ unifyScrutinee path = do
         prNone
         (uncurry (fv, tt, dct, ct, mhts, it,, ))
 
-genCore :: FilePath -> IO (CoreProgram, [TyCon])
+type MainBinding = Name
+
+genCore :: FilePath -> IO (CoreProgram, [TyCon], ToCore.MainBndr)
 genCore path = do
     (_, _, dct, _, _, _, tp, c) <- unifyScrutinee path
     print "Generating Core code"
@@ -421,11 +431,75 @@ genCore path = do
         id
         exitFailure
 
+mainHash :: IO Fingerprint
+mainHash = return $ fingerprintString mainSymbol
+
+modIfaceHash :: Warnings -> [(OccName, Fixity)] -> [(Fingerprint, IfaceDecl)] -> IO ModIfaceBackend
+modIfaceHash ws fxs intfds =
+    return $ ModIfaceBackend
+        { mi_iface_hash = fingerprint0
+        , mi_mod_hash = fingerprint0
+        , mi_flag_hash = fingerprint0
+        , mi_opt_hash = fingerprint0
+        , mi_hpc_hash = fingerprint0
+        , mi_plugin_hash = fingerprint0
+        , mi_orphan = False
+        , mi_finsts = False
+        , mi_exp_hash = fingerprint0 --TODO
+        , mi_orphan_hash = fingerprint0
+        , mi_warn_fn = mkIfaceWarnCache ws
+        , mi_fix_fn = mkIfaceFixCache fxs
+        , mi_hash_fn = mkIfaceHashCache intfds
+        }
+
+modIface :: ToCore.MainBndr -> IO ModIface
+modIface mainBndr = do
+    let ws = NoWarnings
+    let fxs = []
+    mnHash <- mainHash
+    let intfDecl =
+         IfaceId
+            { ifName = varName mainBndr
+            , ifType = IfaceLitTy . IfaceStrTyLit $ fsLit mainSymbol
+            , ifIdDetails = IfVanillaId
+            , ifIdInfo = NoInfo
+            }
+    {- TODO: using such a `main` fingerprint? Is this the correct way to calculate this hash? -}
+    let intfds = [(mnHash, intfDecl)]
+    hash <- modIfaceHash ws fxs intfds
+    return $ ModIface
+        { mi_module = HsModl.mainModl
+        , mi_sig_of = Nothing
+        , mi_hsc_src = HsSrcFile
+        , mi_deps = noDependencies
+        , mi_usages = []
+        , mi_exports = [Avail $ varName mainBndr]
+        , mi_used_th = False
+        , mi_fixities = fxs
+        , mi_warns = ws
+        , mi_anns = []
+        , mi_decls = intfds
+        , mi_globals = Nothing
+        , mi_insts = []
+        , mi_fam_insts = []
+        , mi_rules = []
+        , mi_hpc = False
+        , mi_trust = noIfaceTrustInfo
+        , mi_trust_pkg = False
+        {- TODO: what is it? Cannot find anything from the documentation -}
+        , mi_complete_sigs = []
+        , mi_doc_hdr = Nothing
+        , mi_decl_docs = emptyDeclDocMap
+        , mi_arg_docs = emptyArgDocMap
+        , mi_final_exts = hash
+        }
+
 backend :: FilePath -> HscTarget -> GhcLink -> IO ()
 backend path target link = do
-    (cp, tyCons) <- genCore path
+    (cp, tyCons, mnBndr) <- genCore path
+    intf <- modIface mnBndr
     print "Compiler backend"
-    coreCompUnit HsModl.mainModl target link cp tyCons []    --TODO: it misses instances
+    coreCompUnit HsModl.mainModl target link (Just intf) cp tyCons []    --TODO: it misses instances
 
 compile :: FilePath -> HscTarget -> GhcLink -> IO ()
 compile = backend
