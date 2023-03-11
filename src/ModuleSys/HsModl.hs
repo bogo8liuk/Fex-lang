@@ -1,5 +1,6 @@
 module ModuleSys.HsModl
     ( topLevelModl
+    , mAIN
     , mainModl
 ) where
 
@@ -7,7 +8,7 @@ import Module
 import PrelNames
 
 topLevel :: String
-topLevel = "top-level"
+topLevel = "TopLevel"
 
 mkMainModl :: ModuleName -> Module
 mkMainModl = mkModule mainUnitId
@@ -18,4 +19,4 @@ topLevelModl =
         mkMainModl modlName
 
 mainModl :: Module
-mainModl = mAIN
+mainModl = topLevelModl
