@@ -29,6 +29,7 @@ module Compiler.Config.Lexer
     , recordEndKeyword
     , funAsOpKeyword
     , reservedIdKeyword
+    , mainSymbol
     , listTySugarStart
     , listTySugarEnd
     , listConSugarStart
@@ -160,6 +161,9 @@ endStatementKeyword = ";;"
 {- To use at the beginning of an identifier, to safely create names which are unparsable. -}
 reservedIdKeyword :: String
 reservedIdKeyword = "_,"
+
+mainSymbol :: String
+mainSymbol = "main"
 
 listTySugarStart :: String
 listTySugarStart = "["
