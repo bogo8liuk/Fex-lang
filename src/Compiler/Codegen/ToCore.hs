@@ -1,19 +1,25 @@
 module Compiler.Codegen.ToCore
     ( generate
+    , MainBndr
 ) where
 
+import Lib.Utils
+import Lib.Monad.Utils
 import qualified Lib.Counter as C
 import Control.Monad.State
 import Compiler.State as With
 import Compiler.Ast.Common
 import qualified Compiler.Ast.Typed as Ty
 import Compiler.Types.Tables
+import Compiler.Config.Lexer
 import Compiler.Codegen.Lib
 import Compiler.Codegen.Env
 import qualified Compiler.Codegen.Type as TyGen
 import GHC
 import CoreSyn as Core
 import Var
+import Name
+import OccName
 import IdInfo
 
 data Visibility =
@@ -145,19 +151,47 @@ anyHasConstraints = any hasCont
             let ty = Ty.typeOf nVar in
                 not . null $ Ty.contsOf ty
 
+isMain :: [BindingSingleton With.ProgState] -> Bool
+isMain = any (\(nVar, _, _) -> strOf nVar == mainSymbol)
+
+ifMainUpdate :: [BindingSingleton With.ProgState] -> CoreBind -> CodegenEnv ()
+ifMainUpdate bs binding =
+    if isMain bs
+    then do
+        bndr <- getCoreMain binding
+        putMain bndr
+    else doNothing'
+
+strRepOfCoreVar :: Var -> String
+strRepOfCoreVar = occNameString . nameOccName . Var.varName
+
+getCoreMain :: CoreBind -> CodegenEnv MainBndr
+{- No check on the Var name, it must be the `main`. -}
+getCoreMain (NonRec v _) = return v
+getCoreMain (Rec bs) =
+    {- The check here is necessary in order to find the `main`. -}
+    case firstThat (\(v, _) -> strRepOfCoreVar v == mainSymbol) bs of
+        Nothing -> cgErr $ PanicErr "No `main` binding found in recursive bindings cluster which should have it"
+        Just (v, _) -> return v
+
 topLevelBinding :: TypedBinding With.ProgState -> CodegenEnv (Maybe CoreBind)
-topLevelBinding (TyNonRec b @ (nVar, _, ne)) =
-    if anyHasConstraints [b]
+topLevelBinding (TyNonRec b @ (nVar, _, ne)) = do
+    let bs = [b]
+    if anyHasConstraints bs
     then return Nothing
     else do
         (bndr, coreExpr) <- genBinding nVar ne Global
-        return . Just $ NonRec bndr coreExpr
+        let cBndr = NonRec bndr coreExpr
+        ifMainUpdate bs cBndr
+        return $ Just cBndr
 topLevelBinding (TyRec bs) = do
     if anyHasConstraints bs
     then return Nothing
     else do
         coreBs <- mapM (\(nVar, _, ne) -> genBinding nVar ne Global) bs
-        return . Just $ Rec coreBs
+        let cBndr = Rec coreBs
+        ifMainUpdate bs cBndr
+        return $ Just cBndr
 
 bindings :: TypedProgram With.ProgState -> CodegenEnv CoreProgram
 bindings = createBindings . toL
@@ -175,16 +209,17 @@ bindings = createBindings . toL
                 Nothing -> return coreBs
                 Just coreB -> return $ coreB : coreBs
 
-bindingsAndTyCons :: TypedProgram With.ProgState -> CodegenEnv (CoreProgram, [TyCon])
-bindingsAndTyCons tp = do
+coreGenRes :: TypedProgram With.ProgState -> CodegenEnv (CoreProgram, [TyCon], MainBndr)
+coreGenRes tp = do
     coreProg <- bindings tp
     {- This is a little optimization: only type constructors which are really used in the program are returned. -}
     tyCons <- getAllTyCons
-    return (coreProg, tyCons)
+    mn <- getMain
+    return (coreProg, tyCons, mn)
 
 generate
     :: DataConsTable With.ProgState
     -> C.AlphabeticCounterObj
     -> TypedProgram With.ProgState
-    -> Either CodegenErr (CoreProgram, [TyCon])
-generate dct c tp = evalStateT (bindingsAndTyCons tp) $ initState c dct
+    -> Either CodegenErr (CoreProgram, [TyCon], MainBndr)
+generate dct c tp = evalStateT <| coreGenRes tp <| initState c dct

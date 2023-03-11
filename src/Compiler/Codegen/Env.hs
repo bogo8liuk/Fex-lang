@@ -1,6 +1,7 @@
 module Compiler.Codegen.Env
     ( TyConStrRep
     , DataConStrRep
+    , MainBndr
     , CodegenErr(..)
     , CodegenEnv
     , initState
@@ -13,11 +14,14 @@ module Compiler.Codegen.Env
     , getAllTyCons
     , getMatchNVals
     , getUnique
+    , getMaybeMain
+    , getMain
     , putCounter
     , putDataCon
     , putDataCons
     , putTyCon
     , putUnique
+    , putMain
 ) where
 
 import Lib.Utils
@@ -29,6 +33,7 @@ import Compiler.State as With
 import Compiler.Ast.Common
 import qualified Compiler.Ast.Typed as Ty
 import Compiler.Types.Tables
+import CoreSyn(CoreBndr)
 import DataCon
 import TyCon
 import OccName
@@ -37,18 +42,22 @@ import Unique hiding (getUnique)
 data CodegenErr =
       TypePanicErr String
     | PanicErr String
+    | NoMain
 
 instance InfoShow CodegenErr where
     infoShow (TypePanicErr _) = unexpNoInfo
     infoShow (PanicErr _) = unexpNoInfo
+    infoShow NoMain = "A `main` binding does not exist"
 
 instance DebugShow CodegenErr where
     dbgShow (TypePanicErr reason) = reason
     dbgShow (PanicErr reason) = reason
+    dbgShow NoMain = infoShow NoMain
 
 instance UnreachableState CodegenErr where
     isUnreachable err @ (TypePanicErr _) = Just $ dbgShow err
     isUnreachable err @ (PanicErr _) = Just $ dbgShow err
+    isUnreachable NoMain = Nothing
 
 type TyConStrRep = String
 type DataConStrRep = String
@@ -58,6 +67,8 @@ type CoreDataConsTable = Map TyConStrRep (Map DataConStrRep DataCon)
 type CoreTyConsTable = Map TyConStrRep TyCon
 
 type UniquesTable = Map (String, NameSpace) Unique
+
+type MainBndr = CoreBndr
 
 data CodegenState =
     CGSt
@@ -74,40 +85,48 @@ data CodegenState =
         {- It stores the bindings of symbol (in string representation) along with the `NameSpace` to know the category of
         token and its Unique value, in order to make coherent names. -}
         UniquesTable
+        {- The main binding; if it exists, it is returned. -}
+        (Maybe MainBndr)
 
 initState :: C.AlphabeticCounterObj -> DataConsTable With.ProgState -> CodegenState
 initState c dct =
-    CGSt c empty empty (getAllElems dct) empty
+    CGSt c empty empty (getAllElems dct) empty Nothing
 
 stGetCounter :: CodegenState -> C.AlphabeticCounterObj
-stGetCounter (CGSt c _ _ _ _) = c
+stGetCounter (CGSt c _ _ _ _ _) = c
 
 stGetDataConsTable :: CodegenState -> CoreDataConsTable
-stGetDataConsTable (CGSt _ dct _ _ _) = dct
+stGetDataConsTable (CGSt _ dct _ _ _ _) = dct
 
 stGetTyConsTable :: CodegenState -> CoreTyConsTable
-stGetTyConsTable (CGSt _ _ tct _ _) = tct
+stGetTyConsTable (CGSt _ _ tct _ _ _) = tct
 
 stGetNotedValues :: CodegenState -> [Ty.NotedVal With.ProgState]
-stGetNotedValues (CGSt _ _ _ nVals _) = nVals
+stGetNotedValues (CGSt _ _ _ nVals _ _) = nVals
 
 stGetUniques :: CodegenState -> UniquesTable
-stGetUniques (CGSt _ _ _ _ uqs) = uqs
+stGetUniques (CGSt _ _ _ _ uqs _) = uqs
+
+stGetMaybeMain :: CodegenState -> Maybe MainBndr
+stGetMaybeMain (CGSt _ _ _ _ _ mn) = mn
 
 stUpdateCounter :: CodegenState -> C.AlphabeticCounterObj -> CodegenState
-stUpdateCounter (CGSt _ dct tct nVals uqs) c = CGSt c dct tct nVals uqs
+stUpdateCounter (CGSt _ dct tct nVals uqs mn) c = CGSt c dct tct nVals uqs mn
 
 stUpdateDataConsTable :: CodegenState -> CoreDataConsTable -> CodegenState
-stUpdateDataConsTable (CGSt c _ tct nVals uqs) dct = CGSt c dct tct nVals uqs
+stUpdateDataConsTable (CGSt c _ tct nVals uqs mn) dct = CGSt c dct tct nVals uqs mn
 
 stUpdateTyConsTable :: CodegenState -> CoreTyConsTable -> CodegenState
-stUpdateTyConsTable (CGSt c dct _ nVals uqs) tct = CGSt c dct tct nVals uqs
+stUpdateTyConsTable (CGSt c dct _ nVals uqs mn) tct = CGSt c dct tct nVals uqs mn
 
 stUpdateNotedValues :: CodegenState -> [Ty.NotedVal With.ProgState] -> CodegenState
-stUpdateNotedValues (CGSt c dct tct _ uqs) nVals = CGSt c dct tct nVals uqs
+stUpdateNotedValues (CGSt c dct tct _ uqs mn) nVals = CGSt c dct tct nVals uqs mn
 
 stUpdateUniques :: CodegenState -> UniquesTable -> CodegenState
-stUpdateUniques (CGSt c dct tct nVals _) uqs = CGSt c dct tct nVals uqs
+stUpdateUniques (CGSt c dct tct nVals _ mn) uqs = CGSt c dct tct nVals uqs mn
+
+stUpdateMaybeMain :: CodegenState -> Maybe MainBndr -> CodegenState
+stUpdateMaybeMain (CGSt c dct tct nVals uqs _) mn = CGSt c dct tct nVals uqs mn
 
 type CodegenEnv = StateT CodegenState (Either CodegenErr)
 
@@ -116,13 +135,13 @@ cgErr err = lift $ Left err
 
 runCounterOnly :: CodegenEnv res -> C.AlphabeticCounterObj -> Either CodegenErr (res, C.AlphabeticCounterObj)
 runCounterOnly op c =
-    case runStateT op $ CGSt c empty empty [] empty of
+    case runStateT op $ CGSt c empty empty [] empty Nothing of
         Left err -> Left err
         Right (res, st) -> Right (res, stGetCounter st)
 
 withCounterOnly :: CodegenEnv res -> C.AlphabeticCounterObj -> CodegenEnv res
 withCounterOnly op c = do
-    put $ CGSt c empty empty [] empty
+    put $ CGSt c empty empty [] empty Nothing
     op
 
 getCounter :: CodegenEnv C.AlphabeticCounterObj
@@ -173,6 +192,16 @@ getUniques = gets stGetUniques
 getUnique :: String -> NameSpace -> CodegenEnv (Maybe Unique)
 getUnique rep sp = M.lookup (rep, sp) <$> getUniques
 
+getMaybeMain :: CodegenEnv (Maybe MainBndr)
+getMaybeMain = gets stGetMaybeMain
+
+getMain :: CodegenEnv MainBndr
+getMain = do
+    maymn <- getMaybeMain
+    case maymn of
+        Nothing -> cgErr NoMain
+        Just mn -> return mn
+
 putCounter :: C.AlphabeticCounterObj -> CodegenEnv ()
 putCounter c = do
     st <- get
@@ -205,3 +234,8 @@ putUnique rep sp uq = do
     st <- get
     let uqs = stGetUniques st
     put . stUpdateUniques st $ M.insert (rep, sp) uq uqs
+
+putMain :: MainBndr -> CodegenEnv ()
+putMain mn = do
+    st <- get
+    put . stUpdateMaybeMain st $ Just mn
