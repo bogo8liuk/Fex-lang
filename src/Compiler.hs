@@ -60,6 +60,8 @@ import qualified ModuleSys.HsModl as HsModl
 import GHC
 import HscTypes
 import IfaceSyn
+import TysWiredIn
+import BasicTypes
 import Var
 import Avail
 import FromCore
@@ -457,10 +459,31 @@ modIface mainBndr = do
     let ws = NoWarnings
     let fxs = []
     mnHash <- mainHash
+    {- TODO. this is not ok! The printed type is `[]` -}
     let intfDecl =
          IfaceId
             { ifName = varName mainBndr
-            , ifType = IfaceLitTy . IfaceStrTyLit $ fsLit mainSymbol
+            , ifType = IfaceTyConApp
+                <| IfaceTyCon
+                    { ifaceTyConName = listTyConName
+                    , ifaceTyConInfo =
+                        IfaceTyConInfo
+                            { ifaceTyConIsPromoted = NotPromoted
+                            , ifaceTyConSort = IfaceNormalTyCon
+                            }
+                    }
+                <| IA_Arg
+                    (IfaceTyConApp
+                        <| IfaceTyCon
+                            { ifaceTyConName = charTyConName
+                            , ifaceTyConInfo =
+                                IfaceTyConInfo
+                                    { ifaceTyConIsPromoted = NotPromoted
+                                    , ifaceTyConSort = IfaceNormalTyCon
+                                    }
+                            }
+                        <| IA_Nil
+                    ) Specified IA_Nil
             , ifIdDetails = IfVanillaId
             , ifIdInfo = NoInfo
             }
