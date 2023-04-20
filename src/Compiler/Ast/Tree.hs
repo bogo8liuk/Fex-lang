@@ -493,6 +493,38 @@ instance HasHead (Signature a) (SymbolName a) where
 instance HasHead (Constraint a) (IntfName a) where
     headOf (Cont (pn, _, _)) = pn
 
+-- Instances: Eq and Ord
+
+instance Eq (ADTName a) where
+    (==) n n' = strOf n == strOf n'
+
+instance Eq (ADTConName a) where
+    (==) n n' = strOf n == strOf n'
+
+instance Eq (IntfName a) where
+    (==) n n' = strOf n == strOf n'
+
+instance Eq (SymbolName a) where
+    (==) n n' = strOf n == strOf n'
+
+instance Eq (ParamTypeName a) where
+    (==) n n' = strOf n == strOf n'
+
+instance Ord (ADTName a) where
+    compare n n' = strOf n `compare` strOf n'
+
+instance Ord (ADTConName a) where
+    compare n n' = strOf n `compare` strOf n'
+
+instance Ord (IntfName a) where
+    compare n n' = strOf n `compare` strOf n'
+
+instance Ord (SymbolName a) where
+    compare n n' = strOf n `compare` strOf n'
+
+instance Ord (ParamTypeName a) where
+    compare n n' = strOf n `compare` strOf n'
+
 -- Instances: Semigroup and Monoid
 
 {- Semigroup instance for UnConType. This is UNSAFE and should be used with care, because it literally changes
