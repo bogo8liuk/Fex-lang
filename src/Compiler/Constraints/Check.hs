@@ -48,7 +48,7 @@ instance UnreachableState ConstraintErr where
     isUnreachable MoreOcc {} = Nothing
     isUnreachable InitState = Just $ dbgShow InitState
 
-{- It does the check by comparing on how much type variables are nested in the head and the various constraints of
+{- It does the check by comparing on how many type variables are nested in the head and the various constraints of
 an instance. -}
 tyConCondition :: Raw.Instance With.ProgState -> Maybe (Head, Raw.Constraint With.ProgState)
 tyConCondition inst =
