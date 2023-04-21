@@ -29,24 +29,26 @@ import Compiler.Ast.Common
 import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Ast.Typed as Ty
 
-{- These aliases are just for a better readability. -}
-type Symbol = String
-type Type = String
-type Constructor = String
-type Constraint = String
-type Property = String
+{- Table for type-constructors -}
+newtype TypesTable a = TyT (Map (Ty.LangNewType a) ())
 
-newtype TypesTable a = TyT (Map Type (Ty.LangNewType a))
+{- Table for data-constructors -}
+newtype DataConsTable a = ConT (Map (Ty.NotedVal a) ())
 
-newtype DataConsTable a = ConT (Map Constructor (Ty.NotedVal a))
+{- Table for constraints necessary to constraint-constructors (namely property names).
+In the implementation, the keys are the properties of a program while the values are the constraints which must exist
+for the associated property. -}
+newtype ConstraintsTable a = ContsT (Map (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a])
 
-newtype ConstraintsTable a = ContsT (Map Constraint (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]))
+{- Table for instances methods -}
+newtype InstsTable a = InstT (Map SymbolRep [Raw.SDUnion a])
 
-newtype InstsTable a = InstT (Map Symbol [Raw.SDUnion a])
+{- Table for properties methods -}
+newtype PropMethodsTable a = MhtsT (Map (Ty.NotedVar a) ())
 
-newtype PropMethodsTable a = MhtsT (Map Symbol (Ty.NotedVar a))
-
-newtype ImplTable a = ImplT (Map Property [Ty.LangSpecConstraint a])
+{- Table for implementations (instances in the program) of properties. This is different from ConstraintsTable which
+collects the instances (constraints) which must exist for certain properties. -}
+newtype ImplTable a = ImplT (Map (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a])
 
 type BindingSingleton a = (Ty.NotedVar a, [Ty.NotedVar a], Ty.NotedExpr a)
 data TypedBinding a =
