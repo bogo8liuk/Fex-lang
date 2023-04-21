@@ -2,6 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+{- NB: in general, equality tests of primitive tokens like variables and *-constructors are based on the comparison
+with the atomic string part (see `AtomStr` type-class). -}
+
 module Compiler.Ast.Typed
     ( EqPromote(..)
     , EqContext(..)
