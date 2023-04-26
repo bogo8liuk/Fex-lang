@@ -2,16 +2,7 @@
 
 {- Common interfaces and functions among different representations of ast. -}
 module Compiler.Ast.Common
-    ( TokenRep
-    , SymbolRep
-    , TyConRep
-    , TyVarRep
-    , TypeRep
-    , KindVarRep
-    , KindConRep
-    , KindRep
-    , PropConRep
-    , DataConRep
+    ( module Compiler.Config.Rep
     , HasArgs(..)
     , HasHead(..)
     , HasState(..)
@@ -21,28 +12,7 @@ module Compiler.Ast.Common
     , CxtDiff(..)
 ) where
 
--- Atomic representation of tokens
-
-{- Atomic representation of whatever token -}
-type TokenRep = String
-{- Atomic representation of a symbol (classic program variable) -}
-type SymbolRep = String
-{- Atomic representation of a concrete (not a variable) type, namely a type-constructor -}
-type TyConRep = String
-{- Atomic representation of a type variable (whatever kind it is) -}
-type TyVarRep = String
-{- Atomic representation of whatever type -}
-type TypeRep = String
-{- Atomic representation of a kind variable -}
-type KindVarRep = String
-{- Atomic representation of a concrete (not a variable) kind -}
-type KindConRep = String
-{- Atomic representation of whatever kind -}
-type KindRep = String
-{- Atomic representation of a concrete property -}
-type PropConRep = String
-{- Atomic representation of a data-constructor -}
-type DataConRep = String
+import Compiler.Config.Rep
 
 -- Type-classes: HasArgs
 
