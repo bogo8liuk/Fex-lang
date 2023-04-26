@@ -30,25 +30,25 @@ import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Ast.Typed as Ty
 
 {- Table for type-constructors -}
-newtype TypesTable a = TyT (Map (Ty.LangNewType a) ())
+newtype TypesTable a = TyT (Map TyConRep (Ty.LangNewType a))
 
 {- Table for data-constructors -}
-newtype DataConsTable a = ConT (Map (Ty.NotedVal a) ())
+newtype DataConsTable a = ConT (Map DataConRep (Ty.NotedVal a))
 
 {- Table for constraints necessary to constraint-constructors (namely property names).
 In the implementation, the keys are the properties of a program while the values are the constraints which must exist
 for the associated property. -}
-newtype ConstraintsTable a = ContsT (Map (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a])
+newtype ConstraintsTable a = ContsT (Map PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]))
 
-{- Table for instances methods -}
+{- Table for instances methods. -}
 newtype InstsTable a = InstT (Map SymbolRep [Raw.SDUnion a])
 
 {- Table for properties methods -}
-newtype PropMethodsTable a = MhtsT (Map (Ty.NotedVar a) ())
+newtype PropMethodsTable a = MhtsT (Map SymbolRep (Ty.NotedVar a))
 
 {- Table for implementations (instances in the program) of properties. This is different from ConstraintsTable which
 collects the instances (constraints) which must exist for certain properties. -}
-newtype ImplTable a = ImplT (Map (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a])
+newtype ImplTable a = ImplT (Map PropConRep [Ty.LangSpecConstraint a])
 
 type BindingSingleton a = (Ty.NotedVar a, [Ty.NotedVar a], Ty.NotedExpr a)
 data TypedBinding a =
@@ -66,8 +66,8 @@ instance Functor TypedBinding where
 
 {- A cache which is useful for recursive symbols detection. Only one symbol can be a key, but mutually recursive
 bindings should have many keys, so a sort of cache is kept to know all the possible keys. -}
-type RecSymsCache = Map Symbol Symbol
-data TypedProgram a = TyProg (Map Symbol (TypedBinding a)) RecSymsCache
+type RecSymsCache = Map SymbolRep SymbolRep
+data TypedProgram a = TyProg (Map SymbolRep (TypedBinding a)) RecSymsCache
 
 instance Show a => Show (TypesTable a) where
     show (TyT m) = show m
@@ -155,11 +155,16 @@ instance Emptiness (TypesTable a) where
 instance Adder (TypesTable a) (Ty.LangNewType a) where
     addElem lnty (TyT t) = TyT $ insert (strOf lnty) lnty t
 
-instance Existence (TypesTable a) Type where
-    existIn s (TyT t) = s `member` t
+instance Existence (TypesTable a) (Ty.LangNewType a) where
+    existIn lnty (TyT t) = strOf lnty `member` t
 
-instance KeyFinding (TypesTable a) Type (Ty.LangNewType a) where
+{-
+instance KeyFinding (TypesTable a) TyConRep (Ty.LangNewType a) where
     kFind s (TyT t) = Map.lookup s t
+-}
+
+instance KeyFinding (TypesTable a) (Ty.LangNewType a) (Ty.LangNewType a) where
+    kFind lnty (TyT t) = Map.lookup (strOf lnty) t
 
 instance AllGetter (TypesTable a) (Ty.LangNewType a) where
     getAllElems (TyT t) = getValues t
@@ -170,11 +175,11 @@ instance Emptiness (DataConsTable a) where
 instance Adder (DataConsTable a) (Ty.NotedVal a) where
     addElem con (ConT t) = ConT $ insert (strOf con) con t
 
-instance Existence (DataConsTable a) Constructor where
-    existIn s (ConT t) = s `member` t
+instance Existence (DataConsTable a) (Ty.NotedVal a) where
+    existIn con (ConT t) = strOf con `member` t
 
-instance KeyFinding (DataConsTable a) Constructor (Ty.NotedVal a) where
-    kFind s (ConT t) = Map.lookup s t
+instance KeyFinding (DataConsTable a) (Ty.NotedVal a) (Ty.NotedVal a) where
+    kFind con (ConT t) = Map.lookup (strOf con) t
 
 instance AllGetter (DataConsTable a) (Ty.NotedVal a) where
     getAllElems (ConT t) = getValues t
@@ -188,17 +193,21 @@ instance Adder (ConstraintsTable a) (Ty.LangNewConstraint a) where
 instance Adder (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     addElem contCs @ (cont, _) (ContsT t) = ContsT $ insert (strOf cont) contCs t
 
-instance Existence (ConstraintsTable a) Constraint where
-    existIn s (ContsT t) = s `member` t
+instance Existence (ConstraintsTable a) (Ty.LangNewConstraint a) where
+    existIn cont (ContsT t) = strOf cont `member` t
 
-instance KeyFinding (ConstraintsTable a) Constraint (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
-    kFind s (ContsT t) = Map.lookup s t
+instance
+    KeyFinding
+        (ConstraintsTable a)
+        (Ty.LangNewConstraint a)
+        (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
+    kFind cont (ContsT t) = Map.lookup (strOf cont) t
 
-instance KeyValUpdate' (ConstraintsTable a) Constraint [Ty.LangSpecConstraint a] where
+instance KeyValUpdate' (ConstraintsTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
     kValUpdate' cont cs table @ (ContsT t) =
-        case Map.lookup cont t of
+        case Map.lookup (strOf cont) t of
             Nothing -> table
-            Just (lnc, lscs) -> ContsT $ Map.insert cont (lnc, cs ++ lscs) t
+            Just (lnc, lscs) -> ContsT $ Map.insert (strOf cont) (lnc, cs ++ lscs) t
 
 instance AllGetter (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     getAllElems (ContsT t) = getValues t
@@ -206,7 +215,7 @@ instance AllGetter (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecCon
 instance Emptiness (TypedProgram a) where
     noElems = TyProg empty empty
 
-updateCache :: RecSymsCache -> [BindingSingleton a] -> Symbol -> RecSymsCache
+updateCache :: RecSymsCache -> [BindingSingleton a] -> SymbolRep -> RecSymsCache
 updateCache cache bs nVarRep =
     let symReps = map (strOf . fst') bs in
         forAll symReps insertIn cache
@@ -223,7 +232,7 @@ updateCache cache bs nVarRep =
             then cache'
             else Map.insert otherSym nVarRep cache'
 
-findNotInCache :: [BindingSingleton a] -> RecSymsCache -> Maybe Symbol
+findNotInCache :: [BindingSingleton a] -> RecSymsCache -> Maybe SymbolRep
 findNotInCache [] _ = Nothing
 findNotInCache ((v, _, _) : t) cache =
     let nVarRep = strOf v in
@@ -247,38 +256,44 @@ instance Adder (TypedProgram a) (TypedBinding a) where
             then tp
             else TyProg (insert nVarRep (TyNonRec b) m) cache
 
-instance Existence (TypedProgram a) Symbol where
-    existIn v (TyProg m cache) = v `member` m || v `member` cache
+instance Existence (TypedProgram a) (Ty.NotedVar a) where
+    existIn nVar (TyProg m cache) =
+        let vRep = strOf nVar in
+            vRep `member` m || vRep `member` cache
 
-instance KeyFinding (TypedProgram a) Symbol (TypedBinding a) where
-    kFind v (TyProg m cache) =
-        case Map.lookup v m of
-            res @ (Just _) -> res
-            Nothing ->
-                {- Looking at the cache to see if it is a mutually recursive symbol. -}
-                case Map.lookup v cache of
-                    Nothing -> Nothing
-                    Just nVarRep -> Map.lookup nVarRep m
+instance KeyFinding (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
+    kFind nVar (TyProg m cache) =
+        let vRep = strOf nVar in
+            case Map.lookup vRep m of
+                res @ (Just _) -> res
+                Nothing ->
+                    {- Looking at the cache to see if it is a mutually recursive symbol. -}
+                    case Map.lookup vRep cache of
+                        Nothing -> Nothing
+                        Just vRep' -> Map.lookup vRep' m
 
-instance KeyValUpdate (TypedProgram a) Symbol (TypedBinding a) where
-    kValUpdate v f tp @ (TyProg m cache) =
-        if v `Map.member` m
-        then TyProg (Map.adjust f v m) cache
-        else case Map.lookup v cache of
-            Nothing -> tp
-            Just nVarRep -> TyProg (Map.adjust f nVarRep m) cache
+instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
+    kValUpdate nVar f tp @ (TyProg m cache) =
+        let vRep = strOf nVar in
+            if vRep `Map.member` m
+            then TyProg (Map.adjust f vRep m) cache
+            else case Map.lookup vRep cache of
+                Nothing -> tp
+                Just vRep' -> TyProg (Map.adjust f vRep' m) cache
 
-instance KeyValUpdate (TypedProgram a) Symbol (BindingSingleton a) where
-    kValUpdate v f = kValUpdate v builtF
+instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (BindingSingleton a) where
+    kValUpdate nVar f = kValUpdate nVar builtF
         where
             builtF (TyNonRec bSing) = TyNonRec $ f bSing
             builtF (TyRec bs) = TyRec $ updateRecs bs
 
             updateRecs [] = []
-            updateRecs (bSing @ (nVar, _, _) : t) =
-                if strOf nVar == v
+            updateRecs (bSing @ (nVar', _, _) : t) =
+                if strOf nVar' == vRep
                 then f bSing : t
                 else bSing : updateRecs t
+
+            vRep = strOf nVar
 
 instance ListSource (TypedProgram a) (TypedBinding a) where
     toList' (TyProg m _) = elems m
@@ -300,11 +315,12 @@ instance Emptiness (InstsTable a) where
     noElems = InstT empty
 
 {- NB: it overwrites the content of the table. -}
-instance KeyValueAdder (InstsTable a) Symbol [Raw.SDUnion a] where
-    kAddElem s sds (InstT m) =
-        case Map.lookup s m of
-            Nothing -> InstT $ insert s sds m
-            Just sds' -> InstT $ insert s (sds ++ sds') m
+instance KeyValueAdder (InstsTable a) (Raw.SymbolName a) [Raw.SDUnion a] where
+    kAddElem sym sds (InstT m) =
+        let sRep = strOf sym in
+            case Map.lookup sRep m of
+                Nothing -> InstT $ insert sRep sds m
+                Just sds' -> InstT $ insert sRep (sds ++ sds') m
 
 {- It does not overwrite the content of the table, but it accumulates the variables. -}
 instance Adder (InstsTable a) (Raw.SDUnion a) where
@@ -314,8 +330,8 @@ instance Adder (InstsTable a) (Raw.SDUnion a) where
                 Nothing -> InstT $ Map.insert symRep [sd] m
                 Just bs -> InstT $ Map.insert symRep (sd : bs) m
 
-instance Existence (InstsTable a) Symbol where
-    existIn s (InstT m) = s `member` m
+instance Existence (InstsTable a) (Raw.SymbolName a) where
+    existIn sym (InstT m) = strOf sym `member` m
 
 {- TODO: rm this
 instance Existence (InstsTable a) (Symbol, Ty.LangHigherType a) where
@@ -325,8 +341,8 @@ instance Existence (InstsTable a) (Symbol, Ty.LangHigherType a) where
             Just vars -> any (\var -> Ty.typeOf var == ty) vars
                         -}
 
-instance KeyFinding (InstsTable a) Symbol [Raw.SDUnion a] where
-    kFind s (InstT m) = Map.lookup s m
+instance KeyFinding (InstsTable a) (Raw.SymbolName a) [Raw.SDUnion a] where
+    kFind sym (InstT m) = Map.lookup (strOf sym) m
 
 {- TODO: rm this
 instance KeyFinding (InstsTable a) (Symbol, Ty.LangHigherType a) (Ty.NotedVar a) where
@@ -343,11 +359,11 @@ instance AllGetter (InstsTable a) (Raw.SDUnion a) where
 instance Emptiness (PropMethodsTable a) where
     noElems = MhtsT empty
 
-instance Existence (PropMethodsTable a) Symbol where
-    existIn s (MhtsT m) = s `member` m
+instance Existence (PropMethodsTable a) (Ty.NotedVar a) where
+    existIn nVar (MhtsT m) = strOf nVar `member` m
 
-instance KeyFinding (PropMethodsTable a) Symbol (Ty.NotedVar a) where
-    kFind s (MhtsT m) = Map.lookup s m
+instance KeyFinding (PropMethodsTable a) (Ty.NotedVar a) (Ty.NotedVar a) where
+    kFind nVar (MhtsT m) = Map.lookup (strOf nVar) m
 
 instance Adder (PropMethodsTable a) (Ty.NotedVar a) where
     addElem nVar (MhtsT m) = MhtsT $ Map.insert (strOf nVar) nVar m
@@ -356,8 +372,8 @@ instance Emptiness (ImplTable a) where
     noElems = ImplT empty
 
 {- NB: it overwrites the content of the table. -}
-instance KeyValueAdder (ImplTable a) Property [Ty.LangSpecConstraint a] where
-    kAddElem p cs (ImplT m) = ImplT $ Map.insert p cs m
+instance KeyValueAdder (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
+    kAddElem cont cs (ImplT m) = ImplT $ Map.insert (strOf cont) cs m
 
 {- It does not overwrite the content of the table, but it accumulates the constraints. -}
 instance Adder (ImplTable a) (Ty.LangSpecConstraint a) where
@@ -371,8 +387,8 @@ instance Adder (ImplTable a) [Ty.LangSpecConstraint a] where
     addElem cs it =
         foldl' (flip addElem) it cs
 
-instance Existence (ImplTable a) Property where
-    existIn p (ImplT m) = p `member` m
+instance Existence (ImplTable a) (Ty.LangNewConstraint a) where
+    existIn cont (ImplT m) = strOf cont `member` m
 
 {- FIXME
 instance Existence (ImplTable a) (Property, Ty.LangSpecConstraint a) where
@@ -382,8 +398,8 @@ instance Existence (ImplTable a) (Property, Ty.LangSpecConstraint a) where
             Just cs -> any (c `Ty.satisfy`) cs
                         -}
 
-instance KeyFinding (ImplTable a) Property [Ty.LangSpecConstraint a] where
-    kFind p (ImplT m) = Map.lookup p m
+instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
+    kFind cont (ImplT m) = Map.lookup (strOf cont) m
 
 {- FIXME
 instance KeyFinding (ImplTable a) (Property, Ty.LangSpecConstraint a) [Ty.LangSpecConstraint a] where
@@ -396,12 +412,14 @@ instance KeyFinding (ImplTable a) (Property, Ty.LangSpecConstraint a) [Ty.LangSp
 getMatchingConts :: Ty.LangHigherType a -> [Ty.LangSpecConstraint a] -> [Ty.LangSpecConstraint a]
 getMatchingConts ty = filter $ any (`Ty.sameBaseOf` ty) . argsOf
 
-rawGetMatchingConts :: String -> [Ty.LangSpecConstraint a] -> [Ty.LangSpecConstraint a]
+{- TODO: legacy
+rawGetMatchingConts :: TypeRep -> [Ty.LangSpecConstraint a] -> [Ty.LangSpecConstraint a]
 rawGetMatchingConts tyRep = filter $ any (Ty.rawSameBaseOf tyRep) . argsOf
+-}
 
-instance KeyFinding (ImplTable a) (Property, Ty.LangHigherType a) [Ty.LangSpecConstraint a] where
-    kFind (p, ty) (ImplT m) =
-        case Map.lookup p m of
+instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a, Ty.LangHigherType a) [Ty.LangSpecConstraint a] where
+    kFind (cont, ty) (ImplT m) =
+        case Map.lookup (strOf cont) m of
             Nothing -> Nothing
             Just cs -> Just $ getMatchingConts ty cs
 
@@ -409,13 +427,18 @@ instance SafeKeyFinding (ImplTable a) (Ty.LangHigherType a) [Ty.LangSpecConstrai
     kSafeFind ty (ImplT m) =
         concatMap (getMatchingConts ty) $ elems m
 
-instance SafeKeyFinding (ImplTable a) Type [Ty.LangSpecConstraint a] where
+{- TODO: legacy
+instance SafeKeyFinding (ImplTable a) (Ty.LangHigherType a) [Ty.LangSpecConstraint a] where
     kSafeFind ty (ImplT m) =
         concatMap (rawGetMatchingConts ty) $ elems m
+-}
 
 {- Shorthand to find the constraints of function type. -}
 contsOfFunType :: ImplTable a -> [Ty.LangSpecConstraint a]
-contsOfFunType = kSafeFind BITy.nameFunctionApp
+contsOfFunType (ImplT m) =
+    case Map.lookup BITy.nameFunctionApp m of
+        Nothing -> []
+        Just cs -> cs
 
 instance AllGetter (ImplTable a) (Ty.LangSpecConstraint a) where
     getAllElems (ImplT m) = concat $ elems m
