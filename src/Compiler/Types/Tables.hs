@@ -178,6 +178,9 @@ instance Adder (DataConsTable a) (Ty.NotedVal a) where
 instance Existence (DataConsTable a) (Ty.NotedVal a) where
     existIn con (ConT t) = strOf con `member` t
 
+instance KeyFinding (DataConsTable a) DataConRep (Ty.NotedVal a) where
+    kFind conRep (ConT t) = Map.lookup conRep t
+
 instance KeyFinding (DataConsTable a) (Ty.NotedVal a) (Ty.NotedVal a) where
     kFind con (ConT t) = Map.lookup (strOf con) t
 
