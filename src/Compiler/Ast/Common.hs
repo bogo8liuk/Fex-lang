@@ -4,13 +4,13 @@
 module Compiler.Ast.Common
     ( TokenRep
     , SymbolRep
-    , ConcTyRep
+    , TyConRep
     , TyVarRep
     , TypeRep
     , KindVarRep
-    , ConcKindRep
+    , KindConRep
     , KindRep
-    , PropRep
+    , PropConRep
     , DataConRep
     , HasArgs(..)
     , HasHead(..)
@@ -21,27 +21,27 @@ module Compiler.Ast.Common
     , CxtDiff(..)
 ) where
 
--- String representation of tokens
+-- Atomic representation of tokens
 
-{- String of whatever token -}
+{- Atomic representation of whatever token -}
 type TokenRep = String
-{- String of a symbol (classic program variable) -}
+{- Atomic representation of a symbol (classic program variable) -}
 type SymbolRep = String
-{- String of a concrete (not a variable) type, namely a type-constructor -}
-type ConcTyRep = String
-{- String of a type variable (whatever kind it is) -}
+{- Atomic representation of a concrete (not a variable) type, namely a type-constructor -}
+type TyConRep = String
+{- Atomic representation of a type variable (whatever kind it is) -}
 type TyVarRep = String
-{- String of whatever type -}
+{- Atomic representation of whatever type -}
 type TypeRep = String
-{- String of a kind variable -}
+{- Atomic representation of a kind variable -}
 type KindVarRep = String
-{- String of a concrete (not a variable) kind -}
-type ConcKindRep = String
-{- String of whatever kind -}
+{- Atomic representation of a concrete (not a variable) kind -}
+type KindConRep = String
+{- Atomic representation of whatever kind -}
 type KindRep = String
-{- String of a concrete property -}
-type PropRep = String
-{- String of a data-constructor -}
+{- Atomic representation of a concrete property -}
+type PropConRep = String
+{- Atomic representation of a data-constructor -}
 type DataConRep = String
 
 -- Type-classes: HasArgs
