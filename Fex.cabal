@@ -41,6 +41,7 @@ library
       Compiler.Codegen.Type
       Compiler.Config.Lexer
       Compiler.Config.Props
+      Compiler.Config.Rep
       Compiler.Config.Types
       Compiler.Constraints.Check
       Compiler.Desugar.AdHoc
