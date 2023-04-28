@@ -32,7 +32,7 @@ isSelfRecursive nVar ne =
     where
         findSelf True expr = (expr, True)
         findSelf False expr @ (Ty.ExprBound (Ty.NotedBound nVar' _ _ _) _ _) =
-            (expr, strOf nVar == strOf nVar')
+            (expr, repOf nVar == repOf nVar')
         findSelf selfRec expr = (expr, selfRec)
 
 isSelfRecursive' :: Ty.NotedBound With.ProgState -> Bool
@@ -46,7 +46,7 @@ rawBindingVariable name ty vis = do
 
 bindingVariable :: Ty.NotedVar With.ProgState -> Visibility -> CodegenEnv Var
 bindingVariable nVar vis = do
-    let nVarRep = strOf nVar
+    let nVarRep = repOf nVar
     let nVarSt = stateOf nVar
     name <- mkBindingName nVarRep nVarSt
     let nVarTy = Ty.typeOf nVar
@@ -152,7 +152,7 @@ anyHasConstraints = any hasCont
                 not . null $ Ty.contsOf ty
 
 isMain :: [BindingSingleton With.ProgState] -> Bool
-isMain = any (\(nVar, _, _) -> strOf nVar == mainSymbol)
+isMain = any (\(nVar, _, _) -> repOf nVar == mainSymbol)
 
 ifMainUpdate :: [BindingSingleton With.ProgState] -> CoreBind -> CodegenEnv ()
 ifMainUpdate bs binding =

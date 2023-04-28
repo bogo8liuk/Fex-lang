@@ -19,7 +19,7 @@ deleteSyms :: OccurredLocally -> [Raw.SymbolName With.ProgState] -> OccurredLoca
 deleteSyms m syms = forAll syms deleteSym m
     where
         deleteSym m' sym =
-            let symRep = strOf sym in
+            let symRep = repOf sym in
                 M.delete symRep m'
 
 {- The function which visits an expression to make substitutions. -}
@@ -31,7 +31,7 @@ replaceNestedInExpr
 replaceNestedInExpr (local, c) ms e @ (Raw.Expr (Raw.Base sn, h, st)) =
     let shadowers = concatMap Raw.symNamesFromMatchExpr ms in
     let shadowLocal = deleteSyms local shadowers in
-    let symRep = strOf sn in
+    let symRep = repOf sn in
     let symSt = stateOf sn in
         case M.lookup symRep shadowLocal of
             Nothing -> (e, (shadowLocal, c))
@@ -42,7 +42,7 @@ replaceNestedInExpr (local, c) ms (Raw.Expr (Raw.Bound (Raw.BoundExpr (sd, e, bs
     let shadowers = concatMap Raw.symNamesFromMatchExpr ms in
     let shadowLocal = deleteSyms local shadowers in
     let sdsn = Raw.symNameFrom sd in
-    let symRep = strOf sdsn in
+    let symRep = repOf sdsn in
     {- Here the magic moment where name is turned into an non-ambigous one. -}
     let (symRep', c') = mkNestedUniqueName symRep c in
     let sd' = Raw.updateSymbolNameInSd sd symRep' in
@@ -57,7 +57,7 @@ replaceNestedInExpr (local, c) ms (Raw.Expr (Raw.MultiBound (Raw.MultiBoundExpr 
     let shadowers = concatMap Raw.symNamesFromMatchExpr ms in
     let shadowLocal = deleteSyms local shadowers in
     let sdsn = Raw.symNameFromMultiSymDecl msd in
-    let symRep = strOf sdsn in
+    let symRep = repOf sdsn in
     {- Here the magic moment where name is turned into an non-ambigous one. -}
     let (symRep', c') = mkNestedUniqueName symRep c in
     let msd' = Raw.updateSymbolNameInMsd msd symRep' in

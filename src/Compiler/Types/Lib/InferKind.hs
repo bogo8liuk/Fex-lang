@@ -33,12 +33,12 @@ pushKnownKinds
     -> TypesTable With.ProgState
     -> KInfr.KindsTable
 pushKnownKinds kt rs tt =
-    let lnts = fltmap (\rty -> kFind <| strOf rty <| tt) rs in
+    let lnts = fltmap (\rty -> kFind <| repOf rty <| tt) rs in
         populate lnts kt
     where
         populate :: [Ty.LangNewType With.ProgState] -> KInfr.KindsTable -> KInfr.KindsTable
         populate [] kt = kt
-        populate (lnty : t) kt = populate t $ insert <| strOf lnty <| (Ty.kindOf lnty, stateOf lnty) <| kt 
+        populate (lnty : t) kt = populate t $ insert <| repOf lnty <| (Ty.kindOf lnty, stateOf lnty) <| kt 
 
 getKindsInfo
     :: TypesTable With.ProgState
@@ -68,7 +68,7 @@ getKinds pty ts tt kt fv =
     case foldl' <| tryGetK tt <| Right (kt, fv) <| ts of
         Left err -> Left err
         Right (kt', fv') ->
-            case M.lookup (strOf pty) kt' of
+            case M.lookup (repOf pty) kt' of
                 Nothing -> Left $ KInfr.UnreachableState "type variable not found in kinds table"
                 Just (lk, st) -> Right (lk, st, kt', fv')
     where
@@ -120,6 +120,6 @@ getKindsFromCont
     -> err
     -> Either err Ty.LangKind
 getKindsFromCont pty lnc err =
-    case firstThat (\lvty -> strOf lvty == strOf pty) $ argsOf lnc of
+    case firstThat (\lvty -> repOf lvty == repOf pty) $ argsOf lnc of
         Nothing -> Left err
         Just var -> Right $ Ty.kindOf var

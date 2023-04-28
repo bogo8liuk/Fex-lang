@@ -60,14 +60,14 @@ mkDispatchSuffix' str c =
     let lhts = argsOf c in
     let tyVars = Ty.occFirstTyVarsOfMany lhts in
     let m = mapTyVarIndex tyVars in
-    let headStr = str ++ reservedIdKeyword ++ reservedIdKeyword ++ strOf c in
+    let headStr = str ++ reservedIdKeyword ++ reservedIdKeyword ++ repOf c in
         foldl' (buildSuffix m) headStr (argsOf c)
     where
         buildSuffix m headStr lhty =
             headStr ++ reservedIdKeyword ++ Ty.showHeadsLHTyWith lhty (showTyVar m)
 
         showTyVar m tyVar =
-            let tyVarRep = strOf tyVar in
+            let tyVarRep = repOf tyVar in
                 case M.lookup tyVarRep m of
                     Nothing -> tyVarRep    --This is unreachable, filling with an arbitrary value
                     Just ix -> ix
@@ -76,7 +76,7 @@ mkDispatchSuffix' str c =
             fst $ foldl' addTyVar (empty, C.new :: C.CounterObj) tyVars
 
         addTyVar (m, counter) tyVar =
-            let tyVarRep = strOf tyVar in
+            let tyVarRep = repOf tyVar in
                 case M.lookup tyVarRep m of
                     Nothing ->
                         let (ix, counter') = C.next counter in
@@ -92,7 +92,7 @@ dispatchSuffix :: Ty.LangHigherType a -> String
 dispatchSuffix ty = reservedIdKeyword ++ Ty.showHeadsLHTy ty
 
 mkDispatchName :: Ty.LangSpecConstraint a -> String
-mkDispatchName c = mkDispatchName'' <| strOf c <| argsOf c
+mkDispatchName c = mkDispatchName'' <| repOf c <| argsOf c
 
 mkDispatchName' :: String -> Ty.LangHigherType a -> String
 mkDispatchName' symRep ty = symRep ++ dispatchSuffix ty

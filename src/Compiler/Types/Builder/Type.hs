@@ -120,11 +120,11 @@ undecidableInst lspc cs =
     concatMap ((++ "\n") . Ty.showCont) cs
 
 conNotFound :: Raw.ADTConName With.ProgState -> String
-conNotFound con = strOf con ++ " constructor not found in constructors table"
+conNotFound con = repOf con ++ " constructor not found in constructors table"
 
 argsConErr :: Raw.ADTConName With.ProgState -> String
 argsConErr con =
-    "Inconsistent use of constructor " ++ strOf con ++ " at " ++ show (stateOf con) ++ "; it should have a " ++
+    "Inconsistent use of constructor " ++ repOf con ++ " at " ++ show (stateOf con) ++ "; it should have a " ++
     "different number of applied arguments"
 
 typeNotInferred :: With.ProgState -> String
@@ -137,7 +137,7 @@ genSpecTestErr :: String
 genSpecTestErr = "Something goes wrong during specialization test computation"
 
 zeroaryProp :: Ty.LangNewConstraint With.ProgState -> String
-zeroaryProp lnc = "Property " ++ strOf lnc ++ " should not be zero-ary"
+zeroaryProp lnc = "Property " ++ repOf lnc ++ " should not be zero-ary"
 
 tooManyArgs :: String -> With.ProgState -> Maybe ExpectedType -> String
 tooManyArgs tokDesc st mayty =
@@ -458,9 +458,9 @@ unificationErr err = lift . Left $ UnificationError err
 noMatchingCases :: TyInf a
 noMatchingCases = tyInfErr $ GenTokCreationErr "No matching cases"
 
-showAtomTypedToken :: (AtomStr (tok With.ProgState), Ty.HasType tok) => tok With.ProgState -> TyInf String
+showAtomTypedToken :: (AtomRep (tok With.ProgState), Ty.HasType tok) => tok With.ProgState -> TyInf String
 showAtomTypedToken token = do
-    return (strOf token ++ " : " ++ Ty.showLPTy (Ty.typeOf token))
+    return (repOf token ++ " : " ++ Ty.showLPTy (Ty.typeOf token))
 
 showCurTyEnv :: TyInf String
 showCurTyEnv = do
@@ -829,7 +829,7 @@ querySymbols symRep = do
                 Just (TyNonRec (nVar, nVars, ne)) ->
                     return [(nVar, NS.globalScope, Just nVars, Just ne, [], [])]
                 Just (TyRec bs) ->
-                    case firstThat (\(nVar, _, _) -> strOf nVar == symRep) bs of
+                    case firstThat (\(nVar, _, _) -> repOf nVar == symRep) bs of
                         Nothing ->
                             tyInfErr $ GenUnreachableState ("No recursive binding with symbol " ++ symRep)
                         Just (nVar, nVars, ne) ->
@@ -838,7 +838,7 @@ querySymbols symRep = do
                                 , NS.globalScope
                                 , Just nVars
                                 , Just ne
-                                , map (\(nVar, _, _) -> strOf nVar) bs
+                                , map (\(nVar, _, _) -> repOf nVar) bs
                                 , []
                                 )]
 
@@ -905,7 +905,7 @@ putSymbolWithScope
     -> TyInf ()
 putSymbolWithScope nVar sc mayNVars mayExpr mRecSyms = do
     curTe <- getCurTyEnv
-    let newcurTe = M.insert (strOf nVar, sc) (nVar, mayNVars, mayExpr, mRecSyms, []) curTe
+    let newcurTe = M.insert (repOf nVar, sc) (nVar, mayNVars, mayExpr, mRecSyms, []) curTe
     putCurTyEnv newcurTe
 
 {- If the symbol has not the expression, it has not a dispatch map as well. -}
@@ -925,7 +925,7 @@ meant for recursive symbols, indeed, it takes also the list of mutable recursive
 addMostGenNVar :: Raw.SDUnion With.ProgState -> [MutRecSymbol] -> TyInf ()
 addMostGenNVar sd mutRecSymbols = do
     let sym = Raw.symNameFromSD sd
-    let symRep = strOf sym
+    let symRep = repOf sym
     let st = stateOf sym
     nVar <- mostGenNVar symRep st
     putSymbolNoExpr nVar mutRecSymbols
@@ -944,7 +944,7 @@ updateSymbolWithArgsAndExpr
     -> Ty.NotedExpr With.ProgState
     -> TyInf ()
 updateSymbolWithArgsAndExpr nVar sc nVars nExpr =
-    updateSymbol (strOf nVar) sc $
+    updateSymbol (repOf nVar) sc $
         \(_, _, _, mRecSyms, mRecHints) ->
             (nVar, Just nVars, Just nExpr, mRecSyms, mRecHints)
 
@@ -974,7 +974,7 @@ isMutRecSym symRep = do
 isRecInnerBinding :: Raw.SDUnion With.ProgState -> TyInf Bool
 isRecInnerBinding sd = do
     mhts <- getMethods
-    let symRep = strOf $ Raw.symNameFromSD sd
+    let symRep = repOf $ Raw.symNameFromSD sd
     {- The only possible different mut. rec. dependency for head symbol in `sd` is exactly the head symbol in `sd`.
     Other mutually recursive dependencies cannot exist, however, the algorithm here adds also mut. rec. dependencies
     of the current global binding. -}
@@ -1014,7 +1014,7 @@ withInnerRecBindingCheck sd op = do
     isRec <- isRecInnerBinding sd
     if isRec
     then do
-        let symRep = strOf $ Raw.symNameFromSD sd
+        let symRep = repOf $ Raw.symNameFromSD sd
         putInnerRec $ Just symRep
         addMostGenNVar sd [symRep]
     else putInnerRec Nothing
@@ -1095,12 +1095,12 @@ ifExistingSymRep symRep withNVar cont = do
 
 {- If searches for a symbol in the typing environment. If it is found, then its type is instantiated. -}
 ifExistingSym :: Raw.SymbolName With.ProgState -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
-ifExistingSym sn = ifExistingSymRep $ strOf sn
+ifExistingSym sn = ifExistingSymRep $ repOf sn
 
 {- If searches for a global symbol in the typing environment. If it is found, then its type is instantiated. -}
 ifExistingGlobalSym :: Raw.SymbolName With.ProgState -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
 ifExistingGlobalSym sn withNVar op = do
-    symbols <- querySymbols $ strOf sn
+    symbols <- querySymbols $ repOf sn
     case firstThat isGlobalVar symbols of
         Nothing -> op
         Just (nVar, sc, mayNVars, mayExpr, mRecSyms, mRecHints) -> do
@@ -1116,7 +1116,7 @@ ifExistingSymPropMethod
     -> (TyInf a -> TyInf a)
 ifExistingSymPropMethod sn withNVar cont = do
     methods <- getMethods
-    case kFind (strOf sn) methods of
+    case kFind (repOf sn) methods of
         Nothing -> cont
         Just nVar -> do
             nVar' <- instantiateToken nVar
@@ -1362,7 +1362,7 @@ getFreeVars symRep = do
         getFreeVarsExcl sc ((nVar', sc', _, _, _, _) : bt) = do
             {- 1) First condition to exclude type variables of out-of-scope symbols.
                2) Second condition to exclude type variables of the input noted variable. -}
-            if sc < sc' || (symRep == strOf nVar' && sc == sc')
+            if sc < sc' || (symRep == repOf nVar' && sc == sc')
             then getFreeVarsExcl sc bt
             else do
                 polyTy <- getTypeOf nVar'
@@ -1380,7 +1380,7 @@ getFreeVars symRep = do
 {- Safe (but very less efficient) version of generalization. -}
 generalize :: Ty.NotedVar With.ProgState -> TyInf (Ty.NotedVar With.ProgState)
 generalize nVar = do
-    let symRep = strOf nVar
+    let symRep = repOf nVar
     {- Gathering all free variables in the current typing environment, excluding ones which are part of the
     input noted variable. -}
     teFreeVars <- getFreeVars symRep
@@ -1394,7 +1394,7 @@ generalizeAndImply
     :: Ty.NotedVar With.ProgState
     -> TyInf ([ConstraintProblem], [DispatchConstraint], Ty.NotedVar With.ProgState)
 generalizeAndImply nVar = do
-    let symRep = strOf nVar
+    let symRep = repOf nVar
     {- Gathering all free variables in the current typing environment, excluding ones which are part of the
     input noted variable. -}
     teFreeVars <- getFreeVars symRep
@@ -1496,7 +1496,7 @@ ifHintInSd sd withNVar cont =
             ifHintIn' token
                 (\polyTy -> do
                     let sym = headOf token
-                    let nVar = Ty.newNotedVar (strOf sym) polyTy $ stateOf sym
+                    let nVar = Ty.newNotedVar (repOf sym) polyTy $ stateOf sym
                     withNVar nVar
                 ) `elseInfer` cont
 
@@ -1639,7 +1639,7 @@ checkTrueConstraint lspc =
     then return False
     else do
         it <- getIT
-        let propRep = strOf $ headOf lspc
+        let propRep = repOf $ headOf lspc
         case kFind propRep it :: Maybe [Ty.LangSpecConstraint With.ProgState] of
             Nothing -> tyInfErr $ PropNotFound propRep
             Just cs ->
@@ -1670,7 +1670,7 @@ getConstructor
     -> TyInf (Ty.NotedVal With.ProgState)
 getConstructor con = do
     cons <- getCons
-    case kFind (strOf con) cons of
+    case kFind (repOf con) cons of
         Nothing -> tyInfErr $ ConNotFound con
         {- Instantiating the constructor before returning it. -}
         Just datacon -> instantiateToken datacon
@@ -1901,7 +1901,7 @@ inferUAMatchExpr hts (Raw.MBase sn) st = do
             addSymbolAndMkMExpr polyTy
     where
         addSymbolAndMkMExpr polyTy = do
-            let nVar = Ty.newNotedVar (strOf sn) polyTy $ stateOf sn
+            let nVar = Ty.newNotedVar (repOf sn) polyTy $ stateOf sn
             putSymbolNoExpr nVar []
             return $ Ty.newVarNotedMExpr nVar st
 inferUAMatchExpr hts (Raw.MADTBase cn) st = do
@@ -2051,10 +2051,10 @@ inferExprSymbol hts sn st = do
                     {- Property method has global scope. -}
                     checkTyHintAndMkExpr NS.globalScope
                 `elseInfer` do
-                    tyInfErr . SymNotFound $ strOf sn
+                    tyInfErr . SymNotFound $ repOf sn
     where
         checkTyHintAndMkExpr sc nVar = do
-            let symRep = strOf sn
+            let symRep = repOf sn
             ifTypeHintingUnqual hts
                 (\monoTy cs -> do
                     {- Unification due to type hinting. -}
@@ -2152,7 +2152,7 @@ mkLambdaArg :: Raw.SymbolName With.ProgState -> TyInf (Ty.NotedVar With.ProgStat
 mkLambdaArg sym = do
     let symSt = stateOf sym
     monoTy <- newMonoTypeFreeVar' symSt
-    let nVar = Ty.newNotedVar (strOf sym) monoTy symSt
+    let nVar = Ty.newNotedVar (repOf sym) monoTy symSt
     putSymbolNoExpr nVar []
     return nVar
 
@@ -2228,7 +2228,7 @@ inferBound hts be st = do
     return (ne, substsIn)
     where
         mkBindingRes genSd = do
-            let symRep = strOf $ Raw.symNameFromSD genSd
+            let symRep = repOf $ Raw.symNameFromSD genSd
             pushNested symRep
             res <- withLocalInnerRecBindingCheck genSd mkNewBinding
             popNested
@@ -2651,7 +2651,7 @@ mkSymbol
     -> TyInf (BindingSingleton With.ProgState)
 mkSymbol sn nVars ne = do
     polyTy <- mkBindingType nVars ne
-    let symRep = strOf sn
+    let symRep = repOf sn
     {- If a symbol with `symRep` representation already exists, then unification has to be performed, else it just
     builds the noted variable. -}
     maysym <- getSymbol symRep
@@ -2679,7 +2679,7 @@ addRecOrNonRecSymbol'
     -> Ty.NotedExpr With.ProgState
     -> TyInf ()
 addRecOrNonRecSymbol' nVar nVars nExpr = do
-    let symRep = strOf nVar
+    let symRep = repOf nVar
     isRec <- isMutRecSym symRep
     if isRec
     then do
@@ -2741,7 +2741,7 @@ normalizeProblems cs ne = do
         replaceIndex _ tok @ (Ty.DispatchVal _ _) = Just tok
         replaceIndex solved tok @ (Ty.DispatchVar nVar st) =
             let nVarTy = Ty.typeOf nVar in
-            let nVarRep = strOf nVar in
+            let nVarRep = repOf nVar in
                 if any (\(_, ix) -> nVarRep == ix) solved
                 then Ty.newDispatchVal nVarTy st
                 else Just tok
@@ -2823,7 +2823,7 @@ endingLet nVar nVars ne =
     {- TODO: only global mutually recursive symbols have a different "end of inference". Nested recursive symbols
     can be only self-recursive AT THE MOMENT, but if the language extends mutually recursive symbols to nested ones
     as well, this has to be changed. -}
-    ifMutRecGlobalSym (strOf nVar)
+    ifMutRecGlobalSym (repOf nVar)
         `thenInfer`
             return (nVar, nVars, ne)
         `elseInfer`
@@ -2831,7 +2831,7 @@ endingLet nVar nVars ne =
 
 getArg :: Ty.NotedVar With.ProgState -> TyInf (Ty.NotedVar With.ProgState)
 getArg nVar = do
-    (nVar', _, _, _, _, _) <- getSymbol' $ strOf nVar
+    (nVar', _, _, _, _, _) <- getSymbol' $ repOf nVar
     return nVar'
 
 endHintInference
@@ -3068,7 +3068,7 @@ endRecInference bs = do
     dispArgs <- mkDispatchArgs dispCs
 
     let dispToks = map (\arg -> Ty.DispatchVar arg $ stateOf arg) dispArgs
-    let bsReps = map (\(nVar, _, _) -> strOf nVar) genBs
+    let bsReps = map (\(nVar, _, _) -> repOf nVar) genBs
     {- Visiting the expressions of each single binding and adding the dispatch variables ahead of recursive calls.
     Note that dispatch variables are always the same, since the constraints problems not to normalize are the same
     for each binding. -}
@@ -3082,7 +3082,7 @@ endRecInference bs = do
             {- Why pushing the nested symbol right here (and then pop)? `handleConstraintsThenAdd` perfoms
             normalization and, with it, it sets the bindings to refine. In order to set them, it is necessary the
             symbols stack is not empty and at this point the stack is empty. -}
-            pushNested $ strOf nVar
+            pushNested $ repOf nVar
             (nVar', nVars', ne') <- handleConstraints nVar nVars ne cs dispCs
             addRecOrNonRecSymbol' nVar' nVars' ne'
             popNested
@@ -3093,7 +3093,7 @@ endRecInference bs = do
             return (nVar, nVars, ne')
 
         addDispArgs bsReps dispToks expr @ (Ty.ExprVar nVar st) =
-            if strOf nVar `elem` bsReps
+            if repOf nVar `elem` bsReps
             then Ty.ExprDispatchVar nVar dispToks st
             else expr
         addDispArgs _ _ expr = expr
@@ -3101,7 +3101,7 @@ endRecInference bs = do
 inferBinding :: Prep.RawBinding -> TyInf ()
 inferBinding (Prep.RawNonRec sd) = do
     putMutRec []
-    let symRep = strOf $ Raw.symNameFromSD sd
+    let symRep = repOf $ Raw.symNameFromSD sd
     pushNested symRep
     (nVar, nVars, nExpr) <- mkNewBinding sd
     popNested
@@ -3122,13 +3122,13 @@ inferBinding (Prep.RawRec bs) = do
     return ()
     where
         inferAndApplySubsts sd = do
-            let symRep = strOf $ Raw.symNameFromSD sd
+            let symRep = repOf $ Raw.symNameFromSD sd
             pushNested symRep
             (nVar, nVars, nExpr) <- mkNewBinding sd
             popNested
             return (nVar, nVars, nExpr)
 
-        mutRecSymbols = map (strOf . Raw.symNameFromSD) bs
+        mutRecSymbols = map (repOf . Raw.symNameFromSD) bs
 
         addMostGenNVars = mapM (`addMostGenNVar` mutRecSymbols) bs
 

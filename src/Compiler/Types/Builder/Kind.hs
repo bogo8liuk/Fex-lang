@@ -71,8 +71,8 @@ tooManyArgsErr (gName, (lk, st)) =
 
 infKindErr :: BuildInfKindError -> String
 infKindErr (pty, pty') =
-    "Cannot build infinite kind between: " ++ strOf pty ++ " at " ++
-    show (stateOf pty) ++ " and " ++ strOf pty' ++ " at " ++ show (stateOf pty')
+    "Cannot build infinite kind between: " ++ repOf pty ++ " at " ++
+    show (stateOf pty) ++ " and " ++ repOf pty' ++ " at " ++ show (stateOf pty')
 
 instance DebugShow TypeGenErr where
     dbgShow (UeKErr err) = unexpKindErr err
@@ -115,7 +115,7 @@ singleReal
     -> Raw.ADTName With.ProgState
     -> Either TypeGenErr (KindsTable, Fresh.FV ())
 singleReal Nothing m cont rty =
-    let rName = strOf rty in
+    let rName = repOf rty in
     let st = stateOf rty in
         case Map.lookup rName m of
             Just (LKConst, _) -> Right (m, cont)
@@ -126,7 +126,7 @@ singleReal Nothing m cont rty =
             Nothing -> Right (Map.insert rName (LKConst, st) m, cont)
 singleReal (Just (pos, ty)) m cont rty =
     let name = Raw.strOfGenName ty in
-    let rName = strOf rty in
+    let rName = repOf rty in
     let st = stateOfGenName ty in
     let rst = stateOf rty in
     let tSearch = Map.lookup name m in
@@ -157,7 +157,7 @@ singleParam
     -> Raw.ParamTypeName With.ProgState
     -> Either TypeGenErr (KindsTable, Fresh.FV ())
 singleParam Nothing m cont pty =
-    let pName = strOf pty in
+    let pName = repOf pty in
     let st = stateOf pty in
         case Map.lookup pName m of
             Just (LKConst, _) -> Right (m, cont)
@@ -168,7 +168,7 @@ singleParam Nothing m cont pty =
             Nothing -> Right (Map.insert pName (LKConst, st) m, cont)
 singleParam (Just (pos, ty)) m cont pty =
     let name = Raw.strOfGenName ty in
-    let pName = strOf pty in
+    let pName = repOf pty in
     let st = stateOfGenName ty in
     let pst = stateOf pty in
     let tSearch = Map.lookup name m in
@@ -261,19 +261,19 @@ inferKindOfType ty kt =
     where
         inferOn ty kt =
             doOnUnCon ty
-                (\rty -> case Map.lookup (strOf rty) kt of
+                (\rty -> case Map.lookup (repOf rty) kt of
                     Nothing -> None
                     Just (lk, st) -> That (lk, st, kt))
-                (\pty -> case Map.lookup (strOf pty) kt of
+                (\pty -> case Map.lookup (repOf pty) kt of
                     Nothing -> None
                     Just (lk, st) -> That (lk, st, kt))
-                (\rty ts -> case Map.lookup (strOf rty) kt of
+                (\rty ts -> case Map.lookup (repOf rty) kt of
                     Nothing -> None
                     Just (lk, st) -> case getDiffKinds lk st (Raw.buildGenTypeName rty) ts kt of
                         None -> None
                         This err -> This err
                         That (lk', kt') -> That (lk', st, kt'))
-                (\pty ts -> case Map.lookup (strOf pty) kt of
+                (\pty ts -> case Map.lookup (repOf pty) kt of
                     Nothing -> None
                     Just (lk, st) -> case getDiffKinds lk st (Raw.buildGenTypeName' pty) ts kt of
                         None -> None
@@ -302,7 +302,7 @@ compReal
 {- This case should never happen and it implies an error of parsing. -}
 compReal _ _ _ [] = Left $ UnreachableState badTypeStruct
 compReal m cont rty ts @ (ty : t) =
-    let rName = strOf rty in
+    let rName = repOf rty in
     let st = stateOf rty in
     let gty = Raw.buildGenTypeName rty in
         {- First, it infers the kinds of all the type arguments, if all ok, then the check can continue,
@@ -332,9 +332,9 @@ immediately pName ts =
         Just ty' -> Raw.paramTNameFromUnCon ty'
     where
         sr _ _ = False
-        sp pName pty = strOf pty == pName
+        sp pName pty = repOf pty == pName
         cr _ _ _ = False
-        cp pName pty _ = strOf pty == pName
+        cp pName pty _ = repOf pty == pName
 
 compParam
     :: KindsTable
@@ -344,7 +344,7 @@ compParam
     -> Either TypeGenErr (KindsTable, Fresh.FV ())
 compParam _ _ _ [] = Left $ UnreachableState badTypeStruct
 compParam m cont pty ts @ (ty : t) =
-    let pName = strOf pty in
+    let pName = repOf pty in
     let st = stateOf pty in
     let gty = Raw.buildGenTypeName' pty in
         {- If the same param type (of pty) occurs immediately, the user are trying to build an infinite kind.
@@ -422,7 +422,7 @@ kindOfType kt cur st cont [] ks =
                     Nothing -> Left $ UeKErr (cur, (infrdk, st), (lk', st'))
                     Just l -> Right (updateKinds l $ Map.insert cur (infrdk, st) kt, cont)
 kindOfType kt cur st cont (pty : t) ks =
-    let pName = strOf pty in
+    let pName = repOf pty in
         case Map.lookup pName kt of
             {- If not found, it has to be inserted as LKConst. -}
             Nothing -> kindOfType kt cur st cont t $ LKConst : ks
@@ -443,7 +443,7 @@ deleteLocals
     :: KindsTable
     -> [Raw.ParamTypeName With.ProgState]
     -> KindsTable
-deleteLocals kt ps = deleteWhen kt (\s -> s `elem` map strOf ps)
+deleteLocals kt ps = deleteWhen kt (\s -> s `elem` map repOf ps)
 
 kindFrom
     :: KindsTable
@@ -469,7 +469,7 @@ kindOf
 kindOf (kt, cont) adt =
     kindFrom
         kt
-        (strOf $ Raw.adtNameFrom adt)
+        (repOf $ Raw.adtNameFrom adt)
         (stateOf adt)
         cont
         (Raw.boundParamTNamesFromAdt adt)

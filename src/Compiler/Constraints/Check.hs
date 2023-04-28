@@ -30,7 +30,7 @@ moreOccurrences
     -> Raw.Constraint With.ProgState
     -> String
 moreOccurrences pty head c = "In instance constraint " ++ Raw.showCont c ++ ", at " ++ show (stateOf c) ++ ", type \
-    \variable " ++ strOf pty ++ " has more occurrences than inside the head of the instance " ++ Raw.showCont head ++
+    \variable " ++ repOf pty ++ " has more occurrences than inside the head of the instance " ++ Raw.showCont head ++
     ", at " ++ show (stateOf head)
 
 instance InfoShow ConstraintErr where
@@ -123,13 +123,13 @@ occurrencesCondition inst =
             Raw.doOnUnCon uty
                 (const 0)
                 (\pty' ->
-                    if strOf pty == strOf pty'
+                    if repOf pty == repOf pty'
                     then 1
                     else 0
                 )
                 (\_ ts -> countTyVars pty ts)
                 (\pty' ts ->
-                    if strOf pty == strOf pty'
+                    if repOf pty == repOf pty'
                     then 1 + countTyVars pty ts
                     else countTyVars pty ts
                 )

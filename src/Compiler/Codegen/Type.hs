@@ -48,7 +48,7 @@ kindGen (Ty.LKVar _) = cgErr $ TypePanicErr "Kind variables not allowed in type 
 
 tyVarGen :: Ty.LangVarType With.ProgState -> CodegenEnv TyVar
 tyVarGen lvty = do
-    let varRep = strOf lvty
+    let varRep = repOf lvty
     let st = stateOf lvty
     name <- mkTypeName varRep st
     kind <- kindGen $ Ty.kindOf lvty
@@ -77,7 +77,7 @@ cacheTyCon lnty tyConRep = do
 {- NB: It does not check the NotedVal value is not a literal. -}
 cacheDataCon :: DataConStrRep -> Ty.LangNewType With.ProgState -> CodegenEnv DataCon
 cacheDataCon dataConRep lnty = do
-    let tyConRep = strOf lnty
+    let tyConRep = repOf lnty
     mayDataCon <- getDataCon tyConRep dataConRep
     case mayDataCon of
         Nothing -> do
@@ -127,7 +127,7 @@ data DataConBuildParams =
 
 mkTyConParams :: Ty.LangNewType With.ProgState -> CodegenEnv TyConBuildParams
 mkTyConParams lnty = do
-    let nameRep = strOf lnty
+    let nameRep = repOf lnty
     let st = stateOf lnty
     let args = argsOf lnty
     tyVars <- mapM tyVarGen args
@@ -174,7 +174,7 @@ mkResInfo polyTy = do
 
 mkDataConParams :: Ty.NotedVal With.ProgState -> ConTag -> CodegenEnv DataConBuildParams
 mkDataConParams nVal tag = do
-    let valRep = strOf nVal
+    let valRep = repOf nVal
     let st = stateOf nVal
     let n = Ty.nValArgsNumber nVal
     name <- mkDataConName valRep st
@@ -188,7 +188,7 @@ mkDataConParams nVal tag = do
     userTyVars <- mapM tyVarGen $ Ty.tyVarsOfMany argsTs
     let binders = mkTyVarBinders Inferred userTyVars
     return $ DataConParams
-        { dataconStrRep = strOf nVal
+        { dataconStrRep = repOf nVal
         , dataconName = name
         , dataconIsInfix = False
         , dataconBang = forIterNo n $ HsSrcBang (SourceText valRep) NoSrcUnpack NoSrcStrict
@@ -222,7 +222,7 @@ algTyConInfoGenFrom
     :: Ty.LangNewType With.ProgState
     -> CodegenEnv (TyCon, [(DataConStrRep, DataCon)])
 algTyConInfoGenFrom lnty = do
-    let nameRep = strOf lnty
+    let nameRep = repOf lnty
     nVals <- getMatchNVals nameRep
     let tagdNVals = zip nVals [fIRST_TAG..]
     dataConsParams <- mkDataConsParams tagdNVals
@@ -284,7 +284,7 @@ algDataConsGen lnty = do
 
 tyConGen :: Ty.LangNewType With.ProgState -> CodegenEnv TyCon
 tyConGen lnty =
-    let tyRep = strOf lnty in
+    let tyRep = repOf lnty in
     let tuplesNamesList = assocs BITy.namesTuple in
         if tyRep == BITy.nameBool
         then return boolTyCon
@@ -322,7 +322,7 @@ monoTyGen lhty =
 
         {- TODO: actually the byte string type is NOT a byte string, but simply a list of characters. -}
         tryGenString lnty cont = do
-            if strOf lnty == BITy.nameByteString
+            if repOf lnty == BITy.nameByteString
             then return stringTy
             else cont
 

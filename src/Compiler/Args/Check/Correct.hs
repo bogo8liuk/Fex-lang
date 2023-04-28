@@ -33,7 +33,7 @@ instance Show ArgsError where
     show (PropErrCont (intfst, c)) =
         "Constraint at " ++ show (stateOf c) ++ argsNE ++ show intfst
     show (PropErrInst (intfst, i)) =
-        "Instance at " ++ show (stateOf i) ++ " for " ++ strOf (Raw.intfNameFromInst i) ++ argsNE ++
+        "Instance at " ++ show (stateOf i) ++ " for " ++ repOf (Raw.intfNameFromInst i) ++ argsNE ++
         show intfst
     show _ = "Unreachable state"
 
@@ -41,7 +41,7 @@ argsCheckOnTypes :: Count.ArgsMap -> Raw.AstOp With.ProgState ArgsError ()
 argsCheckOnTypes m = Raw.lookupUnCons' () $ \_ ty ->
     case Raw.baseNameFromUnCon ty of
         Right _ -> Right ()  --on parametric types, the check is not performed
-        Left r -> let name = strOf r in
+        Left r -> let name = repOf r in
             case Count.lookup (name, Count.ItemAdt) m of
                 Nothing -> case Count.lookup (name, Count.ItemAlias) m of
                     Nothing -> Left $ NoName name   --This should not happen (the check on names should be already performed)
@@ -65,7 +65,7 @@ argsCheckOnTok :: HasArgs tok (Raw.UnConType With.ProgState)
                -> ((With.ProgState, tok) -> ArgsError)     --The error constructor
                -> Either ArgsError ()
 argsCheckOnTok f tok m errcon =
-    let iName = strOf $ f tok in
+    let iName = repOf $ f tok in
         case Count.lookup (iName, Count.ItemProp) m of
             Nothing -> Left $ NoName iName
             Just (n, st) ->

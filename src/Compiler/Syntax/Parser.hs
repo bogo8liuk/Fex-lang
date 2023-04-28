@@ -34,9 +34,9 @@ makeCategory (Tree.Catg (Tree.CatgName (name, _), ops, gt, lt, Tree.Fxty (fixity
     let inN = Keys.infixNoneKey keys in
     let pre = Keys.prefixKey keys in
     let post = Keys.postfixKey keys in
-    let ops' = map strOf ops in
-    let gt' = map strOf gt in
-    let lt' = map strOf lt in
+    let ops' = map repOf ops in
+    let gt' = map repOf gt in
+    let lt' = map repOf lt in
     if fixity == inL
     then Just $
         Op.Category

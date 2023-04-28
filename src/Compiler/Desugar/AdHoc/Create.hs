@@ -42,7 +42,7 @@ findBindingToUpdate symToRepl = do
                 Just expr -> return expr
 
         findNested' oldVarRep Nothing expr @ (Ty.ExprBound (Ty.NotedBound nVar _ _ _) _ _) =
-            if oldVarRep == strOf nVar
+            if oldVarRep == repOf nVar
             then (expr, Just expr)
             else (expr, Nothing)
         findNested' _ res expr = (expr, res)
@@ -83,7 +83,7 @@ createNewBinding (symToRepl, newVarRep, cs) = do
                 \case
                     val @ (Ty.DispatchVal _ _) -> val
                     var @ (Ty.DispatchVar nVar st) ->
-                        case firstThat (\(arg, _) -> strOf nVar == strOf arg) pairedArgs of
+                        case firstThat (\(arg, _) -> repOf nVar == repOf arg) pairedArgs of
                             Nothing -> var
                             Just (_, c) -> Ty.newDispatchVal' c st
 
@@ -111,7 +111,7 @@ replaceNested (nVar, nVars, ne) (nVar', nVars', ne') oldVarRep = do
     return (nVar, nVars, updNe)
     where
         replace expr @ (Ty.ExprBound bound @ (Ty.NotedBound bnVar _ _ bst) ne'' st) =
-            let bnVarRep = strOf bnVar in
+            let bnVarRep = repOf bnVar in
                 if bnVarRep == oldVarRep
                 {- Keeping the old let..in expression, since it can happen other replacements are necessary. -}
                 then Ty.ExprBound bound (Ty.ExprBound (Ty.NotedBound nVar' nVars' ne' bst) ne'' st) st
@@ -153,7 +153,7 @@ createNewBindings (repl : t) = do
             {- Replacements which come from the same recursive binding are evaluated immediately and not with the
             recursive call, in order to build the new recursive binding. -}
             (recRepls, otherRepls) <- findRecReplacements repls recReps
-            let nVarRep = strOf nVar
+            let nVarRep = repOf nVar
             (recBs, otherRepls') <- replaceRec (fromList [(nVarRep, ())]) [] [] recRepls
             let recBs' = bSing : recBs
             let tyb = TyRec $ recBs' ++ getRemainingRecs recBs' recs
@@ -188,7 +188,7 @@ createNewBindings (repl : t) = do
             fltmap (isRem bs) recs
 
         isRem bs (recRep, b) =
-            if any (\(nVar, _, _) -> strOf nVar == recRep) bs
+            if any (\(nVar, _, _) -> repOf nVar == recRep) bs
             then Nothing
             else Just b
 
@@ -217,7 +217,7 @@ handleNestedEagerly ((symToRepl @ (Nested topSymRep oldVarRep), _, _) : t) = do
             (nVar, nVars, Ty.widthVisitExprsInExpr ne $ updateExpr updBSing)
 
         updateExpr (nVar, nVars, ne) expr @ (Ty.ExprBound (Ty.NotedBound bNVar _ _ bst) followNe st) =
-            if strOf bNVar == oldVarRep
+            if repOf bNVar == oldVarRep
             then Ty.ExprBound (Ty.NotedBound nVar nVars ne bst) followNe st
             else expr
         updateExpr _ expr = expr

@@ -31,16 +31,17 @@ expandTypes _ [] ty = ty --Unreachable
 expandTypes (par : t) (ty' : t') ty =
     expandTypes t t' $ Raw.doOnUnCon ty
         (\_ -> ty)  --nothing to replace
-        (\p -> if strOf p == strOf par
-               then ty'
-               else ty)
+        (\p ->
+            if repOf p == repOf par
+            then ty'
+            else ty)
         {- TODO: This is a very inefficient hack to change a Type in-place (due to the rec call in a map function).
         NB: in the rec call, the lists are passed and not reduced, but this won't cause an infinite loop because
         sooner or later, it will arrive to the non-rec case (the first two callbacks passed to `doOnUnCon`). -}
         (\a ts -> let ts' = map (expandTypes (par : t) (ty' : t')) ts in
             Raw.buildRealCompUnCon a ts' $ stateOf ty)   --setting the state of the old type
         (\p ts -> let ts' = map (expandTypes (par : t) (ty' : t')) ts in
-            if strOf p == strOf par
+            if repOf p == repOf par
             {- The parametric type `p` has also params (`ts`), thus, besides the substitution of `p` with type `ty`,
             it is also necessary that the new type `ty` gets the old params of `p` (but changed by the rec call). -}
             then sconcat (ty' :| ts')
@@ -68,14 +69,14 @@ replace :: [Raw.ParamTypeName With.ProgState]
         -> Raw.UnConType With.ProgState
 replace params name bty ty =
     Raw.doOnUnCon ty
-        (\adt -> let name' = strOf adt in
+        (\adt -> let name' = repOf adt in
             if name == name'
             then bty    --it's only the base type and nothing more because this is the case where only a real type appears.
             else ty)
         (\_ -> ty)
         {- This works under the hypothesis that the args number check has already been performed. -}
         (\adt ts ->
-            let name' = strOf adt in
+            let name' = repOf adt in
             let ts' = map (replace params name bty) ts in
             let st = stateOf ty in
                 if name == name'
@@ -91,7 +92,7 @@ replaceAlias :: Raw.AliasAlgebraicDataType With.ProgState
 replaceAlias a a' =
     let params = Raw.boundParamTNamesFromAlias a in
     let name = Raw.aliasNameFrom a in
-    let strName = strOf name in
+    let strName = repOf name in
     let aliasSt = stateOf a' in
     let adtDecl = Raw.adtDeclareFromAlias a' in
     let bty = Raw.unConFromAlias a in
@@ -136,7 +137,7 @@ findCycleOfAlias adt ty l res =
         Just alias -> findCycleOfAlias (Raw.aliasNameFrom alias) ty l (alias : res)
         Nothing -> Nothing
     where
-        existAdt name ty = any (\name' -> strOf name' == strOf name) $ Raw.realTypes' ty
+        existAdt name ty = any (\name' -> repOf name' == repOf name) $ Raw.realTypes' ty
 
 {- Given two lists of aliases, it iterates all the elements of the first list and for each one
 looks for a cycling dependency of aliases in the second list. It returns the list of aliases which
@@ -153,7 +154,7 @@ findCycle (a : t) l = let aliasName = Raw.aliasNameFrom a in
 buildMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> AliasMap -> AliasMap
 buildMap [] m = m
 buildMap (a : t) m =
-    buildMap t $ Map.insert (strOf $ Raw.aliasNameFrom a) (argsOf a, Raw.unConFromAlias a) m
+    buildMap t $ Map.insert (repOf $ Raw.aliasNameFrom a) (argsOf a, Raw.unConFromAlias a) m
 
 __aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState]
              -> [Raw.AliasAlgebraicDataType With.ProgState]     --accumulator list
@@ -174,9 +175,9 @@ __aliasSubst (a : t) al rol = if isCycle a
         isCycle a = cycleOnType (Raw.aliasNameFrom a) $ Raw.unConFromAlias a
 
         cycleOnType r ty = doOnUnCon ty
-            (\rty -> strOf r == strOf rty)
+            (\rty -> repOf r == repOf rty)
             (\_ -> False)
-            (\rty ts -> strOf r == strOf rty || any (cycleOnType r) ts)
+            (\rty ts -> repOf r == repOf rty || any (cycleOnType r) ts)
             (\_ ts -> any (cycleOnType r) ts)
 
 {- Given a list of aliases, it builds up a map representing the same aliases, but already expanded, namely
@@ -235,7 +236,7 @@ aliasSubstOp m = Raw.updateTypes () <| substCallback <| AOFExcept [AOFAlias]
             (\_ _ -> ty)
 
         lookupAndReplace ty adtn =
-            let name = strOf adtn in
+            let name = repOf adtn in
             case m !? name of
                 Nothing -> ty
                 Just (params, bty) -> replace params name bty ty

@@ -30,17 +30,17 @@ infiniteContErr names = "Trying to build an infinite constraint among properties
     where
         showNames = concat . lastmap (\n -> showN n ++ ", ") showN
 
-        showN name = strOf name ++ " at " ++ show (stateOf name)
+        showN name = repOf name ++ " at " ++ show (stateOf name)
 
 ambigousVarErr :: Raw.IntfName With.ProgState
                -> Raw.ParamTypeName With.ProgState
                -> Raw.Signature With.ProgState
                -> String
-ambigousVarErr name pty sig = "Bound type variable ambiguity in property " ++ strOf name ++ ": "
-    ++ strOf pty ++ " type variable " ++ "does not appear in signature at " ++ show (stateOf sig)
+ambigousVarErr name pty sig = "Bound type variable ambiguity in property " ++ repOf name ++ ": "
+    ++ repOf pty ++ " type variable " ++ "does not appear in signature at " ++ show (stateOf sig)
 
 noName :: Raw.IntfName With.ProgState -> String
-noName iName = "No constraint with name " ++ strOf iName ++ " found"
+noName iName = "No constraint with name " ++ repOf iName ++ " found"
 
 unavailKindVar :: String
 unavailKindVar = "Unavailable kind variable during population of constraints table"
@@ -83,7 +83,7 @@ populateInitTable ps =
         push [] kt fv = Just (kt, fv)
         push (pty : t) kt fv =
             let (var, fv') = KInfr.allocFreeVar () fv in
-                push t (M.insert <| strOf pty <| (Ty.newVarLKTy var, stateOf pty) <| kt) fv'
+                push t (M.insert <| repOf pty <| (Ty.newVarLKTy var, stateOf pty) <| kt) fv'
 
 mkConstraint
     :: [(Raw.ParamTypeName With.ProgState, Ty.LangKind)]
@@ -93,7 +93,7 @@ mkConstraint
 mkConstraint ps name =
     {- Note the use of `Ty.newLVTy` which does not includes specialized constraints in the
     building of type variables. This fact is not handled here. -}
-    Ty.newLNCont name (map (\(pn, lk) -> Ty.newLVTy <| strOf pn <| lk <| Ty.Representational <| stateOf pn) ps)
+    Ty.newLNCont name (map (\(pn, lk) -> Ty.newLVTy <| repOf pn <| lk <| Ty.Representational <| stateOf pn) ps)
 
 checkAmbigVars
     :: [Raw.ParamTypeName With.ProgState]
@@ -109,7 +109,7 @@ checkAmbigVars ps sigs = checkVars ps sigs
                 err -> err
 
         checkIfOk pty Nothing sig =
-            if strOf pty `elem` (map strOf . Raw.paramTNamesFromType $ Raw.typeFromSig sig)
+            if repOf pty `elem` (map repOf . Raw.paramTNamesFromType $ Raw.typeFromSig sig)
             then Nothing
             else Just (pty, sig)
         checkIfOk _ err _ = err
@@ -144,7 +144,7 @@ buildCont tt ct intf =
                             Right (kps, _, _) ->
                                 {- With foldl', ParamTypeName values `ps` have been reversed, so using
                                 reverse function to restore the previous order. -}
-                                let lncont = mkConstraint <| reverse kps <| strOf pName <| stateOf intf in
+                                let lncont = mkConstraint <| reverse kps <| repOf pName <| stateOf intf in
                                     Right $ addElem lncont ct
         where
             inferFrom _ err @ (Left _) _ = err
@@ -161,7 +161,7 @@ updateTyVars
     -> Either ContGenErr (ConstraintsTable With.ProgState)
 updateTyVars tt ct prop =
     let pName = Raw.intfNameFrom prop in
-    let pNameRep = strOf pName in
+    let pNameRep = repOf pName in
         case findCont pNameRep ct of
             Nothing -> Left $ NoName pName
             Just (lnc, _) ->
@@ -227,30 +227,30 @@ checkCycles = Raw.lookupProp empty propCycle
         propCycle m p =
             let pName = Raw.intfNameFrom p in
             let names = map headOf $ Raw.contsFromIntf p in
-            let m' = replace pName (nubBy (\pn pn' -> strOf pn == strOf pn') $ getReplace names m) m in
+            let m' = replace pName (nubBy (\pn pn' -> repOf pn == repOf pn') $ getReplace names m) m in
                 if pName `isCycle` m'
                 then Left . InfCont $ backTrack pName m'
                 else Right m'
 
         getReplace [] _ = []
         getReplace (n : t) m =
-            case M.lookup (strOf n) m of
+            case M.lookup (repOf n) m of
                 Nothing -> n : getReplace t m
                 Just (_, names) -> names ++ getReplace t m
 
         replace pName names m =
-            insert (strOf pName) (pName, names) m
+            insert (repOf pName) (pName, names) m
 
         isCycle pName m =
-            let name = strOf pName in
+            let name = repOf pName in
                 case M.lookup name m of
                     Nothing -> False
-                    Just (_, names) -> name `elem` map strOf names
+                    Just (_, names) -> name `elem` map repOf names
 
         {- It backtracks the map to find properties which forms the cycle. -}
         backTrack pName m =
             fltmap (\(_, (n, names)) ->
-                if strOf pName `elem` map strOf names
+                if repOf pName `elem` map repOf names
                 then Just n
                 else Nothing) $ toList m
 

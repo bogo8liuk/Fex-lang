@@ -21,7 +21,7 @@ propInConstraint :: Constraint With.ProgState -> Names.Op ()
 propInConstraint c = do
     let propName = intfNameFromCont c
     tables <- get
-    if strOf propName `Names.isInterfaceMember` tables
+    if repOf propName `Names.isInterfaceMember` tables
     then doNothing'
     else Names.err $ NoProp propName
 
@@ -44,7 +44,7 @@ symInSignature :: Signature With.ProgState -> Names.Op ()
 symInSignature sig = do
     let sym = symNameFromSig sig
     tables <- get
-    if strOf sym `Names.isSymbolMember` tables
+    if repOf sym `Names.isSymbolMember` tables
     then doNothing'
     else Names.err $ NoSymSig sym
 
@@ -81,7 +81,7 @@ propInInstance :: Instance With.ProgState -> Names.Op ()
 propInInstance inst = do
     let propName = intfNameFromInst inst
     tables <- get
-    if strOf propName `Names.isInterfaceMember` tables
+    if repOf propName `Names.isInterfaceMember` tables
     then doNothing'
     else Names.err $ NoProp propName
 
@@ -94,7 +94,7 @@ contsCheckInInstance inst = do
 getMethods :: IntfName With.ProgState -> Names.Op [SymbolNameRep]
 getMethods propName = do
     tables <- get
-    case Names.getPropMethodsRep (strOf propName) tables of
+    case Names.getPropMethodsRep (repOf propName) tables of
         Nothing -> Names.err $ NoProp propName
         Just reps -> return reps
 
@@ -106,7 +106,7 @@ allImplsExist inst = do
     mapM_ (existsImpl symReps) sds
     where
         existsImpl symReps sd = do
-            let symRep = strOf $ symNameFromSD sd
+            let symRep = repOf $ symNameFromSD sd
             if symRep `elem` symReps
             then doNothing'
             else Names.err $ NoImpl symRep inst
@@ -114,7 +114,7 @@ allImplsExist inst = do
 existsAdtName :: ADTName With.ProgState -> Names.Op ()
 existsAdtName adtName = do
     tables <- get
-    if strOf adtName `Names.isAdtMember` tables
+    if repOf adtName `Names.isAdtMember` tables
     then doNothing'
     else Names.err $ NoAdt adtName
 
@@ -128,8 +128,8 @@ allParamTypesBound binders pts =
         Just pty -> Names.err $ UnboundParamType pty
     where
         isNotBound pty =
-            let ptyRep = strOf pty in
-                all (\binder -> strOf binder /= ptyRep) binders
+            let ptyRep = repOf pty in
+                all (\binder -> repOf binder /= ptyRep) binders
 
 typesInAdt :: AlgebraicDataType With.ProgState -> Names.Op ()
 typesInAdt adt = do
@@ -155,7 +155,7 @@ allParamTypesBoundInAlias alias = do
 
 tryInsert :: Names.Keeper -> SymbolName With.ProgState -> Names.Keeper
 tryInsert tables sym =
-    case strOf sym `Names.insertSymbol` tables of
+    case repOf sym `Names.insertSymbol` tables of
         Nothing -> tables
         Just tables' -> tables'
 
@@ -168,8 +168,8 @@ checkSymsInMatchExprs ms =
         checkSyms syms (MatchExpr (MLit _) _) =
             return syms
         checkSyms syms (MatchExpr (MBase sym) _) = do
-            let symRep = strOf sym
-            if strOf sym `member` syms
+            let symRep = repOf sym
+            if repOf sym `member` syms
             then Names.err $ DupSymMatchExpr sym
             else return $ insert symRep () syms
         checkSyms syms (MatchExpr (MADTBase _) _) =
@@ -182,8 +182,8 @@ checkSymsInArgs =
     foldM_ checkSyms empty
     where
         checkSyms syms sym = do
-            let symRep = strOf sym
-            if strOf sym `member` syms
+            let symRep = repOf sym
+            if repOf sym `member` syms
             then Names.err $ DupSymArgs sym
             else return $ insert symRep () syms
 
@@ -197,13 +197,13 @@ checkExprGenCase (MatchExpr (MLit _) _ : mt) e =
 checkExprGenCase (MatchExpr (MBase sym) _ : mt) e = do
     local' (`tryInsert` sym) $ checkExprGenCase mt e
 checkExprGenCase (MatchExpr (MADTBase con) _ : mt) e = do
-    let conRep = strOf con
+    let conRep = repOf con
     tables <- get
     if conRep `Names.isConstructorMember` tables
     then checkExprGenCase mt e
     else Names.err $ NoCon con
 checkExprGenCase (MatchExpr (MADTApp (ADTAppMExpr (con, ms, _))) _ : mt) e = do
-    let conRep = strOf con
+    let conRep = repOf con
     tables <- get
     if conRep `Names.isConstructorMember` tables
     then checkExprGenCase (ms ++ mt) e
@@ -231,14 +231,14 @@ checkMultiPattMatch (MultiPattMatch mcs _) =
 
 checkUnAltExpr :: UnAltExpression With.ProgState -> Names.Op ()
 checkUnAltExpr (Base sym) = do
-    let symRep = strOf sym
+    let symRep = repOf sym
     tables <- get
     if symRep `Names.isSymbolMember` tables ||
        symRep `Names.isSignatureMember` tables
     then doNothing'
     else Names.err $ NoSym sym
 checkUnAltExpr (ADTBase con) = do
-    let conRep = strOf con
+    let conRep = repOf con
     tables <- get
     if conRep `Names.isConstructorMember` tables
     then doNothing'
@@ -286,7 +286,7 @@ symInGenSymDecl :: SDUnion With.ProgState -> Names.Op ()
 symInGenSymDecl sd = do
     let sym = symNameFromSD sd
     tables <- get
-    if strOf sym `Names.isAnyPropMethod` tables
+    if repOf sym `Names.isAnyPropMethod` tables
     then Names.err $ DupSymProp sym
     else doNothing'
 

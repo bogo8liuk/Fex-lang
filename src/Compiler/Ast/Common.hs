@@ -6,7 +6,7 @@ module Compiler.Ast.Common
     , HasArgs(..)
     , HasHead(..)
     , HasState(..)
-    , AtomStr(..)
+    , AtomRep(..)
     , Binder(..)
     , Diff(..)
     , CxtDiff(..)
@@ -34,11 +34,9 @@ class HasHead t h | t -> h where
 class HasState t where
     stateOf :: t st -> st
 
-{- An alternative to Show type-class. It should also have a different semantics from `Show`: a type implements
-`AtomStr` if it has a way to provide the "most minimal" string representation of its values. -}
-class AtomStr t where
-    {- Using `TokenRep` instead of String for portability. -}
-    strOf :: t -> TokenRep
+{- It returns the atomic representation of a token. -}
+class AtomRep t where
+    repOf :: t -> TokenRep
 
 {- `Binder` defines operations which have to be executed on the "bindings" of a token (`tok`), namely the tokens
 (`bindtok`) which should give a scope to other tokens (the "scoped" ones, always `bindtok`) in a token (`tok`).

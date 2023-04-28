@@ -76,7 +76,7 @@ conBuild tt ct fv lnty con =
                                             Right
                                                 ( addElem
                                                     (Ty.newNotedVal
-                                                        <| strOf cname
+                                                        <| repOf cname
                                                         <| Ty.generalize (sconcat lhts')
                                                         <| st
                                                     ) ct
@@ -89,7 +89,7 @@ conBuild tt ct fv lnty con =
                 -> Raw.UnConType With.ProgState
                 -> Either () Ty.LangKind
             getKindFrom lnty pty ty =
-                case Ty.kindOfArg <| strOf pty <| lnty of
+                case Ty.kindOfArg <| repOf pty <| lnty of
                     Nothing -> Left ()
                     Just lk -> Right lk
 
@@ -117,7 +117,7 @@ rewindCon con lnty fv =
         changeBindings [] repVars con fv = Right (con, repVars, fv)
         changeBindings (v : t) repVars con fv =
             let (newV, fv') = Fresh.allocFreeVar () fv in
-            let varRep = strOf v in
+            let varRep = repOf v in
                 case Raw.visitPtsInAdtCon con <| Right () <| updatePty varRep newV of
                     (_, Left err) -> Left err
                     (con', Right _) -> changeBindings t (M.insert varRep newV repVars) con' fv'
@@ -130,7 +130,7 @@ rewindCon con lnty fv =
             -> (Raw.ParamTypeName With.ProgState, Either ConsBuildError ())
         updatePty _ _ pty err @ (Left _) = (pty, err)
         updatePty old new pty (Right _) =
-            if old == strOf pty
+            if old == repOf pty
             then (Raw.buildPtyName new $ stateOf pty, Right ())
             else (pty, Right ())
 
@@ -147,7 +147,7 @@ updateLNTy lnty repVars =
             -> (Ty.LangVarType With.ProgState, Maybe ReplacingVars)
         visitVars tyVar Nothing = (tyVar, Nothing)
         visitVars tyVar (Just repVars) =
-            case M.lookup (strOf tyVar) repVars of
+            case M.lookup (repOf tyVar) repVars of
                 Nothing -> (tyVar, Nothing)
                 Just tyVarRep ->
                     (Ty.newLVTy tyVarRep <| Ty.kindOf tyVar <| Ty.Representational <| stateOf tyVar, Just repVars)
@@ -159,7 +159,7 @@ consFromAdt
     -> Either ConsBuildError (DataConsTable With.ProgState, Fresh.FV ())
 consFromAdt tt (ct, fv) adt =
     let rty = Raw.adtNameFrom adt in
-    let rName = strOf rty in
+    let rName = repOf rty in
     let cons = Raw.adtConsFrom adt in
         case kFind rName tt of
             Nothing -> Left . Unexpected $ "No type in types table with name " ++ rName

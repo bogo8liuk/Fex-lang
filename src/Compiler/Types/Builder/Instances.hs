@@ -33,7 +33,7 @@ noProp :: String -> String
 noProp name = "Property name " ++ name ++ " not found in the constraints table"
 
 noProp' :: Raw.IntfName With.ProgState -> String
-noProp' name = "Property name " ++ strOf name ++ " not found in the constraints data"
+noProp' name = "Property name " ++ repOf name ++ " not found in the constraints data"
 
 noInstFor :: [Raw.Constraint With.ProgState] -> String
 noInstFor cs = "No instance for:\n" ++ concat (lastmap (\c -> showContInfo c ++ ", \n") showContInfo cs)
@@ -43,7 +43,7 @@ noInstFor cs = "No instance for:\n" ++ concat (lastmap (\c -> showContInfo c ++ 
 
 noMethod :: String -> Raw.IntfName With.ProgState -> String
 noMethod name propName =
-    "Method " ++ name ++ " not implemented for property " ++ strOf propName ++ " at " ++ show (stateOf propName)
+    "Method " ++ name ++ " not implemented for property " ++ repOf propName ++ " at " ++ show (stateOf propName)
 
 instance InfoShow InstanceErr where
     infoShow (NoProp _) = unexpNoInfo
@@ -122,7 +122,7 @@ getPropsDataOf
     -> InstHandle (NecessaryInsts, PropConstraint, PropArgs, [ContPropSignature], [PurePropSignature])
 getPropsDataOf pName = do
     pd <- getPropsData
-    case Map.lookup (strOf pName) pd of
+    case Map.lookup (repOf pName) pd of
         Nothing -> instanceErr $ NoProp' pName
         Just res -> return res
 
@@ -139,7 +139,7 @@ putSigs
     -> InstHandle ()
 putSigs p nInsts pCont pArgs sigs pureSigs = do
     pd <- getPropsData
-    putPropsData $ Map.insert (strOf $ Raw.intfNameFrom p) (nInsts, pCont, pArgs, sigs, pureSigs) pd
+    putPropsData $ Map.insert (repOf $ Raw.intfNameFrom p) (nInsts, pCont, pArgs, sigs, pureSigs) pd
 
 instanceErr :: InstanceErr -> InstHandle a
 instanceErr err = lift $ Left err
@@ -164,7 +164,7 @@ mkPropSym :: Raw.Signature With.ProgState -> InstHandle ()
 mkPropSym sig = do
     let sn = Raw.symNameFromSig sig
     lqty <- mkQualType $ Raw.typeFromSig sig
-    let nVar = Ty.newNotedVar <| strOf sn <| Ty.generalize' lqty <| stateOf sig
+    let nVar = Ty.newNotedVar <| repOf sn <| Ty.generalize' lqty <| stateOf sig
     putPropVar nVar
 
 mkPropSyms :: [Raw.Signature With.ProgState] -> InstHandle ()
@@ -274,7 +274,7 @@ onInstBinding
 onInstBinding sig inst lspc insertBinding = do
     let sn = Raw.symNameFromSig sig
     let rawTy = Raw.typeFromSig sig
-    let symRep = strOf sn
+    let symRep = repOf sn
     sd <- getAssociatedSymDecl symRep $ Raw.symDeclsFromInst inst
     {- Making dispatch name -}
     let newSymRep = mkDispatchSuffix symRep [lspc]
@@ -282,7 +282,7 @@ onInstBinding sig inst lspc insertBinding = do
     insertBinding rawTy updSd
     where
         getAssociatedSymDecl symRep sds = do
-            case firstThat (\sd -> strOf (Raw.symNameFromSD sd) == symRep) sds of
+            case firstThat (\sd -> repOf (Raw.symNameFromSD sd) == symRep) sds of
                 Nothing -> instanceErr . NoMethod symRep $ Raw.intfNameFromInst inst
                 Just sd -> return sd
 
@@ -331,7 +331,7 @@ matchInst inst cont =
     let instArgs = argsOf inst in
     let contName = Raw.intfNameFromCont cont in
     let contArgs = argsOf cont in
-        strOf propName == strOf contName &&
+        repOf propName == repOf contName &&
         matchManyTypes instArgs contArgs
     where
         matchManyTypes :: [Raw.UnConType With.ProgState] -> [Raw.UnConType With.ProgState] -> Bool
@@ -346,7 +346,7 @@ matchInst inst cont =
         matchTypes uty uty' =
             Raw.doOnUnCon uty
                 (\rty -> Raw.doOnUnCon uty'
-                    (\rty' -> strOf rty == strOf rty')
+                    (\rty' -> repOf rty == repOf rty')
                     (const False)
                     (\_ _ -> False)
                     (\_ _ -> False)
@@ -363,7 +363,7 @@ matchInst inst cont =
                     (const False)
                     (const False)
                     (\rty' ts' ->
-                        strOf rty == strOf rty' &&
+                        repOf rty == repOf rty' &&
                         matchManyTypes ts ts'
                     )
                     (\_ _ -> False)

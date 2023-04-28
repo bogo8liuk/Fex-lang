@@ -23,7 +23,7 @@ fetchTypes sigs = __fetch sigs empty
         __fetch [] m = m
         __fetch (s : t) m =
             let ty = Raw.typeFromSig s in
-            let sName = strOf $ Raw.symNameFromSig s in
+            let sName = repOf $ Raw.symNameFromSig s in
                 __fetch t $ insert sName ty m
 
 updateHints :: HintMap -> Raw.AstOp With.ProgState () ()
@@ -32,7 +32,7 @@ updateHints m = do
     Raw.safeUpdateHintsInHeadMultiSymDecl () update
     where
         update n h =
-            let sName = strOf n in
+            let sName = repOf n in
                 case Map.lookup sName m of
                     {- This is the case where the symbol name has not been found in the map, but this is not
                     an error, because it is necessary for a variable to have an associated signature.

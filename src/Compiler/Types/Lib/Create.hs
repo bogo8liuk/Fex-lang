@@ -116,7 +116,7 @@ aConstraint tt ct getKind c =
                         Left err -> Left $ ContErr err
                 Left err -> Left err
     where
-        contRep = strOf $ headOf c
+        contRep = repOf $ headOf c
 
         tryMkTy (Right ts) ty =
             case aSplitType tt getKind ty of
@@ -188,7 +188,7 @@ aRealType t getKind rty ty mkCs =
                         {- No need to use `nub` to remove duplicates, since they remain untouched. -}
                         Just lhty -> Right (lhty, argsCs)
     where
-        rtyRep = strOf rty
+        rtyRep = repOf rty
 
 aParamType
     :: TypesTable With.ProgState
@@ -199,7 +199,7 @@ aParamType
     -> (Raw.ParamTypeName With.ProgState -> Either (Err err) [Ty.LangSpecConstraint With.ProgState])
     -> Either (Err err) (Ty.LangHigherType With.ProgState, [Ty.LangSpecConstraint With.ProgState])
 aParamType t getKind pty ty mkCs =
-    let pName = strOf pty in
+    let pName = repOf pty in
         case getKind pty ty of
             Left err -> Left $ CustomErr err
             Right lk ->

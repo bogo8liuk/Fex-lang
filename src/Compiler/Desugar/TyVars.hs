@@ -33,10 +33,10 @@ the map should correspond to bound variables in a container. -}
 type BoundData = Map String String
 
 addToBound :: Raw.ParamTypeName a -> String -> BoundData -> BoundData
-addToBound pty = insert (strOf pty)
+addToBound pty = insert (repOf pty)
 
 getBind :: Raw.ParamTypeName a -> BoundData -> Maybe String
-getBind pty = M.lookup (strOf pty)
+getBind pty = M.lookup (repOf pty)
 
 bindTyVar
     :: Raw.ParamTypeName a
@@ -44,7 +44,7 @@ bindTyVar
     -> (Raw.ParamTypeName a, Either RebindErr (Fresh.FV (), BoundData))
 bindTyVar pty err @ (Left _) = (pty, err)
 bindTyVar pty (Right (fv, bd)) =
-    let pRep = strOf pty in
+    let pRep = repOf pty in
         {- Checking if pty is already bound. -}
         case getBind pty bd of
             Just var -> (Raw.buildPtyName var $ stateOf pty, Right (fv, bd))

@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 {- NB: in general, equality tests of primitive tokens like variables and *-constructors are based on the comparison
-with the atomic string part (see `AtomStr` type-class). -}
+with the atomic string part (see `AtomRep` type-class). -}
 
 module Compiler.Ast.Typed
     ( EqPromote(..)
@@ -437,9 +437,9 @@ instance HasHead (LangType a) (LangHigherType a) where
             , lstyState = lstyState lspty
             }
 
-instance AtomStr (LangType a) where
-    strOf (LATyComp lspty) = strOf lspty
-    strOf (LATyParam lvcty) = strOf lvcty
+instance AtomRep (LangType a) where
+    repOf (LATyComp lspty) = repOf lspty
+    repOf (LATyParam lvcty) = repOf lvcty
 
 instance Eq (LangType a) where
     (==) (LATyParam ty) (LATyParam ty') = ty == ty'
@@ -490,7 +490,7 @@ data LangHigherType a =
     deriving Show
 
 showCont :: LangSpecConstraint a -> String
-showCont c = strOf c ++ concatMap (\lhty -> " " ++ showLHTy lhty) (argsOf c)
+showCont c = repOf c ++ concatMap (\lhty -> " " ++ showLHTy lhty) (argsOf c)
 
 showConts :: [LangSpecConstraint a] -> String
 showConts = concat . lastmap (\c -> showCont c ++ ", ") showCont
@@ -501,13 +501,13 @@ showLHTy (HApp args _) = "(" ++ concat (lastmap (\ty -> showLHTy ty ++ " -> ") s
 showLHTy (LTy (LATyComp lspty)) =
     let args = argsOf lspty in
         if null args
-        then strOf $ headOf lspty
-        else "(" ++ strOf (headOf lspty) ++ concatMap (\ty -> " " ++ showLHTy ty) args ++ ")"
+        then repOf $ headOf lspty
+        else "(" ++ repOf (headOf lspty) ++ concatMap (\ty -> " " ++ showLHTy ty) args ++ ")"
 showLHTy (LTy (LATyParam lvcty)) =
     let args = argsOf lvcty in
         if null args
-        then strOf $ headOf lvcty
-        else "(" ++ strOf (headOf lvcty) ++ concatMap (\ty -> " " ++ showLHTy ty) args ++ ")"
+        then repOf $ headOf lvcty
+        else "(" ++ repOf (headOf lvcty) ++ concatMap (\ty -> " " ++ showLHTy ty) args ++ ")"
 
 showLQTy :: LangQualType a -> String
 showLQTy (Qual [] lhty) = showLHTy lhty
@@ -515,7 +515,7 @@ showLQTy (Qual cs lhty) = showConts cs ++ " => " ++ showLHTy lhty
 showLQTy (OnlyConstraints cs _) = showConts cs
 
 showTyVars :: [LangVarType a] -> String
-showTyVars = concat . lastmap (\lvty -> strOf lvty ++ ", ") (\lvty -> strOf lvty ++ ". ")
+showTyVars = concat . lastmap (\lvty -> repOf lvty ++ ", ") (\lvty -> repOf lvty ++ ". ")
 
 showLPTy :: LangTypeScheme a -> String
 showLPTy (Forall [] lqty) = showLQTy lqty
@@ -523,19 +523,19 @@ showLPTy (Forall tyVars lqty) = "forall " ++ showTyVars tyVars ++ showLQTy lqty
 
 showHeadsLHTy :: LangHigherType a -> String
 showHeadsLHTy (HApp args _) = BI.nameFunctionApp ++ concatMap showHeadsLHTy args
-showHeadsLHTy (LTy lty) = strOf lty ++ concatMap showHeadsLHTy (argsOf lty)
+showHeadsLHTy (LTy lty) = repOf lty ++ concatMap showHeadsLHTy (argsOf lty)
 
 showHeadsLHTyWith :: LangHigherType a -> (LangVarType a -> String) -> String
 showHeadsLHTyWith (HApp args _) showLvty =
     BI.nameFunctionApp ++ concatMap (`showHeadsLHTyWith` showLvty) args
 showHeadsLHTyWith (LTy (LATyComp lspty)) showLvty =
-    strOf lspty ++ concatMap (`showHeadsLHTyWith` showLvty) (argsOf lspty)
+    repOf lspty ++ concatMap (`showHeadsLHTyWith` showLvty) (argsOf lspty)
 showHeadsLHTyWith (LTy (LATyParam lvcty)) showLvty =
     showLvty (headOf lvcty) ++ concatMap (`showHeadsLHTyWith` showLvty) (argsOf lvcty)
 
 showSubst :: Substitution a -> String
 showSubst subst =
-    "{ " ++ concatMap (\(lvty, lhty) -> "(" ++ strOf lvty ++ ", " ++ showLHTy lhty ++ ")") subst ++ " }"
+    "{ " ++ concatMap (\(lvty, lhty) -> "(" ++ repOf lvty ++ ", " ++ showLHTy lhty ++ ")") subst ++ " }"
 
 transformArgs :: [LangHigherType a] -> Maybe [LangHigherType a]
 transformArgs = maybemap toLHTy'
@@ -548,7 +548,7 @@ of LangType value, when it is a function type, is inconsistent. Use this instead
 `LTy` to build a LangHigherType value from a LangType value. -}
 toLHTy :: LangType a -> Maybe (LangHigherType a)
 toLHTy lty @ (LATyComp lspty) =
-    if strOf lspty == BI.nameFunctionApp
+    if repOf lspty == BI.nameFunctionApp
     then buildAppLHTy <| argsOf lspty <| stateOf lty
     else Just $ LTy lty
         where
@@ -570,7 +570,7 @@ toLHTy' (HApp args st) =
 {- Same of `toLHTy`, but it does not handle the case the type has more than two arguments. Not exported. -}
 unsafeToLHTy :: LangType a -> LangHigherType a
 unsafeToLHTy lty @ (LATyComp lspty) =
-    if strOf lspty == BI.nameFunctionApp
+    if repOf lspty == BI.nameFunctionApp
     then (HApp . unsafeTransformArgs $ argsOf lspty) $ stateOf lty
     else LTy lty
 unsafeToLHTy lty = LTy lty
@@ -993,7 +993,7 @@ rawUnify monoTy monoTy' isSpecTest =
                 in the head. -}
                 Nothing -> Just vvars
                 Just var ->
-                    let varRep = strOf var in
+                    let varRep = repOf var in
                         {- `ty` is a singleton type variable, because:
                             1) `ty` is supposed to have no arguments, look at the call of insertVar in unifyOnArgs;
                             2) `varOf'` returned a type variable. -}
@@ -1344,7 +1344,7 @@ instantiate lpty subst =
             OnlyConstraints (fst . unwrap $ visitVarsInLSpConts cs () builtF) st
     where
         builtF lvty _ =
-            case firstThat (\(lvty', _) -> strOf lvty' == strOf lvty) subst of
+            case firstThat (\(lvty', _) -> repOf lvty' == repOf lvty) subst of
                 Nothing -> Just (lvty, ())
                 Just (_, replLvty) -> Just (replLvty, ())
 
@@ -1418,7 +1418,7 @@ instance Semigroup (LangTypeScheme a) where
                     OnlyConstraints cs' st
 
             replLam m lvty =
-                case M.lookup (strOf lvty) m of
+                case M.lookup (repOf lvty) m of
                     Nothing -> lvty
                     Just lvty' -> lvty'
 
@@ -1432,7 +1432,7 @@ instance Semigroup (LangTypeScheme a) where
                     new insertion operations. -}
                     then (c', m)
                     else
-                        let m' = M.insert (strOf lvty) lvty' m in
+                        let m' = M.insert (repOf lvty) lvty' m in
                             (c', m')
 
             changeTyVarsLam tyVars c lvty =
@@ -1538,8 +1538,8 @@ data LangVarType a =
 roleOf :: LangVarType a -> Role
 roleOf = convertRole_ . lvtyRole
 
-instance AtomStr (LangVarType a) where
-    strOf = var
+instance AtomRep (LangVarType a) where
+    repOf = var
 
 instance HasState LangVarType where
     stateOf = lvtyState
@@ -1591,7 +1591,7 @@ specLambda toSpec tyVar =
     here, type variable `a` (which has to be replaced by type `Int`) appears later in the list.
     -}
     let toSpec' = specSubst toSpec in
-        case firstThat (\(tyVar', _) -> strOf tyVar' == strOf tyVar) toSpec' of
+        case firstThat (\(tyVar', _) -> repOf tyVar' == repOf tyVar) toSpec' of
             Just (_, ty) -> Just ty
             Nothing -> Nothing
 
@@ -1716,7 +1716,7 @@ addContsToLVTy lvty (sc : t) = addContsToLVTy addCont t
         stcElem :: EqStrict a => a -> [a] -> Bool
         stcElem x l = isJust $ find (==. x) l
 
-        occurVarInCont = strOf lvty `elem` (map strOf . concatMap tyVarsOf $ argsOf sc)
+        occurVarInCont = repOf lvty `elem` (map repOf . concatMap tyVarsOf $ argsOf sc)
                 -}
 
 {-FIXME
@@ -1746,8 +1746,8 @@ instance HasArgs (LangVarCompType a) (LangHigherType a) where
 instance HasHead (LangVarCompType a) (LangVarType a) where
     headOf = specVar
 
-instance AtomStr (LangVarCompType a) where
-    strOf = strOf . specVar
+instance AtomRep (LangVarCompType a) where
+    repOf = repOf . specVar
 
 instance HasState LangVarCompType where
     stateOf = lvctyState
@@ -1818,8 +1818,8 @@ instance HasHead (LangNewConstraint a) String where
 instance HasState LangNewConstraint where
     stateOf = lcontState
 
-instance AtomStr (LangNewConstraint a) where
-    strOf = prop
+instance AtomRep (LangNewConstraint a) where
+    repOf = prop
 
 instance Eq (LangNewConstraint a) where
     (==) lnc lnc' = prop lnc == prop lnc'
@@ -1876,8 +1876,8 @@ instance Ord (LangSpecConstraint a) where
             EQ -> lscontArgs lspc `compare` lscontArgs lspc'
             other -> other
 
-instance AtomStr (LangSpecConstraint a) where
-    strOf = strOf . cont
+instance AtomRep (LangSpecConstraint a) where
+    repOf = repOf . cont
 
 instance Functor LangSpecConstraint where
     fmap f lsc =
@@ -1911,8 +1911,8 @@ data LangNewType a =
         , lntyState :: a
         } deriving Show
 
-instance AtomStr (LangNewType a) where
-    strOf = base
+instance AtomRep (LangNewType a) where
+    repOf = base
 
 instance HasState LangNewType where
     stateOf = lntyState
@@ -2012,8 +2012,8 @@ instance Functor LangSpecType where
 instance HasState LangSpecType where
     stateOf = lstyState
 
-instance AtomStr (LangSpecType a) where
-    strOf = strOf . specBase
+instance AtomRep (LangSpecType a) where
+    repOf = repOf . specBase
 
 instance HasArgs (LangSpecType a) (LangHigherType a) where
     argsOf = actualArgs
@@ -2028,8 +2028,8 @@ data NotedVar a =
         , nVarState :: a
         } deriving Show
 
-instance AtomStr (NotedVar a) where
-    strOf = nVarName
+instance AtomRep (NotedVar a) where
+    repOf = nVarName
 
 instance Eq (NotedVar a) where
     (==) nVar nVar' = nVarName nVar == nVarName nVar'
@@ -2082,11 +2082,11 @@ instance Eq NotedLiteral where
     (==) (LitString s) (LitString s') = s == s'
     (==) _ _ = False
 
-instance AtomStr NotedLiteral where
-    strOf (LitInt i) = show i
-    strOf (LitDouble f) = show f
-    strOf (LitChar c) = show c
-    strOf (LitString s) = show s
+instance AtomRep NotedLiteral where
+    repOf (LitInt i) = show i
+    repOf (LitDouble f) = show f
+    repOf (LitChar c) = show c
+    repOf (LitString s) = show s
 
 data OnlyConstraintScheme a = ContsOnlyTy [LangVarType a] (LangSpecConstraint a) a deriving Show
 
@@ -2131,9 +2131,9 @@ instance HasState NotedVal where
     stateOf (NotedLit _ _ st) = st
     stateOf (NotedVal _ _ st) = st
 
-instance AtomStr (NotedVal a) where
-    strOf (NotedLit lit _ _) = strOf lit
-    strOf (NotedVal name _ _) = name
+instance AtomRep (NotedVal a) where
+    repOf (NotedLit lit _ _) = repOf lit
+    repOf (NotedVal name _ _) = name
 
 instance HasType NotedVal where
     typeOf (NotedLit _ lpty _) = lpty
@@ -2182,10 +2182,10 @@ instance HasState DispatchTok where
     stateOf (DispatchVar _ st) = st
     stateOf (DispatchVal _ st) = st
 
-instance AtomStr (DispatchTok a) where
-    strOf (DispatchVar nVar _) = strOf nVar
-    strOf (DispatchVal (ContsOnlyTy _ c _) _) =
-        strOf (headOf c) ++ concatMap showLHTy (argsOf c)
+instance AtomRep (DispatchTok a) where
+    repOf (DispatchVar nVar _) = repOf nVar
+    repOf (DispatchVal (ContsOnlyTy _ c _) _) =
+        repOf (headOf c) ++ concatMap showLHTy (argsOf c)
 
 instance HasType DispatchTok where
     typeOf (DispatchVar nVar _) = typeOf nVar
@@ -2238,9 +2238,9 @@ instance Functor NotedTok where
     fmap f (NVarT nVar) = NVarT $ fmap f nVar
     fmap f (NValT nVal) = NValT $ fmap f nVal
 
-instance AtomStr (NotedTok a) where
-    strOf (NVarT nVar) = strOf nVar
-    strOf (NValT nVal) = strOf nVal
+instance AtomRep (NotedTok a) where
+    repOf (NVarT nVar) = repOf nVar
+    repOf (NValT nVal) = repOf nVal
 
 instance HasType NotedTok where
     typeOf (NVarT v) = typeOf v
@@ -3040,7 +3040,7 @@ newNotedLams' h l = newNotedLams (h :| l)
 
 kindOfArg :: String -> LangNewType a -> Maybe LangKind
 kindOfArg arg lnty =
-    case firstThat (\lvty -> strOf lvty == arg) $ argsOf lnty of
+    case firstThat (\lvty -> repOf lvty == arg) $ argsOf lnty of
         Nothing -> Nothing
         Just lvty -> Just $ kindOf lvty
 
@@ -3092,8 +3092,8 @@ baseOfFunTy _ = False
 prefer sameBaseOf. -}
 rawSameBaseOf :: String -> LangHigherType a -> Bool
 rawSameBaseOf tyRep (HApp _ _) = tyRep == BI.nameFunctionApp
-rawSameBaseOf tyRep (LTy (LATyComp lspty)) = strOf (headOf lspty) == tyRep
-rawSameBaseOf tyRep (LTy (LATyParam lvcty)) = strOf (headOf lvcty) == tyRep
+rawSameBaseOf tyRep (LTy (LATyComp lspty)) = repOf (headOf lspty) == tyRep
+rawSameBaseOf tyRep (LTy (LATyParam lvcty)) = repOf (headOf lvcty) == tyRep
 
 {- Head equality test between LangHigherType values. -}
 sameBaseOf :: LangHigherType a -> LangHigherType a -> Bool
@@ -3197,14 +3197,14 @@ showPadding p = ' ' : showPadding (p - 1)
 
 showMinExpr :: NotedMinimalExpr a -> Padding -> String
 showMinExpr (MatchDefault _ _) p = showPadding p ++ "_"
-showMinExpr (MatchVar nVar _) p = showPadding p ++ strOf nVar
+showMinExpr (MatchVar nVar _) p = showPadding p ++ repOf nVar
 
 showMatchExpr :: NotedMatchExpr a -> Padding -> String
 showMatchExpr (MatchMinimal m) p = showMinExpr m p
 showMatchExpr (MatchValMins nVal nMins _ _) p =
-    showPadding p ++ strOf nVal ++ concatMap (\m -> " " ++ showMinExpr m 0) nMins
+    showPadding p ++ repOf nVal ++ concatMap (\m -> " " ++ showMinExpr m 0) nMins
 showMatchExpr (MatchValMs nVal nms _ _) p =
-    showPadding p ++ strOf nVal ++ concatMap (\nme -> " (" ++ showMatchExpr nme 0 ++ ")") nms
+    showPadding p ++ repOf nVal ++ concatMap (\nme -> " (" ++ showMatchExpr nme 0 ++ ")") nms
 
 showCase :: NotedCase a -> Padding -> String
 showCase (NotedCase nme ne _) p = showMatchExpr nme p ++ " ->\n" ++ showExpr' ne (p + 2) ++ "\n"
@@ -3217,16 +3217,16 @@ showPM :: NotedPM a -> String
 showPM npm = showPM' npm 0
 
 showExpr' :: NotedExpr a -> Padding -> String
-showExpr' (ExprVar nVar _) p = showPadding p ++ strOf nVar
-showExpr' (ExprVal nVal _) p = showPadding p ++ strOf nVal
+showExpr' (ExprVar nVar _) p = showPadding p ++ repOf nVar
+showExpr' (ExprVal nVal _) p = showPadding p ++ repOf nVal
 showExpr' (ExprDispatchVar nVar toks _) p =
-    showPadding p ++ strOf nVar ++ concatMap (\tok -> " " ++ strOf tok) toks
+    showPadding p ++ repOf nVar ++ concatMap (\tok -> " " ++ repOf tok) toks
 showExpr' (ExprLam (NotedLam nVar ne _ _) _) p =
-    showPadding p ++ "\\ " ++ strOf nVar ++ " -> \n" ++ showExpr' ne (p + 2)
+    showPadding p ++ "\\ " ++ repOf nVar ++ " -> \n" ++ showExpr' ne (p + 2)
 showExpr' (ExprApp (NotedApp ne1 ne2 _ _) _) p =
     showPadding p ++ "(" ++ showExpr' ne1 0 ++ " " ++ showExpr' ne2 0 ++ ")"
 showExpr' (ExprBound (NotedBound bnVar bnVars bne _) ne _) p =
-    showPadding p ++ "let " ++ strOf bnVar ++ concatMap (\v -> " " ++ strOf v) bnVars ++ " =\n" ++
+    showPadding p ++ "let " ++ repOf bnVar ++ concatMap (\v -> " " ++ repOf v) bnVars ++ " =\n" ++
     showExpr' bne (p + 2) ++ "\n" ++ showPadding p ++ "in " ++ showExpr' ne 0
 showExpr' (ExprPM npm _) p = showPM' npm p
 

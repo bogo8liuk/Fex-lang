@@ -29,7 +29,7 @@ accumReplacements topSym tp mhts repls expr @ (Ty.ExprDispatchVar nVar nToks st)
     case maybemap Ty.constraintFromVal nToks of
         Nothing -> (expr, repls)
         Just cs ->
-            let oldVarRep = strOf nVar in
+            let oldVarRep = repOf nVar in
             let newVarRep = mkDispatchSuffix oldVarRep cs in
             let newVar = Ty.newNotedVar newVarRep <| Ty.removeAllConstraints (Ty.typeOf nVar) <| stateOf nVar in
                 if nVar `existIn` tp
@@ -55,14 +55,14 @@ getReplacementsFromExpr ne (Just symRep) topSym = do
     where
         {- NB: using the hypothesys that all nested symbols have different symbols. -}
         findBound expr curExpr @ (Ty.ExprBound (Ty.NotedBound bnVar _ bne _) _ _) =
-            if strOf bnVar == symRep
+            if repOf bnVar == symRep
             then (curExpr, bne)
             else (curExpr, expr)
         findBound info curExpr = (curExpr, info)
 
         {- NB: using the hypothesys that all nested symbols have different symbols. -}
         replaceBound bne' expr @ (Ty.ExprBound (Ty.NotedBound bnVar bnVars _ bst) contNe st) =
-            if strOf bnVar == symRep
+            if repOf bnVar == symRep
             then Ty.ExprBound (Ty.NotedBound bnVar bnVars bne' bst) contNe st
             else expr
         replaceBound _ expr = expr

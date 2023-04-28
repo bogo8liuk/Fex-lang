@@ -23,7 +23,7 @@ data RawBinding =
 type SortedBindings = [RawBinding]
 
 strRep :: Raw.SDUnion With.ProgState -> SymbolRep
-strRep = strOf . Raw.symNameFromSD
+strRep = repOf . Raw.symNameFromSD
 
 symRepsOf :: RawBinding -> [SymbolRep]
 symRepsOf (RawNonRec sd) = [strRep sd]
@@ -49,7 +49,7 @@ depsOf symDecl mhts =
 
         visitExpr :: Raw.UnAltExpression With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitExpr (Raw.Base sn) bounds =
-            let symRep = strOf sn in
+            let symRep = repOf sn in
                 [ symRep | not (symRep `member` bounds) ] --List comprehension, but it's at most a singleton list
         visitExpr (Raw.ADTBase _) _ = []
         visitExpr (Raw.Lit _) _ = []
@@ -62,7 +62,7 @@ depsOf symDecl mhts =
                 visitExpr' e $ bounds `union` fromList syms
         visitExpr (Raw.Bound (Raw.BoundExpr (sd, e, _))) bounds =
             let sym = Raw.symNameFrom sd in
-            let updBounds = M.insert (strOf sym) () bounds in
+            let updBounds = M.insert (repOf sym) () bounds in
                 {- Using the updated map for the expression, but for the symbol definition using the old map because
                 the nested definition does not depend from itself (the rec call will discover if it is recursive). -}
                 visitExpr' e updBounds ++ depsOf' (Raw.SD sd) bounds
@@ -70,7 +70,7 @@ depsOf symDecl mhts =
             visitMpm mpm bounds
         visitExpr (Raw.MultiBound (Raw.MultiBoundExpr msd e _)) bounds =
             let sym = Raw.symNameFromMultiSymDecl msd in
-            let updBounds = M.insert (strOf sym) () bounds in
+            let updBounds = M.insert (repOf sym) () bounds in
                 {- Same as for single binder. -}
                 visitExpr' e updBounds ++ depsOf' (Raw.MSD msd) bounds
 
@@ -88,7 +88,7 @@ depsOf symDecl mhts =
             let syms = concatMap (map mkKey . Raw.symNamesFromMatchExpr) ms in
                 visitExpr' e $ bounds `union` fromList syms
 
-        mkKey sn = (strOf sn, ())
+        mkKey sn = (repOf sn, ())
 
 depsOfBinding :: RawBinding -> PropMethodsTable With.ProgState -> [SymbolRep]
 depsOfBinding (RawNonRec sd) mhts = depsOf sd mhts

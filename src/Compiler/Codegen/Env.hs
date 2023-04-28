@@ -172,11 +172,11 @@ getMatchNVals tyRep = do
         matchTyRep nVal = do
             ty <- resTypeOf nVal
             Ty.doOnType ty
-                (\lspty -> return $ tyRep == strOf lspty)
+                (\lspty -> return $ tyRep == repOf lspty)
                 (const $ return False)
                 (const $ return False)
 
-        noResTyFor nVal = cgErr $ TypePanicErr ("No result type for noted value " ++ strOf nVal)
+        noResTyFor nVal = cgErr $ TypePanicErr ("No result type for noted value " ++ repOf nVal)
 
         resTypeOf nVal =
             case Ty.instantiateUnqualifying (Ty.typeOf nVal) [] of

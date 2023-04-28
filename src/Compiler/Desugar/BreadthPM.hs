@@ -251,9 +251,9 @@ newNotedPM nToks nVars = do
         nmeEq nme @ (Ty.MatchMinimal (Ty.MatchVar _ _)) (Ty.MatchMinimal (Ty.MatchDefault _ _)) m =
             return $ Just (m, nme)
         nmeEq nme @ (Ty.MatchMinimal (Ty.MatchVar nVar _)) (Ty.MatchMinimal (Ty.MatchVar nVar' _)) m =
-            return $ Just (M.insert (strOf nVar') (nVar', nVar) m, nme)
+            return $ Just (M.insert (repOf nVar') (nVar', nVar) m, nme)
         nmeEq (Ty.MatchValMs nVal nms lpty st) (Ty.MatchValMs nVal' nms' _ _) m =
-            if strOf nVal == strOf nVal'
+            if repOf nVal == repOf nVal'
             then do
                 manyEqRes <- foldM nmeEq' (Just (m, [])) $ zip nms nms'
                 case manyEqRes of
@@ -276,7 +276,7 @@ newNotedPM nToks nVars = do
         replaceFirstNME (_ : t, ne) nme = return (nme : t, ne)
 
         replaceNVars ne @ (Ty.ExprVar nVar st) replVarsMap = do
-            case M.lookup (strOf nVar) replVarsMap of
+            case M.lookup (repOf nVar) replVarsMap of
                 Nothing -> return ne
                 Just (_, nVar') -> return $ Ty.ExprVar nVar' st
         replaceNVars ne @ (Ty.ExprVal _ _) _ = return ne
@@ -292,9 +292,9 @@ newNotedPM nToks nVars = do
             return $ Ty.ExprBound (Ty.NotedBound bNVar bNVars bne' bst) ne' st
             where
                 deleteShadowing [] replMap = return replMap
-                deleteShadowing (nVar : t) replMap = deleteShadowing t $ M.delete (strOf nVar) replMap
+                deleteShadowing (nVar : t) replMap = deleteShadowing t $ M.delete (repOf nVar) replMap
         replaceNVars (Ty.ExprLam (Ty.NotedLam nVar ne ty lamSt) st) replVarsMap = do
-            let updMap = M.delete (strOf nVar) replVarsMap
+            let updMap = M.delete (repOf nVar) replVarsMap
             ne' <- replaceNVars ne updMap
             return $ Ty.ExprLam (Ty.NotedLam nVar ne' ty lamSt) st
         replaceNVars (Ty.ExprPM (Ty.NotedPM topNe ncs ty pmst) st) replVarsMap = do
@@ -310,7 +310,7 @@ newNotedPM nToks nVars = do
                 deleteShadowing (Ty.MatchMinimal (Ty.MatchDefault _ _)) replMap =
                     return replMap
                 deleteShadowing (Ty.MatchMinimal (Ty.MatchVar nVar _)) replMap =
-                    return $ M.delete (strOf nVar) replMap
+                    return $ M.delete (repOf nVar) replMap
                 deleteShadowing (Ty.MatchValMs _ nms _ _) replMap =
                     foldM (flip deleteShadowing) replMap nms
                 {- See the note at nmeEq to know this case is ignored. -}

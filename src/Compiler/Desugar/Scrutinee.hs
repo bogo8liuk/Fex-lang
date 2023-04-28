@@ -33,7 +33,7 @@ changeNVarsInExpr ne newVarRep oldVarRep =
     return $ changeExpr ne
     where
         changeExpr ne' @ (Ty.ExprVar nVar st) =
-            if strOf nVar == oldVarRep
+            if repOf nVar == oldVarRep
             then
                 let varTy = Ty.typeOf nVar in
                 let varSt = stateOf nVar in
@@ -41,7 +41,7 @@ changeNVarsInExpr ne newVarRep oldVarRep =
                     Ty.ExprVar newNVar st
             else ne'
         changeExpr ne' @ (Ty.ExprDispatchVar nVar nToks st) =
-            if strOf nVar == oldVarRep
+            if repOf nVar == oldVarRep
             then
                 let varTy = Ty.typeOf nVar in
                 let varSt = stateOf nVar in
@@ -56,8 +56,8 @@ changeNVarsInExpr ne newVarRep oldVarRep =
         changeExpr (Ty.ExprBound (Ty.NotedBound nVar nVars bne bst) extNe st) =
             let bne' = changeExpr bne in
             let extNe' = changeExpr extNe in
-            let nVarsMatches = any (\nVar -> strOf nVar == oldVarRep) nVars in
-            let nVarMatch = strOf nVar == oldVarRep in
+            let nVarsMatches = any (\nVar -> repOf nVar == oldVarRep) nVars in
+            let nVarMatch = repOf nVar == oldVarRep in
                 case (nVarsMatches, nVarMatch) of
                     (False, False) -> Ty.ExprBound (Ty.NotedBound nVar nVars bne' bst) extNe' st
                     (_, True) -> Ty.ExprBound (Ty.NotedBound nVar nVars bne bst) extNe st
@@ -67,7 +67,7 @@ changeNVarsInExpr ne newVarRep oldVarRep =
             let a2ne' = changeExpr a2ne in
                 Ty.ExprApp (Ty.NotedApp a1ne' a2ne' ty appSt) st
         changeExpr ne' @ (Ty.ExprLam (Ty.NotedLam nVar lamNe ty lamSt) st) =
-            if strOf nVar == oldVarRep
+            if repOf nVar == oldVarRep
             then ne'
             else
                 let lamNe' = changeExpr lamNe in
@@ -77,7 +77,7 @@ changeNVarsInExpr ne newVarRep oldVarRep =
         changeExprInCases (nc @ (Ty.NotedCase ncnme ncne ncst) : t) =
             let nVars = Ty.nVarsOf ncnme in
             let t' = changeExprInCases t in
-                if any (\nVar -> strOf nVar == oldVarRep) nVars
+                if any (\nVar -> repOf nVar == oldVarRep) nVars
                 then nc : t'
                 else
                     let ncne' = changeExpr ncne in
@@ -100,7 +100,7 @@ unifyScrutineeInNPM' npm @ (Ty.NotedPM ne ncs ty st) =
             let varSt = stateOf oldNVar
             let varTy = Ty.typeOf oldNVar
             let nme = Ty.MatchMinimal $ Ty.MatchVar (Ty.newNotedVar varRep varTy varSt) nmst
-            ncne' <- changeNVarsInExpr ncne varRep (strOf oldNVar)
+            ncne' <- changeNVarsInExpr ncne varRep (repOf oldNVar)
             t' <- changeCases t varRep
             return $ Ty.NotedCase nme ncne' ncSt : t'
         changeCases (nc @ (Ty.NotedCase (Ty.MatchMinimal (Ty.MatchDefault _ _)) _ _) : t) varRep = do

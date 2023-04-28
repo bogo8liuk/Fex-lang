@@ -28,7 +28,7 @@ findRoles ((varRep, st) : t) adt =
                  -> (Raw.AlgebraicDataType With.ProgState, Bool) in
                 snd . onScopedOf' adt False $
                 \pty occurred ->
-                    if occurred || strOf pty == varRep
+                    if occurred || repOf pty == varRep
                     then (pty, True)
                     else (pty, False)
 
@@ -38,8 +38,8 @@ addAdt
     -> Raw.AlgebraicDataType With.ProgState
     -> Either TypeGenErr (TypesTable With.ProgState)
 addAdt kt tt adt =
-    let name = strOf $ Raw.adtNameFrom adt in
-    let params = findRoles (map (\pty -> (strOf pty, stateOf pty)) $ argsOf adt) adt in
+    let name = repOf $ Raw.adtNameFrom adt in
+    let params = findRoles (map (\pty -> (repOf pty, stateOf pty)) $ argsOf adt) adt in
     let st = stateOf adt in
         case Map.lookup name kt of
             Nothing -> Left $ UnreachableState nameNotFound

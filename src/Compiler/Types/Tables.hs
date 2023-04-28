@@ -153,16 +153,16 @@ instance Emptiness (TypesTable a) where
     noElems = TyT empty
 
 instance Adder (TypesTable a) (Ty.LangNewType a) where
-    addElem lnty (TyT t) = TyT $ insert (strOf lnty) lnty t
+    addElem lnty (TyT t) = TyT $ insert (repOf lnty) lnty t
 
 instance Existence (TypesTable a) (Ty.LangNewType a) where
-    existIn lnty (TyT t) = strOf lnty `member` t
+    existIn lnty (TyT t) = repOf lnty `member` t
 
 instance KeyFinding (TypesTable a) TyConRep (Ty.LangNewType a) where
     kFind tcRep (TyT t) = Map.lookup tcRep t
 
 instance KeyFinding (TypesTable a) (Ty.LangNewType a) (Ty.LangNewType a) where
-    kFind lnty tt = kFind (strOf lnty) tt
+    kFind lnty tt = kFind (repOf lnty) tt
 
 instance AllGetter (TypesTable a) (Ty.LangNewType a) where
     getAllElems (TyT t) = getValues t
@@ -171,16 +171,16 @@ instance Emptiness (DataConsTable a) where
     noElems = ConT empty
 
 instance Adder (DataConsTable a) (Ty.NotedVal a) where
-    addElem con (ConT t) = ConT $ insert (strOf con) con t
+    addElem con (ConT t) = ConT $ insert (repOf con) con t
 
 instance Existence (DataConsTable a) (Ty.NotedVal a) where
-    existIn con (ConT t) = strOf con `member` t
+    existIn con (ConT t) = repOf con `member` t
 
 instance KeyFinding (DataConsTable a) DataConRep (Ty.NotedVal a) where
     kFind conRep (ConT t) = Map.lookup conRep t
 
 instance KeyFinding (DataConsTable a) (Ty.NotedVal a) (Ty.NotedVal a) where
-    kFind con (ConT t) = Map.lookup (strOf con) t
+    kFind con (ConT t) = Map.lookup (repOf con) t
 
 instance AllGetter (DataConsTable a) (Ty.NotedVal a) where
     getAllElems (ConT t) = getValues t
@@ -189,20 +189,20 @@ instance Emptiness (ConstraintsTable a) where
     noElems = ContsT empty
 
 instance Adder (ConstraintsTable a) (Ty.LangNewConstraint a) where
-    addElem cont (ContsT t) = ContsT $ insert (strOf cont) (cont, []) t
+    addElem cont (ContsT t) = ContsT $ insert (repOf cont) (cont, []) t
 
 instance Adder (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
-    addElem contCs @ (cont, _) (ContsT t) = ContsT $ insert (strOf cont) contCs t
+    addElem contCs @ (cont, _) (ContsT t) = ContsT $ insert (repOf cont) contCs t
 
 instance Existence (ConstraintsTable a) (Ty.LangNewConstraint a) where
-    existIn cont (ContsT t) = strOf cont `member` t
+    existIn cont (ContsT t) = repOf cont `member` t
 
 instance
     KeyFinding
         (ConstraintsTable a)
         (Ty.LangNewConstraint a)
         (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
-    kFind cont ct = kFind (strOf cont) ct
+    kFind cont ct = kFind (repOf cont) ct
 
 instance KeyFinding (ConstraintsTable a) PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     kFind contRep (ContsT t) = Map.lookup contRep t
@@ -214,7 +214,7 @@ instance KeyValUpdate' (ConstraintsTable a) PropConRep [Ty.LangSpecConstraint a]
             Just (lnc, lscs) -> ContsT $ Map.insert contRep (lnc, cs ++ lscs) t
 
 instance KeyValUpdate' (ConstraintsTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
-    kValUpdate' cont cs ct = kValUpdate' (strOf cont) cs ct
+    kValUpdate' cont cs ct = kValUpdate' (repOf cont) cs ct
 
 instance AllGetter (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     getAllElems (ContsT t) = getValues t
@@ -224,7 +224,7 @@ instance Emptiness (TypedProgram a) where
 
 updateCache :: RecSymsCache -> [BindingSingleton a] -> SymbolRep -> RecSymsCache
 updateCache cache bs nVarRep =
-    let symReps = map (strOf . fst') bs in
+    let symReps = map (repOf . fst') bs in
         forAll symReps insertIn cache
     where
         fst' (x, _, _) = x
@@ -242,7 +242,7 @@ updateCache cache bs nVarRep =
 findNotInCache :: [BindingSingleton a] -> RecSymsCache -> Maybe SymbolRep
 findNotInCache [] _ = Nothing
 findNotInCache ((v, _, _) : t) cache =
-    let nVarRep = strOf v in
+    let nVarRep = repOf v in
         if nVarRep `Map.member` cache
         then findNotInCache t cache
         else Just nVarRep
@@ -258,7 +258,7 @@ instance Adder (TypedProgram a) (TypedBinding a) where
             Just nVarRep ->
                 TyProg <| insert nVarRep (TyRec bs) m <| updateCache cache bs nVarRep
     addElem (TyNonRec b @ (v, _, _)) tp @ (TyProg m cache) =
-        let nVarRep = strOf v in
+        let nVarRep = repOf v in
             if nVarRep `Map.member` m
             then tp
             else TyProg (insert nVarRep (TyNonRec b) m) cache
@@ -267,10 +267,10 @@ instance Existence (TypedProgram a) TokenRep where
     existIn vRep (TyProg m cache) = vRep `member` m || vRep `member` cache
 
 instance Existence (TypedProgram a) (Ty.NotedVar a) where
-    existIn nVar tp = strOf nVar `existIn` tp
+    existIn nVar tp = repOf nVar `existIn` tp
 
 instance KeyFinding (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
-    kFind nVar tp = kFind (strOf nVar) tp
+    kFind nVar tp = kFind (repOf nVar) tp
 
 instance KeyFinding (TypedProgram a) SymbolRep (TypedBinding a) where
     kFind vRep (TyProg m cache) =
@@ -291,7 +291,7 @@ instance KeyValUpdate (TypedProgram a) TokenRep (TypedBinding a) where
             Just vRep' -> TyProg (Map.adjust f vRep' m) cache
 
 instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
-    kValUpdate nVar f tp = kValUpdate (strOf nVar) f tp
+    kValUpdate nVar f tp = kValUpdate (repOf nVar) f tp
 
 instance KeyValUpdate (TypedProgram a) TokenRep (BindingSingleton a) where
     kValUpdate vRep f = kValUpdate vRep builtF
@@ -301,7 +301,7 @@ instance KeyValUpdate (TypedProgram a) TokenRep (BindingSingleton a) where
 
             updateRecs [] = []
             updateRecs (bSing @ (nVar', _, _) : t) =
-                if strOf nVar' == vRep
+                if repOf nVar' == vRep
                 then f bSing : t
                 else bSing : updateRecs t
 
@@ -313,11 +313,11 @@ instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (BindingSingleton a) wher
 
             updateRecs [] = []
             updateRecs (bSing @ (nVar', _, _) : t) =
-                if strOf nVar' == vRep
+                if repOf nVar' == vRep
                 then f bSing : t
                 else bSing : updateRecs t
 
-            vRep = strOf nVar
+            vRep = repOf nVar
 
 instance ListSource (TypedProgram a) (TypedBinding a) where
     toList' (TyProg m _) = elems m
@@ -326,13 +326,13 @@ instance ListSource (TypedProgram a) (TypedBinding a) where
             TyProg m cache
         where
             insertSym (m, cache) b @ (TyNonRec (nVar, _, _)) =
-                (Map.insert (strOf nVar) b m, cache)
+                (Map.insert (repOf nVar) b m, cache)
             {- Very strange case, the client should not pass something like this. -}
             insertSym (m, cache) (TyRec []) =
                 (m, cache)
             {- Just taking the first element to fetch a symbol name. -}
             insertSym (m, cache) b @ (TyRec bs @ ((nVar, _, _) : _)) =
-                let symRep = strOf nVar in
+                let symRep = repOf nVar in
                     (Map.insert symRep b m, updateCache cache bs symRep)
 
 instance Emptiness (InstsTable a) where
@@ -341,7 +341,7 @@ instance Emptiness (InstsTable a) where
 {- NB: it overwrites the content of the table. -}
 instance KeyValueAdder (InstsTable a) (Raw.SymbolName a) [Raw.SDUnion a] where
     kAddElem sym sds (InstT m) =
-        let sRep = strOf sym in
+        let sRep = repOf sym in
             case Map.lookup sRep m of
                 Nothing -> InstT $ insert sRep sds m
                 Just sds' -> InstT $ insert sRep (sds ++ sds') m
@@ -349,13 +349,13 @@ instance KeyValueAdder (InstsTable a) (Raw.SymbolName a) [Raw.SDUnion a] where
 {- It does not overwrite the content of the table, but it accumulates the variables. -}
 instance Adder (InstsTable a) (Raw.SDUnion a) where
     addElem sd (InstT m) =
-        let symRep = strOf $ Raw.symNameFromSD sd in
+        let symRep = repOf $ Raw.symNameFromSD sd in
             case Map.lookup symRep m of
                 Nothing -> InstT $ Map.insert symRep [sd] m
                 Just bs -> InstT $ Map.insert symRep (sd : bs) m
 
 instance Existence (InstsTable a) (Raw.SymbolName a) where
-    existIn sym (InstT m) = strOf sym `member` m
+    existIn sym (InstT m) = repOf sym `member` m
 
 {- TODO: rm this
 instance Existence (InstsTable a) (Symbol, Ty.LangHigherType a) where
@@ -366,7 +366,7 @@ instance Existence (InstsTable a) (Symbol, Ty.LangHigherType a) where
                         -}
 
 instance KeyFinding (InstsTable a) (Raw.SymbolName a) [Raw.SDUnion a] where
-    kFind sym (InstT m) = Map.lookup (strOf sym) m
+    kFind sym (InstT m) = Map.lookup (repOf sym) m
 
 {- TODO: rm this
 instance KeyFinding (InstsTable a) (Symbol, Ty.LangHigherType a) (Ty.NotedVar a) where
@@ -384,7 +384,7 @@ instance Emptiness (PropMethodsTable a) where
     noElems = MhtsT empty
 
 instance Existence (PropMethodsTable a) (Ty.NotedVar a) where
-    existIn nVar mths = strOf nVar `existIn` mths
+    existIn nVar mths = repOf nVar `existIn` mths
 
 instance Existence (PropMethodsTable a) SymbolRep where
     existIn vRep (MhtsT m) = vRep `member` m
@@ -393,22 +393,22 @@ instance KeyFinding (PropMethodsTable a) SymbolRep (Ty.NotedVar a) where
     kFind symRep (MhtsT m) = Map.lookup symRep m
 
 instance KeyFinding (PropMethodsTable a) (Ty.NotedVar a) (Ty.NotedVar a) where
-    kFind nVar mhts = kFind (strOf nVar) mhts
+    kFind nVar mhts = kFind (repOf nVar) mhts
 
 instance Adder (PropMethodsTable a) (Ty.NotedVar a) where
-    addElem nVar (MhtsT m) = MhtsT $ Map.insert (strOf nVar) nVar m
+    addElem nVar (MhtsT m) = MhtsT $ Map.insert (repOf nVar) nVar m
 
 instance Emptiness (ImplTable a) where
     noElems = ImplT empty
 
 {- NB: it overwrites the content of the table. -}
 instance KeyValueAdder (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
-    kAddElem cont cs (ImplT m) = ImplT $ Map.insert (strOf cont) cs m
+    kAddElem cont cs (ImplT m) = ImplT $ Map.insert (repOf cont) cs m
 
 {- It does not overwrite the content of the table, but it accumulates the constraints. -}
 instance Adder (ImplTable a) (Ty.LangSpecConstraint a) where
     addElem c (ImplT m) =
-        let pRep = strOf c in
+        let pRep = repOf c in
             case Map.lookup pRep m of
                 Nothing -> ImplT $ Map.insert pRep [c] m
                 Just cs -> ImplT $ Map.insert pRep (c : cs) m
@@ -418,7 +418,7 @@ instance Adder (ImplTable a) [Ty.LangSpecConstraint a] where
         foldl' (flip addElem) it cs
 
 instance Existence (ImplTable a) (Ty.LangNewConstraint a) where
-    existIn cont (ImplT m) = strOf cont `member` m
+    existIn cont (ImplT m) = repOf cont `member` m
 
 {- FIXME
 instance Existence (ImplTable a) (Property, Ty.LangSpecConstraint a) where
@@ -432,7 +432,7 @@ instance KeyFinding (ImplTable a) PropConRep [Ty.LangSpecConstraint a] where
     kFind contRep (ImplT m) = Map.lookup contRep m
 
 instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
-    kFind cont it = kFind (strOf cont) it
+    kFind cont it = kFind (repOf cont) it
 
 {- FIXME
 instance KeyFinding (ImplTable a) (Property, Ty.LangSpecConstraint a) [Ty.LangSpecConstraint a] where
@@ -452,7 +452,7 @@ rawGetMatchingConts tyRep = filter $ any (Ty.rawSameBaseOf tyRep) . argsOf
 
 instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a, Ty.LangHigherType a) [Ty.LangSpecConstraint a] where
     kFind (cont, ty) (ImplT m) =
-        case Map.lookup (strOf cont) m of
+        case Map.lookup (repOf cont) m of
             Nothing -> Nothing
             Just cs -> Just $ getMatchingConts ty cs
 

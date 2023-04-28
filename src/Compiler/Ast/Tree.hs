@@ -496,34 +496,34 @@ instance HasHead (Constraint a) (IntfName a) where
 -- Instances: Eq and Ord
 
 instance Eq (ADTName a) where
-    (==) n n' = strOf n == strOf n'
+    (==) n n' = repOf n == repOf n'
 
 instance Eq (ADTConName a) where
-    (==) n n' = strOf n == strOf n'
+    (==) n n' = repOf n == repOf n'
 
 instance Eq (IntfName a) where
-    (==) n n' = strOf n == strOf n'
+    (==) n n' = repOf n == repOf n'
 
 instance Eq (SymbolName a) where
-    (==) n n' = strOf n == strOf n'
+    (==) n n' = repOf n == repOf n'
 
 instance Eq (ParamTypeName a) where
-    (==) n n' = strOf n == strOf n'
+    (==) n n' = repOf n == repOf n'
 
 instance Ord (ADTName a) where
-    compare n n' = strOf n `compare` strOf n'
+    compare n n' = repOf n `compare` repOf n'
 
 instance Ord (ADTConName a) where
-    compare n n' = strOf n `compare` strOf n'
+    compare n n' = repOf n `compare` repOf n'
 
 instance Ord (IntfName a) where
-    compare n n' = strOf n `compare` strOf n'
+    compare n n' = repOf n `compare` repOf n'
 
 instance Ord (SymbolName a) where
-    compare n n' = strOf n `compare` strOf n'
+    compare n n' = repOf n `compare` repOf n'
 
 instance Ord (ParamTypeName a) where
-    compare n n' = strOf n `compare` strOf n'
+    compare n n' = repOf n `compare` repOf n'
 
 -- Instances: Semigroup and Monoid
 
@@ -2189,7 +2189,7 @@ mapTypesLam pts uts =
         transformLam $ lam pairing
     where
         lam pairing pty =
-            case firstThat (\(pty', _) -> strOf pty' == strOf pty) pairing of
+            case firstThat (\(pty', _) -> repOf pty' == repOf pty) pairing of
                 Nothing -> Nothing
                 Just (_, uty) -> Just uty
 
@@ -2628,9 +2628,9 @@ ptyOccurUnCon :: ParamTypeName a -> UnConType a -> Bool
 ptyOccurUnCon pty ty =
     doOnUnCon ty
         (const False)
-        (\p -> strOf p == strOf pty)
+        (\p -> repOf p == repOf pty)
         (\_ ts -> any (ptyOccurUnCon pty) ts)
-        (\p ts -> strOf p == strOf pty ||
+        (\p ts -> repOf p == repOf pty ||
                   any (ptyOccurUnCon pty) ts)
 
 ptyOccurCont :: ParamTypeName a -> Constraint a -> Bool
@@ -2658,8 +2658,8 @@ addTypeHint (SD sd) ty = SD $ addTypeHintToSd sd ty
 addTypeHint (MSD msd) ty = MSD $ addTypeHintToMsd msd ty
 
 showNonRec :: NonRecType a -> String
-showNonRec (Real adtname) = strOf adtname
-showNonRec (Param ptyname) = strOf ptyname
+showNonRec (Real adtname) = repOf adtname
+showNonRec (Param ptyname) = repOf ptyname
 
 parensShow :: UnConType a -> String
 parensShow ty = "(" ++ showUnCon ty ++ ")"
@@ -2676,34 +2676,34 @@ showUnCons :: [UnConType a] -> String
 showUnCons ts = concat $ lastmap (\ty -> parensShow ty ++ " ") parensShow ts
 
 showCont :: Constraint a -> String
-showCont (Cont (pName, ts, _)) = strOf pName ++ " " ++ showUnCons ts
+showCont (Cont (pName, ts, _)) = repOf pName ++ " " ++ showUnCons ts
 
 {- Operations of string converting:
 This is semantically a different thing of Show instance. `show` just takes the token and gives
 a string representation of that token, while the following functions extract the string part of
 the token. -}
 
-instance AtomStr (ADTName a) where
-    strOf (ADTName (s, _)) = s
+instance AtomRep (ADTName a) where
+    repOf (ADTName (s, _)) = s
 
-instance AtomStr (ADTConName a) where
-    strOf (ADTConName (s, _)) = s
+instance AtomRep (ADTConName a) where
+    repOf (ADTConName (s, _)) = s
 
-instance AtomStr (IntfName a) where
-    strOf (IntfName (s, _)) = s
+instance AtomRep (IntfName a) where
+    repOf (IntfName (s, _)) = s
 
-instance AtomStr (SymbolName a) where
-    strOf (SymName (s, _)) = s
+instance AtomRep (SymbolName a) where
+    repOf (SymName (s, _)) = s
 
-instance AtomStr (ParamTypeName a) where
-    strOf (PtyName (s, _)) = s
+instance AtomRep (ParamTypeName a) where
+    repOf (PtyName (s, _)) = s
 
-instance AtomStr (CategoryName a) where
-    strOf (CatgName (s, _)) = s
+instance AtomRep (CategoryName a) where
+    repOf (CatgName (s, _)) = s
 
 strOfGenName :: GenTypeName a -> String
-strOfGenName (Left rty) = strOf rty
-strOfGenName (Right pty) = strOf pty
+strOfGenName (Left rty) = repOf rty
+strOfGenName (Right pty) = repOf pty
 
 -- state fetching
 

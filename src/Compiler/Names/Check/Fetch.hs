@@ -13,21 +13,21 @@ import qualified Compiler.State as With
 addSymbol :: SymbolName With.ProgState -> Names.Op ()
 addSymbol sym = do
     tables <- get
-    case Names.insertSymbol (strOf sym) tables of
+    case Names.insertSymbol (repOf sym) tables of
         Nothing -> Names.err $ DupSym sym
         Just tables' -> put tables'
 
 addAdt :: ADTName With.ProgState -> Names.Op ()
 addAdt adt = do
     tables <- get
-    case Names.insertAdt (strOf adt) tables of
+    case Names.insertAdt (repOf adt) tables of
         Nothing -> Names.err $ DupAdt adt
         Just tables' -> put tables'
 
 addCon :: ADTConName With.ProgState -> Names.Op ()
 addCon con = do
     tables <- get
-    case Names.insertConstructor (strOf con) tables of
+    case Names.insertConstructor (repOf con) tables of
         Nothing -> Names.err $ DupCon con
         Just tables' -> put tables'
 
@@ -37,7 +37,7 @@ addCons = mapM_ addCon
 addProp :: IntfName With.ProgState -> Names.Op ()
 addProp prop = do
     tables <- get
-    case Names.insertInterface (strOf prop) tables of
+    case Names.insertInterface (repOf prop) tables of
         Nothing -> Names.err $ DupIntf prop
         Just tables' -> put tables'
 
@@ -45,7 +45,7 @@ addPropSig :: IntfName With.ProgState -> Signature With.ProgState -> Names.Op ()
 addPropSig prop sig = do
     tables <- get
     let sym = symNameFromSig sig
-    case Names.insertPropSignature <| strOf prop <| strOf sym <| tables of
+    case Names.insertPropSignature <| repOf prop <| repOf sym <| tables of
         Nothing -> Names.err $ DupSig sym
         Just tables' -> put tables'
 
@@ -56,7 +56,7 @@ addSig :: Signature With.ProgState -> Names.Op ()
 addSig sig = do
     tables <- get
     let sym = symNameFromSig sig
-    case Names.insertSignature (strOf sym) tables of
+    case Names.insertSignature (repOf sym) tables of
         Nothing -> Names.err $ DupSig sym
         Just tables' -> put tables'
 

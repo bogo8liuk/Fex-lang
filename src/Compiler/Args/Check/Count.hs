@@ -27,21 +27,21 @@ type ArgsMap = Map (String, UnionTok) (Int, With.ProgState)
 
 adtCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
 adtCountOp m = Raw.safeLookupAdt m (\argsMap adt ->
-    insert (strOf $ Raw.adtNameFrom adt, ItemAdt)
+    insert (repOf $ Raw.adtNameFrom adt, ItemAdt)
            (length $ argsOf adt, stateOf adt)
            argsMap
     )
 
 aliasCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
 aliasCountOp m = Raw.safeLookupAlias m (\argsMap alias ->
-    insert (strOf $ Raw.aliasNameFrom alias, ItemAlias)
+    insert (repOf $ Raw.aliasNameFrom alias, ItemAlias)
            (length $ argsOf alias, stateOf alias)
            argsMap
     )
 
 propCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
 propCountOp m = Raw.safeLookupProp m (\argsMap intf ->
-    insert (strOf $ Raw.intfNameFrom intf, ItemProp)
+    insert (repOf $ Raw.intfNameFrom intf, ItemProp)
            (length $ argsOf intf, stateOf intf)
            argsMap
     )

@@ -128,12 +128,12 @@ findSymbolAndRecReps symRep = do
         TyNonRec b -> return (b, Nothing)
         TyRec bs -> do
             (nVar, nVars, ne) <- findSymbolInBinding symRep tyb
-            let nVarRep = strOf nVar
+            let nVarRep = repOf nVar
             let recReps = fltmap (onlyNotSelected nVarRep) bs
             return ((nVar, nVars, ne), Just recReps)
     where
         onlyNotSelected nVarRep b @ (nVar', _, _) =
-            let nVarRep' = strOf nVar' in
+            let nVarRep' = repOf nVar' in
                 if nVarRep' == nVarRep
                 then Nothing
                 else Just (nVarRep', b)
@@ -141,7 +141,7 @@ findSymbolAndRecReps symRep = do
 findSymbolInBinding :: SymbolRep -> TypedBinding With.ProgState -> AdHocHandle (BindingSingleton With.ProgState)
 findSymbolInBinding _ (TyNonRec b) = return b
 findSymbolInBinding symRep (TyRec bs) = do
-    case firstThat (\(nVar, _, _) -> strOf nVar == symRep) bs of
+    case firstThat (\(nVar, _, _) -> repOf nVar == symRep) bs of
         Nothing -> dispatchErr $ RecBindingNotFound symRep
         Just b -> return b
 
