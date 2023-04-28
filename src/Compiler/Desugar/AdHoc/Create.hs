@@ -93,7 +93,7 @@ createNewBinding (symToRepl, newVarRep, cs) = do
                 accumReplacements topSym tp mhts repls ne
         updateExprAndAccum _ _ _ _ repls ne = (ne, repls)
 
-findRecReplacements :: [Replacement] -> [String] -> AdHocHandle ([RecReplacement], [Replacement])
+findRecReplacements :: [Replacement] -> [SymbolRep] -> AdHocHandle ([RecReplacement], [Replacement])
 findRecReplacements repls recSyms = return $ partition onlyRec repls
     where
         onlyRec repl =
@@ -208,7 +208,7 @@ handleNestedEagerly ((symToRepl @ (Nested topSymRep oldVarRep), _, _) : t) = do
     where
         updateTyProg =
             kValUpdate
-                :: String
+                :: SymbolRep
                 -> (BindingSingleton With.ProgState -> BindingSingleton With.ProgState)
                 -> TypedProgram With.ProgState
                 -> TypedProgram With.ProgState

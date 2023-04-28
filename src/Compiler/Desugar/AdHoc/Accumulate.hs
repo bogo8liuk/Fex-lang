@@ -43,7 +43,7 @@ accumReplacements _ _ _ repls expr = (expr, repls)
 
 getReplacementsFromExpr
     :: Ty.NotedExpr With.ProgState
-    -> Maybe String
+    -> Maybe SymbolRep
     -> TopSymRep
     -> AdHocHandle (Ty.NotedExpr With.ProgState, [Replacement])
 getReplacementsFromExpr ne (Just symRep) topSym = do
