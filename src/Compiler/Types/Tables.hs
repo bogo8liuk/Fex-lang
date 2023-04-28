@@ -158,13 +158,11 @@ instance Adder (TypesTable a) (Ty.LangNewType a) where
 instance Existence (TypesTable a) (Ty.LangNewType a) where
     existIn lnty (TyT t) = strOf lnty `member` t
 
-{-
 instance KeyFinding (TypesTable a) TyConRep (Ty.LangNewType a) where
-    kFind s (TyT t) = Map.lookup s t
--}
+    kFind tcRep (TyT t) = Map.lookup tcRep t
 
 instance KeyFinding (TypesTable a) (Ty.LangNewType a) (Ty.LangNewType a) where
-    kFind lnty (TyT t) = Map.lookup (strOf lnty) t
+    kFind lnty tt = kFind (strOf lnty) tt
 
 instance AllGetter (TypesTable a) (Ty.LangNewType a) where
     getAllElems (TyT t) = getValues t
@@ -204,7 +202,10 @@ instance
         (ConstraintsTable a)
         (Ty.LangNewConstraint a)
         (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
-    kFind cont (ContsT t) = Map.lookup (strOf cont) t
+    kFind cont ct = kFind (strOf cont) ct
+
+instance KeyFinding (ConstraintsTable a) PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
+    kFind contRep (ContsT t) = Map.lookup contRep t
 
 instance KeyValUpdate' (ConstraintsTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
     kValUpdate' cont cs table @ (ContsT t) =

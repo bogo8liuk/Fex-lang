@@ -102,7 +102,7 @@ aConstraint
     -> Raw.Constraint With.ProgState
     -> Either (Err err) (Ty.LangSpecConstraint With.ProgState, [Ty.LangSpecConstraint With.ProgState])
 aConstraint tt ct getKind c =
-    case kFind (strOf $ headOf c) ct of
+    case kFind contRep ct of
         Nothing -> Left $ UnexistingCont c
         Just (lnc, cs) ->
             case foldl' tryMkTy <| Right [] <| argsOf c of
@@ -115,12 +115,14 @@ aConstraint tt ct getKind c =
                                 Right (lspc, map (`Ty.specTypeWith` lam) cs)
                         Left err -> Left $ ContErr err
                 Left err -> Left err
-            where
-                tryMkTy (Right ts) ty =
-                    case aSplitType tt getKind ty of
-                        Right lhty -> Right (lhty : ts)
-                        Left err -> Left err
-                tryMkTy err @ (Left _) _ = err
+    where
+        contRep = strOf $ headOf c
+
+        tryMkTy (Right ts) ty =
+            case aSplitType tt getKind ty of
+                Right lhty -> Right (lhty : ts)
+                Left err -> Left err
+        tryMkTy err @ (Left _) _ = err
 
 {- It has the same semantics of `aType`, but it takes a `Raw.Type` value instead of a `Raw.UnConType` one and
 a constraints table in order to inject type variables with predicates in the returned type.
@@ -175,7 +177,7 @@ aRealType
     -> (Raw.ParamTypeName With.ProgState -> Either (Err err) [Ty.LangSpecConstraint With.ProgState])
     -> Either (Err err) (Ty.LangHigherType With.ProgState, [Ty.LangSpecConstraint With.ProgState])
 aRealType t getKind rty ty mkCs =
-    case kFind (strOf rty) t of
+    case kFind rtyRep t of
         Nothing -> Left $ UnexistingType ty
         Just lnty ->
             case makeArgs t getKind ty mkCs of
@@ -185,6 +187,8 @@ aRealType t getKind rty ty mkCs =
                         Nothing -> Left SomeMalformedType
                         {- No need to use `nub` to remove duplicates, since they remain untouched. -}
                         Just lhty -> Right (lhty, argsCs)
+    where
+        rtyRep = strOf rty
 
 aParamType
     :: TypesTable With.ProgState
