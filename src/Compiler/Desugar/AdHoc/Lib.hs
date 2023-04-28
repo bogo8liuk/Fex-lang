@@ -35,10 +35,10 @@ import qualified Compiler.Types.Lib.State as S
 import Compiler.Types.Tables
 
 data DispatchErr = 
-      SymNotFound (String, Maybe TopSymRep)
-    | RecBindingNotFound String
-    | NonRecInRec String
-    | NestedAsGlobal String
+      SymNotFound (SymbolRep, Maybe TopSymRep)
+    | RecBindingNotFound SymbolRep
+    | NonRecInRec SymbolRep
+    | NestedAsGlobal SymbolRep
 
 instance InfoShow DispatchErr where
     infoShow (SymNotFound _) = unexpNoInfo
@@ -47,11 +47,16 @@ instance InfoShow DispatchErr where
     infoShow (NestedAsGlobal _) = unexpNoInfo
 
 instance DebugShow DispatchErr where
-    dbgShow (SymNotFound (symRep, Nothing)) = symRep ++ " not found in typed program"
-    dbgShow (SymNotFound (symRep, Just topSymRep)) = symRep ++ " not found in " ++ topSymRep
-    dbgShow (RecBindingNotFound symRep) = symRep ++ " not found in a recursive binding"
-    dbgShow (NonRecInRec symRep) = "Non-recursive binding " ++ symRep ++ " found in recursive binding"
-    dbgShow (NestedAsGlobal symRep) = "Nested symbol " ++ symRep ++ " found in typed program"
+    dbgShow (SymNotFound (symRep, Nothing)) =
+        symbolRepToStr symRep ++ " not found in typed program"
+    dbgShow (SymNotFound (symRep, Just topSymRep)) =
+        symbolRepToStr symRep ++ " not found in " ++ symbolRepToStr topSymRep
+    dbgShow (RecBindingNotFound symRep) =
+        symbolRepToStr symRep ++ " not found in a recursive binding"
+    dbgShow (NonRecInRec symRep) =
+        "Non-recursive binding " ++ symbolRepToStr symRep ++ " found in recursive binding"
+    dbgShow (NestedAsGlobal symRep) =
+        "Nested symbol " ++ symbolRepToStr symRep ++ " found in typed program"
 
 instance UnreachableState DispatchErr where
     isUnreachable err @ (SymNotFound _) = Just $ dbgShow err
@@ -67,10 +72,10 @@ buildEnv tp mhts = S.initNoFreeVarsState noElems noElems noElems noElems mhts no
 dispatchErr :: DispatchErr -> AdHocHandle a
 dispatchErr = lift . Left
 
-type OldVarRep = String
-type NewVarRep = String
-type TopSymRep = String
-type RecRep = String
+type OldVarRep = SymbolRep
+type NewVarRep = SymbolRep
+type TopSymRep = SymbolRep
+type RecRep = SymbolRep
 
 data SymbolToReplace =
       Nested TopSymRep OldVarRep
@@ -104,7 +109,7 @@ mkAdHocBinding :: BindingSingleton With.ProgState -> Maybe [RecDep] -> AdHocBind
 mkAdHocBinding bSing Nothing = NonRec bSing
 mkAdHocBinding bSing (Just recReps) = Rec bSing recReps
 
-findSymbolRep :: String -> AdHocHandle (TypedBinding With.ProgState)
+findSymbolRep :: SymbolRep -> AdHocHandle (TypedBinding With.ProgState)
 findSymbolRep symRep = do
     tp <- S.getProg
     case kFind symRep tp of
@@ -112,7 +117,7 @@ findSymbolRep symRep = do
         Just tyb -> return tyb
 
 findSymbolAndRecReps
-    :: String
+    :: SymbolRep
     -> AdHocHandle
         ( BindingSingleton With.ProgState
         , Maybe [RecDep]
@@ -133,7 +138,7 @@ findSymbolAndRecReps symRep = do
                 then Nothing
                 else Just (nVarRep', b)
 
-findSymbolInBinding :: String -> TypedBinding With.ProgState -> AdHocHandle (BindingSingleton With.ProgState)
+findSymbolInBinding :: SymbolRep -> TypedBinding With.ProgState -> AdHocHandle (BindingSingleton With.ProgState)
 findSymbolInBinding _ (TyNonRec b) = return b
 findSymbolInBinding symRep (TyRec bs) = do
     case firstThat (\(nVar, _, _) -> strOf nVar == symRep) bs of

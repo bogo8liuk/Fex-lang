@@ -1,10 +1,10 @@
 module Compiler.Types.Prepare.Lib
     ( RawBinding(..)
     , SortedBindings
+    , strRep
     , symRepsOf
     , depsOf
     , depsOfBinding
-    , strRep
 ) where
 
 import Data.List(nub)
@@ -22,12 +22,15 @@ data RawBinding =
 {- Just a list of RawBinding values, but granting they are sorted and ready for type inference. -}
 type SortedBindings = [RawBinding]
 
-symRepsOf :: RawBinding -> [String]
+strRep :: Raw.SDUnion With.ProgState -> SymbolRep
+strRep = strOf . Raw.symNameFromSD
+
+symRepsOf :: RawBinding -> [SymbolRep]
 symRepsOf (RawNonRec sd) = [strRep sd]
 symRepsOf (RawRec sds) = map strRep sds
 
 --TODO: use visitExprsInExpr
-depsOf :: Raw.SDUnion With.ProgState -> PropMethodsTable With.ProgState -> [String]
+depsOf :: Raw.SDUnion With.ProgState -> PropMethodsTable With.ProgState -> [SymbolRep]
 depsOf symDecl mhts =
     filter (\dep -> not (dep `existIn` mhts)) $ depsOf' symDecl empty
     where
@@ -41,10 +44,10 @@ depsOf symDecl mhts =
                     let mpm = Raw.multiPattMatchFrom msd in
                         visitMpm mpm bounds
 
-        visitExpr' :: Raw.Expression With.ProgState -> Map String () -> [String]
+        visitExpr' :: Raw.Expression With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitExpr' (Raw.Expr (uae, _, _)) = visitExpr uae
 
-        visitExpr :: Raw.UnAltExpression With.ProgState -> Map String () -> [String]
+        visitExpr :: Raw.UnAltExpression With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitExpr (Raw.Base sn) bounds =
             let symRep = strOf sn in
                 [ symRep | not (symRep `member` bounds) ] --List comprehension, but it's at most a singleton list
@@ -71,23 +74,23 @@ depsOf symDecl mhts =
                 {- Same as for single binder. -}
                 visitExpr' e updBounds ++ depsOf' (Raw.MSD msd) bounds
 
-        visitMpm :: Raw.MultiPatternMatch With.ProgState -> Map String () -> [String]
+        visitMpm :: Raw.MultiPatternMatch With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitMpm (Raw.MultiPattMatch mcs _) bounds =
             concatMap (`visitMultiCase` bounds) mcs
 
-        visitCase :: Raw.MatchCase With.ProgState -> Map String () -> [String]
+        visitCase :: Raw.MatchCase With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitCase (Raw.Case (me, e, _)) bounds =
             let syms = map mkKey $ Raw.symNamesFromMatchExpr me in
                 visitExpr' e $ bounds `union` fromList syms
 
-        visitMultiCase :: Raw.MultiMatchCase With.ProgState -> Map String () -> [String]
+        visitMultiCase :: Raw.MultiMatchCase With.ProgState -> Map SymbolRep () -> [SymbolRep]
         visitMultiCase (Raw.MultiCase ms e _) bounds =
             let syms = concatMap (map mkKey . Raw.symNamesFromMatchExpr) ms in
                 visitExpr' e $ bounds `union` fromList syms
 
         mkKey sn = (strOf sn, ())
 
-depsOfBinding :: RawBinding -> PropMethodsTable With.ProgState -> [String]
+depsOfBinding :: RawBinding -> PropMethodsTable With.ProgState -> [SymbolRep]
 depsOfBinding (RawNonRec sd) mhts = depsOf sd mhts
 depsOfBinding (RawRec c) mhts =
     let sdNames = map strRep c in
@@ -96,6 +99,3 @@ depsOfBinding (RawRec c) mhts =
     let deps' = filter (`notElem` sdNames) deps in
     {- Removing duplicates, because two or more elements of a cluster may have the same dependecies. -}
         nub deps'
-
-strRep :: Raw.SDUnion With.ProgState -> String
-strRep = strOf . Raw.symNameFromSD

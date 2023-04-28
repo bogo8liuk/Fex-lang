@@ -265,15 +265,17 @@ instance Existence (TypedProgram a) (Ty.NotedVar a) where
             vRep `member` m || vRep `member` cache
 
 instance KeyFinding (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
-    kFind nVar (TyProg m cache) =
-        let vRep = strOf nVar in
-            case Map.lookup vRep m of
-                res @ (Just _) -> res
-                Nothing ->
-                    {- Looking at the cache to see if it is a mutually recursive symbol. -}
-                    case Map.lookup vRep cache of
-                        Nothing -> Nothing
-                        Just vRep' -> Map.lookup vRep' m
+    kFind nVar tp = kFind (strOf nVar) tp
+
+instance KeyFinding (TypedProgram a) SymbolRep (TypedBinding a) where
+    kFind vRep (TyProg m cache) =
+        case Map.lookup vRep m of
+            res @ (Just _) -> res
+            Nothing ->
+                {- Looking at the cache to see if it is a mutually recursive symbol. -}
+                case Map.lookup vRep cache of
+                    Nothing -> Nothing
+                    Just vRep' -> Map.lookup vRep' m
 
 instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
     kValUpdate nVar f tp @ (TyProg m cache) =
@@ -363,7 +365,10 @@ instance Emptiness (PropMethodsTable a) where
     noElems = MhtsT empty
 
 instance Existence (PropMethodsTable a) (Ty.NotedVar a) where
-    existIn nVar (MhtsT m) = strOf nVar `member` m
+    existIn nVar mths = strOf nVar `existIn` mths
+
+instance Existence (PropMethodsTable a) SymbolRep where
+    existIn vRep (MhtsT m) = vRep `member` m
 
 instance KeyFinding (PropMethodsTable a) (Ty.NotedVar a) (Ty.NotedVar a) where
     kFind nVar (MhtsT m) = Map.lookup (strOf nVar) m
