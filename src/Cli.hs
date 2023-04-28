@@ -6,7 +6,7 @@ module Cli
 import System.Exit(exitFailure)
 import System.Environment
 import System.Console.GetOpt
-import qualified Compiler(compile, compilerExecName)
+import qualified Compiler(compile)
 import GHC(HscTarget(..), GhcLink(..))
 
 defaultCompTarget :: HscTarget
@@ -16,7 +16,9 @@ defaultCompLink :: GhcLink
 defaultCompLink = NoLink
 
 printUsage :: IO ()
-printUsage = print $ "USAGE: " ++ Compiler.compilerExecName ++ " <file-path>"
+printUsage = do
+    compilerName <- getProgName
+    print $ "USAGE: " ++ compilerName ++ " <file-path>"
 
 getPath :: ([a], [String], [String]) -> IO String
 getPath (_, [path], _) = return path

@@ -2,8 +2,7 @@
 
 module Compiler
     {- Exposing each single functionality of the compiler -}
-    ( compilerExecName
-    , readSource
+    ( readSource
     , parsing
     , addBuiltinTypes
     , addBuiltinProps
@@ -68,9 +67,6 @@ import FromCore
 import OccName hiding (varName)
 import FastString
 import Fingerprint
-
-compilerExecName :: String
-compilerExecName = "mylang-exe"
 
 evalPhaseWith
     :: UnreachableState err
