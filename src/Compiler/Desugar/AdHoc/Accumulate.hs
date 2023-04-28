@@ -32,11 +32,11 @@ accumReplacements topSym tp mhts repls expr @ (Ty.ExprDispatchVar nVar nToks st)
             let oldVarRep = strOf nVar in
             let newVarRep = mkDispatchSuffix oldVarRep cs in
             let newVar = Ty.newNotedVar newVarRep <| Ty.removeAllConstraints (Ty.typeOf nVar) <| stateOf nVar in
-                if oldVarRep `existIn` tp
+                if nVar `existIn` tp
                 then (Ty.ExprVar newVar st, (TopLevel oldVarRep, newVarRep, cs) : repls)
                 {- If it is a property method, then no replacement has to be performed, the method should have already
                 been created when evaluating instances. -}
-                else if oldVarRep `existIn` mhts
+                else if nVar `existIn` mhts
                 then (Ty.ExprVar newVar st, repls)
                 else (Ty.ExprVar newVar st, (Nested topSym oldVarRep, newVarRep, cs) : repls)
 accumReplacements _ _ _ repls expr = (expr, repls)
@@ -73,8 +73,8 @@ getReplacementsFromExpr ne Nothing topSym = do
 
 getReplacementsFromBinding
     :: TypedBinding With.ProgState
-    -> [String]
-    -> String
+    -> [TokenRep]
+    -> TokenRep
     -> AdHocHandle [Replacement]
 getReplacementsFromBinding tyb nestedSyms topSym = do
     (_, _, ne) <- findSymbolInBinding topSym tyb
@@ -87,7 +87,7 @@ getReplacementsFromBinding tyb nestedSyms topSym = do
     where
         update =
             kValUpdate
-                :: String
+                :: TokenRep
                 -> (BindingSingleton With.ProgState -> BindingSingleton With.ProgState)
                 -> TypedProgram With.ProgState
                 -> TypedProgram With.ProgState

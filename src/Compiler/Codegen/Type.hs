@@ -16,7 +16,7 @@ import Data.String(fromString)
 import Compiler.Codegen.Lib
 import Compiler.Codegen.Env
 import Compiler.State as With
-import Compiler.Ast.Common
+import Compiler.Ast.Common hiding (DataConRep)
 import qualified Compiler.Config.Types as BITy
 import qualified Compiler.Ast.Typed as Ty
 import Type

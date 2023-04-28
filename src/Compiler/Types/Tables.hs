@@ -207,11 +207,14 @@ instance
 instance KeyFinding (ConstraintsTable a) PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     kFind contRep (ContsT t) = Map.lookup contRep t
 
-instance KeyValUpdate' (ConstraintsTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
-    kValUpdate' cont cs table @ (ContsT t) =
-        case Map.lookup (strOf cont) t of
+instance KeyValUpdate' (ConstraintsTable a) PropConRep [Ty.LangSpecConstraint a] where
+    kValUpdate' contRep cs table @ (ContsT t) =
+        case Map.lookup contRep t of
             Nothing -> table
-            Just (lnc, lscs) -> ContsT $ Map.insert (strOf cont) (lnc, cs ++ lscs) t
+            Just (lnc, lscs) -> ContsT $ Map.insert contRep (lnc, cs ++ lscs) t
+
+instance KeyValUpdate' (ConstraintsTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
+    kValUpdate' cont cs ct = kValUpdate' (strOf cont) cs ct
 
 instance AllGetter (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     getAllElems (ContsT t) = getValues t
@@ -260,10 +263,11 @@ instance Adder (TypedProgram a) (TypedBinding a) where
             then tp
             else TyProg (insert nVarRep (TyNonRec b) m) cache
 
+instance Existence (TypedProgram a) TokenRep where
+    existIn vRep (TyProg m cache) = vRep `member` m || vRep `member` cache
+
 instance Existence (TypedProgram a) (Ty.NotedVar a) where
-    existIn nVar (TyProg m cache) =
-        let vRep = strOf nVar in
-            vRep `member` m || vRep `member` cache
+    existIn nVar tp = strOf nVar `existIn` tp
 
 instance KeyFinding (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
     kFind nVar tp = kFind (strOf nVar) tp
@@ -278,14 +282,28 @@ instance KeyFinding (TypedProgram a) SymbolRep (TypedBinding a) where
                     Nothing -> Nothing
                     Just vRep' -> Map.lookup vRep' m
 
+instance KeyValUpdate (TypedProgram a) TokenRep (TypedBinding a) where
+    kValUpdate vRep f tp @ (TyProg m cache) =
+        if vRep `Map.member` m
+        then TyProg (Map.adjust f vRep m) cache
+        else case Map.lookup vRep cache of
+            Nothing -> tp
+            Just vRep' -> TyProg (Map.adjust f vRep' m) cache
+
 instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
-    kValUpdate nVar f tp @ (TyProg m cache) =
-        let vRep = strOf nVar in
-            if vRep `Map.member` m
-            then TyProg (Map.adjust f vRep m) cache
-            else case Map.lookup vRep cache of
-                Nothing -> tp
-                Just vRep' -> TyProg (Map.adjust f vRep' m) cache
+    kValUpdate nVar f tp = kValUpdate (strOf nVar) f tp
+
+instance KeyValUpdate (TypedProgram a) TokenRep (BindingSingleton a) where
+    kValUpdate vRep f = kValUpdate vRep builtF
+        where
+            builtF (TyNonRec bSing) = TyNonRec $ f bSing
+            builtF (TyRec bs) = TyRec $ updateRecs bs
+
+            updateRecs [] = []
+            updateRecs (bSing @ (nVar', _, _) : t) =
+                if strOf nVar' == vRep
+                then f bSing : t
+                else bSing : updateRecs t
 
 instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (BindingSingleton a) where
     kValUpdate nVar f = kValUpdate nVar builtF
@@ -371,8 +389,11 @@ instance Existence (PropMethodsTable a) (Ty.NotedVar a) where
 instance Existence (PropMethodsTable a) SymbolRep where
     existIn vRep (MhtsT m) = vRep `member` m
 
+instance KeyFinding (PropMethodsTable a) SymbolRep (Ty.NotedVar a) where
+    kFind symRep (MhtsT m) = Map.lookup symRep m
+
 instance KeyFinding (PropMethodsTable a) (Ty.NotedVar a) (Ty.NotedVar a) where
-    kFind nVar (MhtsT m) = Map.lookup (strOf nVar) m
+    kFind nVar mhts = kFind (strOf nVar) mhts
 
 instance Adder (PropMethodsTable a) (Ty.NotedVar a) where
     addElem nVar (MhtsT m) = MhtsT $ Map.insert (strOf nVar) nVar m
@@ -407,8 +428,11 @@ instance Existence (ImplTable a) (Property, Ty.LangSpecConstraint a) where
             Just cs -> any (c `Ty.satisfy`) cs
                         -}
 
+instance KeyFinding (ImplTable a) PropConRep [Ty.LangSpecConstraint a] where
+    kFind contRep (ImplT m) = Map.lookup contRep m
+
 instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where
-    kFind cont (ImplT m) = Map.lookup (strOf cont) m
+    kFind cont it = kFind (strOf cont) it
 
 {- FIXME
 instance KeyFinding (ImplTable a) (Property, Ty.LangSpecConstraint a) [Ty.LangSpecConstraint a] where
