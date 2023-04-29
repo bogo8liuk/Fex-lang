@@ -6,6 +6,7 @@ module Lib.Monad.Utils
     , concatMapM
     , concatIxMapM
     , partitionM
+    , forAllM
     , local'
 ) where
 
@@ -52,7 +53,11 @@ partitionM f l = parts l ([], [])
             then parts t (x : matching, notMatching)
             else parts t (matching, x : notMatching)
 
-{- The same of `local` of MoandReader, but with MonadState. -}
+{- More fancy version of foldM -}
+forAllM :: (Foldable t, Monad m) => t a -> (b -> a -> m b) -> b -> m b
+forAllM t f x = foldM f x t
+
+{- The same of `local` of MonadReader, but with MonadState. -}
 local' :: MonadState s m => (s -> s) -> m a -> m a
 local' stUpd op = do
     st <- get
