@@ -68,10 +68,10 @@ module Compiler.Ast.Tree
     , doOnUnCon'
     -- AstOp monad
     , AstOp
-    , astOpMap
-    , changeErrValue
-    , (<?>)
-    , runAstOp
+    -- TODO: legacy, astOpMap
+    -- TODO: legacy, changeErrValue
+    -- TODO: legacy, (<?>)
+    -- TODO: legacy, runAstOp
     , visitPtsInMany
     , visitPtsInCont
     , visitPtsInAdtCon
@@ -79,8 +79,8 @@ module Compiler.Ast.Tree
     , AstOpFilters(..)
     , updateTypes
     , updateUnCons
-    , updateTypes'
-    , updateUnCons'
+    , updateAllTypes
+    , updateAllUnCons
     , lookupTypes
     , lookupUnCons
     , lookupTypes'
@@ -275,9 +275,11 @@ module Compiler.Ast.Tree
 ) where
 
 import Lib.Utils
+import Lib.Monad.Utils
 import Lib.Monad.Repeat
 import Control.Monad
 import Control.Applicative
+import Control.Monad.State
 import Data.Semigroup
 import Data.List(foldl')
 import Data.List.NonEmpty(NonEmpty(..))
@@ -898,8 +900,26 @@ doOnUnCon' (Composite (TyComp (Param n, ts, st))) _ _ _ bfp = bfp n ts st
 
 {- A monadic very generic operation on the ast with type `err` for errors and type `a` for return type.
 It takes in input a Program and a default value for `err` type. -}
-newtype AstOp s err a = AstOp { doOp :: Program s -> err -> Either err (a, Program s) }
+{- TODO: legacy
+newtype AstOp s err a =
+    AstOp
+        { doOp :: Program s -> err -> Either err (a, Program s)
+        }
+                -}
 
+type AstOp s err = StateT (Program s) (Either err)
+
+getDecls :: AstOp s err [Declaration s]
+getDecls = gets declarationsFrom
+
+astOpErr :: err -> AstOp s err a
+astOpErr = lift . Left
+
+{- NB: dangerous operation! -}
+replaceProg :: [Declaration s] -> AstOp s err ()
+replaceProg = put . buildProgram
+
+{- TODO: legacy
 astOpMap :: (a -> b) -> AstOp s err a -> AstOp s err b
 astOpMap f (AstOp g) = AstOp $ \p e -> case g p e of
     Right (x, p) -> Right (f x, p)
@@ -954,6 +974,7 @@ AstOp functions can provide a way to set an error value during the computation, 
 would be ignored. -}
 runAstOp :: Program s -> err -> AstOp s err a -> Either err (a, Program s)
 runAstOp p err op = doOp op p err
+-}
 
 doOnPts :: [ParamTypeName a]
         -> x
@@ -1230,11 +1251,12 @@ instance Binder (Signature a) (ParamTypeName a) where
 Either result (from a visit functions) multiple times; it is not exported, it is just used to write a
 better code. -}
 newtype TypeOp s err x a =
-    TyOp { __doTyOp
+    TyOp
+        { __doTyOp
             :: x
             -> (x -> Type s -> Either err (x, Type s))
             -> Either err (x, a)
-         }
+        }
 
 instance Functor (TypeOp s err x) where
     fmap f (TyOp g) = TyOp $ \x tyf -> case g x tyf of
@@ -1282,6 +1304,27 @@ thereAOF _ AOFAll = True
 thereAOF _ AOFNone = False
 thereAOF aof (AOFSome l) = aof `elem` l
 thereAOF aof (AOFExcept l) = aof `notElem` l
+
+isIncludedBy :: Declaration a -> AstOpFilters -> Bool
+isIncludedBy _ AOFAll = True
+isIncludedBy _ AOFNone = False
+isIncludedBy (ADT _) (AOFSome fls) = AOFAdt `elem` fls
+isIncludedBy (ADT _) (AOFExcept fls) = AOFAdt `notElem` fls
+isIncludedBy (AliasADT _) (AOFSome fls) = AOFAlias `elem` fls
+isIncludedBy (AliasADT _) (AOFExcept fls) = AOFAlias `notElem` fls
+isIncludedBy (Intf _) (AOFSome fls) = AOFIntf `elem` fls
+isIncludedBy (Intf _) (AOFExcept fls) = AOFIntf `notElem` fls
+isIncludedBy (Ins _) (AOFSome fls) = AOFInst `elem` fls
+isIncludedBy (Ins _) (AOFExcept fls) = AOFInst `notElem` fls
+isIncludedBy (Sig _) (AOFSome fls) = AOFSig `elem` fls
+isIncludedBy (Sig _) (AOFExcept fls) = AOFSig `notElem` fls
+isIncludedBy (Let _) (AOFSome fls) = AOFSymD `elem` fls
+isIncludedBy (Let _) (AOFExcept fls) = AOFSymD `notElem` fls
+isIncludedBy (LetMulti _) (AOFSome fls) = AOFMultiSymD `elem` fls
+isIncludedBy (LetMulti _) (AOFExcept fls) = AOFMultiSymD `notElem` fls
+
+filterDecls :: [Declaration a] -> AstOpFilters -> [Declaration a]
+filterDecls decls aof = filter (`isIncludedBy` aof) decls
 
 typeOpVisit :: Type s -> TypeOp s err a (Type s)
 typeOpVisit ty = TyOp $ \x tyf -> tyf x ty
@@ -1472,18 +1515,23 @@ visitTypesInSig (SigTok (s, ty, st)) = do
     ty'' <- visitTypesInType ty'
     return $ SigTok (s, ty'', st)
 
-callVisit :: (m s -> TypeOp s err a (m s))
-          -> m s
-          -> a
-          -> (a -> Type s -> Either err (a, Type s))
-          -> Either err (a, m s)
-callVisit op d = __doTyOp (op d)
+astOpTypeVisit
+    :: (m s -> TypeOp s err a (m s))
+    -> m s
+    -> a
+    -> (a -> Type s -> Either err (a, Type s))
+    -> AstOp s err (a, m s)
+astOpTypeVisit op decl x tyVisit =
+    case __doTyOp (op decl) x tyVisit of
+        Left err -> astOpErr err
+        Right (x', decl') -> return (x', decl')
 
 {- Conversion of UnConType updating function. -}
 unConTransUpdate :: (UnConType s -> Either err (UnConType s)) -> (Type s -> Either err (Type s))
-unConTransUpdate f ty = case f $ unConFromType ty of
-    Left err -> Left err
-    Right uty -> Right $ typeFromUnCon uty
+unConTransUpdate f ty =
+    case f $ unConFromType ty of
+        Left err -> Left err
+        Right uty -> Right $ typeFromUnCon uty
 
 unConTransLookup :: (a -> UnConType s -> Either err a) -> (a -> Type s -> Either err a)
 unConTransLookup f x ty = f x $ unConFromType ty
@@ -1493,91 +1541,80 @@ unConTransSafeLookup f x ty = f x $ unConFromType ty
 
 {- Low-level ast visiting function. -}
 visitTypes :: a -> (a -> Type s -> Either err (a, Type s)) -> AstOpFilters -> AstOp s err a
-visitTypes x f aof = AstOp $ \p _ -> let decls = declarationsFrom p in
-    case visit decls x f aof [] of
-        Left err -> Left err
-        Right (x', decls') -> Right (x', Program decls')
+visitTypes x f aof = do
+    p <- get
+    let decls = declarationsFrom p
+    (x', decls') <- forAllM decls visitIfIncluded `accumulatingIn` (x, [])
+    replaceProg $ reverse decls'    --Reversing is necessary since declarations have been accumulated from the head
+    return x'
     where
-        {- performing reverse because elements have been inserted into the head, so reversing preserves
-        the original order. -}
-        visit [] x _ _ accum = Right (x, reverse accum)
-        {- TODO: boiler-plate code. -}
-        visit (ADT d : t) x f aof accum =
-            if AOFAdt `thereAOF` aof
-            then case callVisit visitTypesInAdt d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (ADT d' : accum)
-            else visit t x f aof (ADT d : accum)
-        visit (AliasADT d : t) x f aof accum =
-            if AOFAlias `thereAOF` aof
-            then case callVisit visitTypesInAlias d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (AliasADT d' : accum)
-            else visit t x f aof (AliasADT d : accum)
-        visit (Intf d : t) x f aof accum =
-            if AOFIntf `thereAOF` aof
-            then case callVisit visitTypesInProp d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (Intf d' : accum)
-            else visit t x f aof (Intf d : accum)
-        visit (Ins d : t) x f aof accum =
-            if AOFInst `thereAOF` aof
-            then case callVisit visitTypesInInst d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (Ins d' : accum)
-            else visit t x f aof (Ins d : accum)
-        visit (Sig d : t) x f aof accum =
-            if AOFSig `thereAOF` aof
-            then case callVisit visitTypesInSig d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (Sig d' : accum)
-            else visit t x f aof (Sig d : accum)
-        visit (Let d : t) x f aof accum =
-            if AOFSymD `thereAOF` aof
-            then case callVisit visitTypesInSymDecl d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (Let d' : accum)
-            else visit t x f aof (Let d : accum)
-        visit (LetMulti d : t) x f aof accum =
-            if AOFMultiSymD `thereAOF` aof
-            then case callVisit visitTypesInMultiSymDecl d x f of
-                Left err -> Left err
-                Right (x', d') -> visit t x' f aof (LetMulti d' : accum)
-            else visit t x f aof (LetMulti d : accum)
+        {- Just for a better readability. -}
+        accumulatingIn = ($)
+
+        visitIfIncluded res @ (y, decls) decl =
+            if decl `isIncludedBy` aof
+            then visit decl res
+            else return (y, decl : decls)
+
+        visit (ADT adt) (y, decls) = do
+            (y', adt') <- astOpTypeVisit visitTypesInAdt adt y f
+            return (y', ADT adt' : decls)
+        visit (AliasADT alias) (y, decls) = do
+            (y', alias') <- astOpTypeVisit visitTypesInAlias alias y f
+            return (y', AliasADT alias' : decls)
+        visit (Intf intf) (y, decls) = do
+            (y', intf') <- astOpTypeVisit visitTypesInProp intf y f
+            return (y', Intf intf' : decls)
+        visit (Ins inst) (y, decls) = do
+            (y', inst') <- astOpTypeVisit visitTypesInInst inst y f
+            return (y', Ins inst' : decls)
+        visit (Sig sig) (y, decls) = do
+            (y', sig') <- astOpTypeVisit visitTypesInSig sig y f
+            return (y', Sig sig' : decls)
+        visit (Let symD) (y, decls) = do
+            (y', symD') <- astOpTypeVisit visitTypesInSymDecl symD y f
+            return (y', Let symD' : decls)
+        visit (LetMulti symD) (y, decls) = do
+            (y', symD') <- astOpTypeVisit visitTypesInMultiSymDecl symD y f
+            return (y', LetMulti symD' : decls)
+
+----------------- Ast operations on types -----------------
 
 {- It offers an operation to change values of type Type. This is very useful to avoid direct pattern
 matching on a Program, which would break the abstract data type and would bring boiler-plate code.
 The callback provides a way to set the value for the error case. -}
-updateTypes :: a -> (Type s -> Either err (Type s)) -> AstOpFilters -> AstOp s err a
-updateTypes x f aof =
+updateTypes :: (Type s -> Either err (Type s)) -> AstOpFilters -> AstOp s err ()
+updateTypes f =
+    visitTypes () builtF
+    where
     {- builtF is only an adjustment of `f`, it does the same stuff. -}
-    let builtF _ ty = case f ty of
-         Left err -> Left err
-         {- Returning always the starting value `x`, `updateTypes` only "writes", it does not "read",
-         so it cannot "bubble" values within the ast. -}
-         Right ty' -> Right (x, ty')
-    in visitTypes x builtF aof
+    builtF _ ty =
+        case f ty of
+            Left err -> Left err
+            Right ty' -> Right ((), ty')
 
 {- Same of updateTypes, but it acts on UnConType. -}
-updateUnCons :: a -> (UnConType s -> Either err (UnConType s)) -> AstOpFilters -> AstOp s err a
-updateUnCons x f filters = updateTypes x <| unConTransUpdate f <| filters
+updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpFilters -> AstOp s err ()
+updateUnCons f = updateTypes $ unConTransUpdate f
 
-{- `updateTypes' x f` is a shorthand for `updateTypes x f AOFAll` -}
-updateTypes' :: a -> (Type s -> Either err (Type s)) -> AstOp s err a
-updateTypes' x f = updateTypes x f AOFAll
+{- `updateAllTypes x f` is a shorthand for `updateTypes x f AOFAll` -}
+updateAllTypes :: (Type s -> Either err (Type s)) -> AstOp s err ()
+updateAllTypes f = updateTypes f AOFAll
 
-updateUnCons' :: a -> (UnConType s -> Either err (UnConType s)) -> AstOp s err a
-updateUnCons' x f = updateUnCons x f AOFAll
+updateAllUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOp s err ()
+updateAllUnCons f = updateUnCons f AOFAll
 
 {- It offers an operation to "read" all values of type Type. Like updateTypes, this is useful to avoid
 pattern matching on a Program. -}
 lookupTypes :: a -> (a -> Type s -> Either err a) -> AstOpFilters -> AstOp s err a
-lookupTypes x f aof =
+lookupTypes x f =
+    visitTypes x builtF
+    where
     {- Adjustment of `f` -}
-    let builtF y ty = case f y ty of
-         Left err -> Left err
-         Right y' -> Right (y', ty)
-    in visitTypes x builtF aof
+    builtF y ty =
+        case f y ty of
+            Left err -> Left err
+            Right y' -> Right (y', ty)
 
 lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpFilters -> AstOp s err a
 lookupUnCons x f filters = lookupTypes x <| unConTransLookup f <| filters
@@ -1591,203 +1628,237 @@ lookupUnCons' x f = lookupUnCons x f AOFAll
 {- Variant of `lookupTypes` which takes a "safe" callback, namely a callback which does not return an error.
 NB: the returned ast operation is granted not to fail. -}
 safeLookupTypes :: a -> (a -> Type s -> a) -> AstOpFilters -> AstOp s err a
-safeLookupTypes x f aof =
-    let builtF y ty = Right (f y ty, ty) in visitTypes x builtF aof
+safeLookupTypes x f =
+    visitTypes x builtF
+    where
+        builtF y ty = Right (f y ty, ty)
 
 safeLookupTypes' :: a -> (a -> Type s -> a) -> AstOp s err a
 safeLookupTypes' x f = safeLookupTypes x f AOFAll
 
+-------------------- Ast operations on declarations --------------------
+
+{- Generic ast-operation to read a declaration. -}
+lookupDecl :: (a -> Declaration s -> Either err a) -> a -> Declaration s -> AstOp s err a
+lookupDecl f x decl =
+    case f x decl of
+        Left err -> astOpErr err
+        Right x' -> return x'
+
+{- Generic ast-operation to read-and-update a declaration. -}
+setDecl
+    :: (a -> Declaration s -> Either err (a, Declaration s))
+    -> a
+    -> Declaration s
+    -> AstOp s err (a, Declaration s)
+setDecl f x decl =
+    case f x decl of
+        Left err -> astOpErr err
+        Right (x', decl') -> return (x' ,decl')
+
+{- Generic ast-operation to update a declaration. -}
+updateDecl :: (Declaration s -> Either err (Declaration s)) -> Declaration s -> AstOp s err (Declaration s)
+updateDecl f decl =
+    case f decl of
+        Left err -> astOpErr err
+        Right decl' -> return decl'
+
+{- Generic ast-operation to read declarations in a program. -}
+lookupDecls :: a -> (a -> Declaration s -> Either err a) -> AstOp s err a
+lookupDecls x f = do
+    decls <- getDecls
+    forAllM decls doLookup x
+    where
+        doLookup = lookupDecl f
+
+{- Generic ast-operation to read-and-update declarations in a program. -}
+setDecls :: a -> (a -> Declaration s -> Either err (a, Declaration s)) -> AstOp s err a
+setDecls x f = do
+    decls <- getDecls
+    (x', decls') <- forAllM decls doVisit `accumulatingIn` (x, [])
+    replaceProg $ reverse decls'
+    return x'
+    where
+        accumulatingIn = ($)
+
+        doVisit (y, decls) decl =
+            case f y decl of
+                Left err -> astOpErr err
+                Right (y', decl') -> return (y', decl' : decls)
+
+{- Generic ast-operation to update declarations in a program. -}
+updateDecls :: (Declaration s -> Either err (Declaration s)) -> AstOp s err ()
+updateDecls f = do
+    decls <- getDecls
+    decls' <- mapM doUpdate decls
+    replaceProg decls'
+    where
+        doUpdate = updateDecl f
+
 {- Operation to "read" all occurrences of declaration of adt. -}
 lookupAdt :: a -> (a -> AlgebraicDataType s -> Either err a) -> AstOp s err a
-lookupAdt x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchAdt x decls f p
+lookupAdt x f =
+    lookupDecls x builtF
     where
-        searchAdt x [] _ p = Right (x, p)
-        searchAdt x (ADT d : t) f p = case f x d of
-            Left err -> Left err
-            Right x' -> searchAdt x' t f p
-        searchAdt x (_ : t) f p = searchAdt x t f p
+        builtF y (ADT adt) = f y adt
+        builtF y _ = Right y
 
 {- Safe version of `lookupAdt`, namely it is granted not to fail. -}
 safeLookupAdt :: a -> (a -> AlgebraicDataType s -> a) -> AstOp s err a
 safeLookupAdt x f =
-    let builtF y d = Right $ f y d in lookupAdt x builtF
-
-updateAdt :: a -> (AlgebraicDataType s -> Either err (AlgebraicDataType s)) -> AstOp s err a
-updateAdt x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        changeAdt x decls f []
+    lookupAdt x builtF
     where
-        changeAdt x [] f accum = Right (x, Program $ reverse accum)
-        changeAdt x (ADT d : t) f accum = case f d of
-            Left err -> Left err
-            Right d' -> changeAdt x t f (ADT d' : accum)
-        changeAdt x (de : t) f accum = changeAdt x t f (de : accum)
+        builtF y decl = Right $ f y decl
+
+updateAdt :: (AlgebraicDataType s -> Either err (AlgebraicDataType s)) -> AstOp s err ()
+updateAdt f =
+    updateDecls builtF
+    where
+        builtF (ADT adt) =
+            case f adt of
+                Left err -> Left err
+                Right adt' -> Right $ ADT adt'
+        builtF decl = Right decl
+
+{- Instead of write-only functions (like `update<token>`), it updates a token (in this case an adt)
+and returns also a user-defined value. Thus, it can be seen as a read-and-write operation on ast. -}
+setAdt :: a -> (a -> AlgebraicDataType s -> Either err (a, AlgebraicDataType s)) -> AstOp s err a
+setAdt x f =
+    setDecls x builtF
+    where
+        builtF y (ADT adt) =
+            case f y adt of
+                Left err -> Left err
+                Right (y', adt') -> Right (y', ADT adt')
+        builtF y decl = Right (y, decl)
 
 {- Operation to "read" all occurrences of declaration of alias. -}
 lookupAlias :: a -> (a -> AliasAlgebraicDataType s -> Either err a) -> AstOp s err a
-lookupAlias x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchAlias x decls f p
+lookupAlias x f =
+    lookupDecls x builtF
     where
-        searchAlias x [] _ p = Right (x, p)
-        searchAlias x (AliasADT d : t) f p = case f x d of
-            Left err -> Left err
-            Right x' -> searchAlias x' t f p
-        searchAlias x (_ : t) f p = searchAlias x t f p
+        builtF y (AliasADT alias) = f y alias
+        builtF y _ = Right y
 
 {- Safe version of `lookupAlias`, namely it is granted not to fail. -}
 safeLookupAlias :: a -> (a -> AliasAlgebraicDataType s -> a) -> AstOp s err a
 safeLookupAlias x f =
-    let builtF y d = Right $ f y d in lookupAlias x builtF
-
-{- Operation to update all occurrences of declaration of symbols. -}
-updateSymDecl :: a -> (SymbolDeclaration s -> Either err (SymbolDeclaration s)) -> AstOp s err a
-updateSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchSymD x decls f []
+    lookupAlias x builtF
     where
-        searchSymD x [] _ accum = Right (x, Program $ reverse accum)
-        searchSymD x (Let d : t) f accum = case f d of
-            Left err -> Left err
-            Right d' -> searchSymD x t f (Let d' : accum)
-        searchSymD x (de : t) f accum = searchSymD x t f $ de : accum
+        builtF y decl = Right $ f y decl
 
 lookupSymDecl :: a -> (a -> SymbolDeclaration s -> Either err a) -> AstOp s err a
-lookupSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchSymD x decls f []
+lookupSymDecl x f =
+    lookupDecls x builtF
     where
-        searchSymD x [] _ accum = Right (x, Program $ reverse accum)
-        searchSymD x (Let d : t) f accum =
-            case f x d of
-                Left err -> Left err
-                Right x' -> searchSymD x' t f (Let d : accum)
-        searchSymD x (de : t) f accum = searchSymD x t f $ de : accum
+        builtF y (Let symD) = f y symD
+        builtF y _ = Right y
 
 safeLookupSymDecl :: a -> (a -> SymbolDeclaration s -> a) -> AstOp s err a
 safeLookupSymDecl x f =
-    let builtF y d = Right $ f y d in lookupSymDecl x builtF
+    lookupSymDecl x builtF
+    where
+        builtF y decl = Right $ f y decl
+
+{- Operation to update all occurrences of declaration of symbols. -}
+updateSymDecl :: (SymbolDeclaration s -> Either err (SymbolDeclaration s)) -> AstOp s err ()
+updateSymDecl f =
+    updateDecls builtF
+    where
+        builtF (Let symD) =
+            case f symD of
+                Left err -> Left err
+                Right symD' -> Right $ Let symD'
+        builtF decl = Right decl
 
 lookupGenSymDecl
     :: a
     -> (a -> SymbolDeclaration s -> Either err a)
     -> (a -> MultiSymbolDeclaration s -> Either err a)
     -> AstOp s err a
-lookupGenSymDecl x fsd fmsd = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchGen x decls []
+lookupGenSymDecl x sdf msdf =
+    lookupDecls x builtF
     where
-        searchGen x [] accum = Right (x, Program $ reverse accum)
-        searchGen x (symD @ (Let d) : t) accum =
-            case fsd x d of
-                Left err -> Left err
-                Right x' -> searchGen x' t (symD : accum)
-        searchGen x (multiSymD @ (LetMulti d) : t) accum =
-            case fmsd x d of
-                Left err -> Left err
-                Right x' -> searchGen x' t (multiSymD : accum)
-        searchGen x (de : t) accum = searchGen x t (de : accum)
+        builtF y (Let symD) = sdf y symD
+        builtF y (LetMulti symD) = msdf y symD
+        builtF y _ = Right y
 
 safeLookupGenSymDecl
     :: a
     -> (a -> SymbolDeclaration s -> a)
     -> (a -> MultiSymbolDeclaration s -> a)
     -> AstOp s err a
-safeLookupGenSymDecl x fsd fmsd =
-    let builtFsd y sd = Right $ fsd y sd in
-    let builtFmsd y msd = Right $ fmsd y msd in
-        lookupGenSymDecl x builtFsd builtFmsd
+safeLookupGenSymDecl x sdf msdf =
+    lookupGenSymDecl x builtSdF builtMsdF
+    where
+        builtSdF y symD = Right $ sdf y symD
+        builtMsdF y symD = Right $ msdf y symD
 
 setSymDecl :: a -> (a -> SymbolDeclaration s -> Either err (a, SymbolDeclaration s)) -> AstOp s err a
-setSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchSymD x decls f []
+setSymDecl x f =
+    setDecls x builtF
     where
-        searchSymD x [] _ accum = Right (x, Program $ reverse accum)
-        searchSymD x (Let d : t) f accum =
-            case f x d of
+        builtF y (Let symD) =
+            case f y symD of
                 Left err -> Left err
-                Right (x', d') -> searchSymD x' t f (Let d' : accum)
-        searchSymD x (de : t) f accum = searchSymD x t f $ de : accum
+                Right (y', symD') -> Right (y', Let symD')
+        builtF y decl = Right (y, decl)
 
 setMultiSymDecl :: a -> (a -> MultiSymbolDeclaration s -> Either err (a, MultiSymbolDeclaration s)) -> AstOp s err a
-setMultiSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchMultiSymD x decls f []
+setMultiSymDecl x f =
+    setDecls x builtF
     where
-        searchMultiSymD x [] _ accum = Right (x, Program $ reverse accum)
-        searchMultiSymD x (LetMulti d : t) f accum =
-            case f x d of
+        builtF y (LetMulti symD) =
+            case f y symD of
                 Left err -> Left err
-                Right (x', d') -> searchMultiSymD x' t f (LetMulti d' : accum)
-        searchMultiSymD x (de : t) f accum = searchMultiSymD x t f $ de : accum
-
-{- Instead of write-only functions (like `update<token>`), it updates a token (in this case an adt)
-and returns also a user-defined value. Thus, it can be seen as a read-and-write operation on ast. -}
-setAdt :: a -> (a -> AlgebraicDataType s -> Either err (a, AlgebraicDataType s)) -> AstOp s err a
-setAdt x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchAdt x decls f []
-    where
-        searchAdt x [] _ accum = Right (x, Program $ reverse accum)
-        searchAdt x (ADT d : t) f accum = case f x d of
-            Left err -> Left err
-            Right (x', d') -> searchAdt x' t f (ADT d' : accum)
-        searchAdt x (de : t) f accum = searchAdt x t f (de : accum)
+                Right (y', symD') -> Right (y', LetMulti symD')
+        builtF y decl = Right (y, decl)
 
 lookupProp :: a -> (a -> Interface s -> Either err a) -> AstOp s err a
-lookupProp x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchProp x decls f []
+lookupProp x f =
+    lookupDecls x builtF
     where
-        searchProp x [] _ accum = Right (x, Program $ reverse accum)
-        searchProp x (Intf d : t) f accum = case f x d of
-            Left err -> Left err
-            Right x' -> searchProp x' t f (Intf d : accum)
-        searchProp x (de : t) f accum = searchProp x t f (de : accum)
+        builtF y (Intf prop) = f y prop
+        builtF y _ = Right y
 
 safeLookupProp :: a -> (a -> Interface s -> a) -> AstOp s err a
 safeLookupProp x f =
-    let builtF y d = Right $ f y d in lookupProp x builtF
+    lookupProp x builtF
+    where
+        builtF y decl = Right $ f y decl
 
 setProp :: a -> (a -> Interface s -> Either err (a, Interface s)) -> AstOp s err a
-setProp x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchProp x decls f []
+setProp x f =
+    setDecls x builtF
     where
-        searchProp x [] _ accum = Right (x, Program $ reverse accum)
-        searchProp x (Intf d : t) f accum = case f x d of
-            Left err -> Left err
-            Right (x', d') -> searchProp x' t f (Intf d' : accum)
-        searchProp x (de : t) f accum = searchProp x t f (de : accum)
+        builtF y (Intf prop) =
+            case f y prop of
+                Left err -> Left err
+                Right (y', prop') -> Right (y', Intf prop')
+        builtF y decl = Right (y, decl)
 
 lookupInst :: a -> (a -> Instance s -> Either err a) -> AstOp s err a
-lookupInst x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchInst x decls f []
+lookupInst x f =
+    lookupDecls x builtF
     where
-        searchInst x [] _ accum = Right (x, Program $ reverse accum)
-        searchInst x (Ins d : t) f accum = case f x d of
-            Left err -> Left err
-            Right x' -> searchInst x' t f (Ins d : accum)
-        searchInst x (de : t) f accum = searchInst x t f (de : accum)
+        builtF y (Ins inst) = f y inst
+        builtF y _ = Right y
 
 safeLookupInst :: a -> (a -> Instance s -> a) -> AstOp s err a
 safeLookupInst x f =
-    let builtF y d = Right $ f y d in lookupInst x builtF
+    lookupInst x builtF
+    where
+        builtF y decl = Right $ f y decl
 
 setInst :: a -> (a -> Instance s -> Either err (a, Instance s)) -> AstOp s err a
-setInst x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        searchInst x decls f []
+setInst x f =
+    setDecls x builtF
     where
-        searchInst x [] _ accum = Right (x, Program $ reverse accum)
-        searchInst x (Ins d : t) f accum = case f x d of
-            Left err -> Left err
-            Right (x', d') -> searchInst x' t f (Ins d' : accum)
-        searchInst x (de : t) f accum = searchInst x t f (de : accum)
+        builtF y (Ins inst) =
+            case f y inst of
+                Left err -> Left err
+                Right (y', inst') -> Right (y', Ins inst')
+        builtF y decl = Right (y, decl)
 
 lookupConts :: a -> (a -> Constraint s -> Either err a) -> AstOp s err a
 lookupConts x f =
