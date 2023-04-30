@@ -1,5 +1,10 @@
 module Lib.Utils
-    ( ErrDescription
+    ( (|>)
+    , (<|)
+    , if'
+    , then'
+    , else'
+    , intOfStr
     , KnowledgeOf(..)
     , isYes
     , isNo
@@ -8,21 +13,14 @@ module Lib.Utils
     , isThis
     , isThat
     , isNone
-    , (|>)
-    , (<|)
-    , insertAtAfter
-    , insertAtList
+    , onFst
+    , onSnd
     , insertAt
     , diffList
-    , cDiffList
-    , allConcrete
-    , doOnFst
+    , diffListTail
+    , getIfAll
     , allEq
-    , allMapEq
     , occursAtLeastNTimes
-    , occursAtLeastTwice
-    , removeDup
-    , removeDup'
     , head'
     , tail'
     , tail''
@@ -36,7 +34,7 @@ module Lib.Utils
     , firstThat
     , lastThat
     , foldne
-    , allMatchEq
+    , isSublist
     , maybemap
     , leftmapFst
     , rightmapFst
@@ -46,17 +44,12 @@ module Lib.Utils
     , newNELast
     , maximumBy'
     , minimumBy'
-    , if'
-    , then'
-    , else'
     , theMost
     , greatest
     , lowest
-    , intOfStr
-    , forIterNo
-    , forIterNo'
-    , do'
-    , while
+    , theMost'
+    , greatest'
+    , lowest'
     , forAll
     , takeWhile'
     , indexing
@@ -69,7 +62,42 @@ import Data.Either(isRight, isLeft)
 import Data.Foldable(toList)
 import Text.Read
 
-type ErrDescription = String
+infixl 1 |>
+(|>) :: a -> (a -> b) -> b
+(|>) x f = f x
+
+{- This the same of ($) operator, but it is left-associative instead of being right-associative like ($).
+Let's make an example to understand its usefullness, we have:
+    f x y z = x + y + z
+    ...
+    f <| 4 + 5 <| 2 + 3 - 5 <| 1
+This is useful to nest intermediate operations to pass to a function without parenthesis. -}
+infixl 1 <|
+(<|) :: (a -> b) -> a -> b
+(<|) f = f
+
+{- The if-then-else construct without the if-then-else construct! Usage example:
+
+if' (x > y)
+`then'` "Hello World!"
+`else'` "World! Hello"
+
+The only limitation is that the if-condition has to be inside parenthesis.
+-}
+if' :: Bool -> Bool
+if' = id
+
+then' :: Bool -> a -> (a -> a)
+then' True x = const x
+then' False _ = id
+
+else' :: (a -> a) -> a -> a
+else' = ($)
+
+intOfStr :: String -> Maybe Integer
+intOfStr = readMaybe :: String -> Maybe Integer
+
+----------------------- New data-types -----------------------
 
 {- Like Maybe, but it offers one more case with the same type. -}
 data KnowledgeOf a = Yes a | No a | Don'tKnow deriving (Show, Eq, Ord)
@@ -106,101 +134,47 @@ isNone :: KnowledgeOneOf a b -> Bool
 isNone None = True
 isNone _ = False
 
-infixl 1 |>
-(|>) :: a -> (a -> b) -> b
-(|>) x f = f x
+----------------------- Operations on tuples -----------------------
 
-{- This the same of ($) operator, but it is left-associative instead of being right-associative like ($).
-Let's make an example to understand its usefullness, we have:
-    f x y z = x + y + z
-    ...
-    f <| 4 + 5 <| 2 + 3 - 5 <| 1
-This is useful to nest intermediate operations to pass to a function without parenthesis. -}
-infixl 1 <|
-(<|) :: (a -> b) -> a -> b
-(<|) f x = f x
+onFst :: (a -> c) -> (a, b) -> (c, b)
+onFst f (x, y) = (f x, y)
 
-insertAtAfter :: a -> Integer -> (a -> b) -> [b] -> Maybe [b]
-insertAtAfter elem i turn l = if i < 0 then Nothing else Just (__insertAtAfter elem i turn l)
+onSnd :: (b -> c) -> (a, b) -> (a, c)
+onSnd f (x, y) = (x, f y)
 
-__insertAtAfter :: a -> Integer -> (a -> b) -> [b] -> [b]
-__insertAtAfter elem _ turn [] = [turn elem]
-__insertAtAfter elem 0 turn l = (turn elem) : l
-__insertAtAfter elem i turn (h : t) = h : (__insertAtAfter elem (i - 1) turn t)
+----------------------- Operations on lists and foldables -----------------------
 
-insertAtList :: a -> Integer -> [[a]] -> Maybe [[a]]
-insertAtList elem i ll = if i < 0 then Nothing else Just (__insertAtList elem i ll)
-
-__insertAtList :: a -> Integer -> [[a]] -> [[a]]
-__insertAtList elem _ [] = [[elem]]
-__insertAtList elem 0 ((h : t) : tl) = (elem : h : t) : tl
-__insertAtList elem i (hl : tl) = hl : (__insertAtList elem (i - 1) tl)
-
-insertAt :: a -> Integer -> [a] -> Maybe [a]
-insertAt elem i l = insertAtAfter elem i id l
+insertAt :: a -> Int -> [a] -> [a]
+insertAt x _ [] = [x]
+insertAt x n l @ (h : t)
+    | n <= 0 = x : l
+    | otherwise = h : insertAt x (n - 1) t
 
 {- From the second list, it removes (from the head) the number of elements of the first list. -}
 diffList :: [a] -> [b] -> [b]
-diffList l l' = drop (length l) l'
+diffList l = drop $ length l
 
 {- Same as diffList but it removes starting from the tail. -}
-cDiffList :: [a] -> [b] -> [b]
-cDiffList l l' = reverse . drop (length l) . reverse $ l'
+diffListTail :: [a] -> [b] -> [b]
+diffListTail l = reverse . drop (length l) . reverse
 
-{- Given a list of Maybe, it returns a Maybe of list of elements which were contained in the previous
-list: Nothing if at least one was Nothing, Just a list otherwise (namely all elements were Just something). -}
-allConcrete :: [Maybe a] -> Maybe [a]
-allConcrete [] = Just []
-allConcrete (Nothing : _) = Nothing
-allConcrete (Just x : t) = case allConcrete t of
-    Nothing -> Nothing
-    Just xs -> Just $ x : xs
-
-doOnFst :: (a -> b) -> (a, c) -> (b, c)
-doOnFst f (x, y) = (f x, y)
+{- Given a Foldable of Maybe, it returns a Maybe of Foldable of elements which were contained in the previous
+Foldable: Nothing if at least one was Nothing, Just a Foldable otherwise (namely all elements were Just something). -}
+getIfAll :: (Foldable t, Functor t) => t (Maybe a) -> Maybe (t a)
+getIfAll = maybemap id
 
 allEq :: Eq a => [a] -> Bool
 allEq [] = True
-allEq (elem : t) = all (== elem) t
-
-{- Same of allEq, but applicating first a mapping of elements. -}
-allMapEq :: Eq b => (a -> b) -> [a] -> Bool
-allMapEq _ [] = True
-allMapEq f (elem : t) = all ((== f elem) . f) t
+allEq (h : t) = all (== h) t
 
 occursAtLeastNTimes :: Eq a => a -> [a] -> Int -> Bool
-occursAtLeastNTimes x l n = occurs l n
-    where
-        occurs [] _ = False
-        occurs (x' : t) n =
-            if x /= x'
-            then occurs t n
-            else let n' = n - 1 in
-                n' == 0 || occurs t n'
-
-occursAtLeastTwice :: Eq a => a -> [a] -> Bool
-occursAtLeastTwice x l = occursAtLeastNTimes x l 2
-
-{- It removes all duplicates in a list, but not preserving the order. If you need to preserve the order,
-see `removeDup'`. -}
-removeDup :: Eq a => [a] -> [a]
-removeDup [] = []
-removeDup (elem : t) =
-    if any (== elem) t
-    then removeDup t
-    else elem : removeDup t
-
-{- Like removeDup, but it does preserve the order and less efficient. -}
-removeDup' :: Eq a => [a] -> [a]
-removeDup' l = __remove l []
-    where
-        __remove [] _ = []
-        __remove (elem : t) trm =
-            if any (== elem) trm
-            then __remove t trm
-            else if any (== elem) t
-            then elem : __remove t (elem : trm)
-            else elem : __remove t trm
+occursAtLeastNTimes _ [] n
+    | n <= 0 = True
+    | otherwise = False
+occursAtLeastNTimes x (h : t) n
+    | n <= 0 = True
+    | x == h = occursAtLeastNTimes x t $ n - 1
+    | otherwise = occursAtLeastNTimes x t n
 
 head' :: [a] -> Maybe a
 head' [] = Nothing
@@ -236,15 +210,12 @@ headsAndLast l = headsAndLast' l []
 
 elemAt :: Int -> [a] -> Maybe a
 elemAt _ [] = Nothing
-elemAt 0 (e : t) = Just e
+elemAt 0 (h : _) = Just h
 elemAt n (_ : t) = elemAt (n - 1) t
 
 {- Indexed version of map. -}
 imap :: (Int -> a -> b) -> [a] -> [b]
-imap f l = __imap f l 0
-    where
-        __imap _ [] _ = []
-        __imap f (e : t) i = f i e : (__imap f t $ i + 1)
+imap f l = map <| uncurry f <| zip [0..] l
 
 {- The same of map, but with a dedicated callback for the last element of the list. -}
 lastmap :: (a -> b) -> (a -> b) -> [a] -> [b]
@@ -274,8 +245,8 @@ foldne f l = Just $ foldl1 f l
 
 {- It tests that all elements of the first list have at least one of the second list with which the equality
 test returns true. -}
-allMatchEq :: Eq a => [a] -> [a] -> Bool
-allMatchEq l l' = all (\e -> any (\e' -> e == e') l') l
+isSublist :: Eq a => [a] -> [a] -> Bool
+isSublist l l' = all (`elem` l') l
 
 maybemap :: (Foldable t, Functor t) => (a -> Maybe b) -> t a -> Maybe (t b)
 maybemap f x =
@@ -333,62 +304,28 @@ minimumBy' ord x
     | null x = Nothing
     | otherwise = Just $ minimumBy ord x
 
-{- The if-then-else construct without the if-then-else construct! Usage example:
+theMost :: (a -> a -> Bool) -> [a] -> Maybe a
+theMost _ [] = Nothing
+theMost p (h : t) = Just $ theMost' p (h :| t)
 
-if' (x > y)
-`then'` "Hello World!"
-`else'` "World! Hello"
-
-The only limitation is that the if-condition has to be inside parenthesis.
--}
-if' :: Bool -> Bool
-if' = id
-
-then' :: Bool -> a -> (a -> a)
-then' True x = const x
-then' False _ = id
-
-else' :: (a -> a) -> a -> a
-else' = ($)
-
-theMost :: (a -> a -> Bool) -> NonEmpty a -> a
-theMost _ (e :| []) = e
-theMost pred (e :| e' : t)
-    | pred e' e = theMost pred (e' :| t)
-    | otherwise = theMost pred (e :| t)
-
-greatest :: Ord a => NonEmpty a -> a
+greatest :: Ord a => [a] -> Maybe a
 greatest = theMost (>)
 
-lowest :: Ord a => NonEmpty a -> a
+lowest :: Ord a => [a] -> Maybe a
 lowest = theMost (<)
 
-intOfStr :: String -> Maybe Integer
-intOfStr = readMaybe :: String -> Maybe Integer
+theMost' :: (a -> a -> Bool) -> NonEmpty a -> a
+theMost' p (h :| l) = foldl' keep h l
+    where
+        keep x y
+            | y `p` x = y
+            | otherwise = x
 
-forIterNo :: Int -> a -> [a]
-forIterNo n op
-    | n <= 0 = []
-    | otherwise = op : forIterNo (n - 1) op
+greatest' :: Ord a => NonEmpty a -> a
+greatest' = theMost' (>)
 
-forIterNo' :: Int -> a -> (a -> a) -> a
-forIterNo' n val op
-    | n <= 0 = val
-    | otherwise = forIterNo' (n - 1) (op val) op
-
-do' :: (a -> a) -> a -> a
-do' = ($)
-
-{- Usage example:
-
-    while isNothing x
-        `do'` op
--}
-while :: (a -> Bool) -> a -> (a -> a) -> a
-while cond val doOn =
-    if cond val
-    then while cond (doOn val) doOn
-    else val
+lowest' :: Ord a => NonEmpty a -> a
+lowest' = theMost' (<)
 
 {- A more fancy version of foldl':
 
