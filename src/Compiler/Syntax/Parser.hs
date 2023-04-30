@@ -27,62 +27,56 @@ instance UnreachableState ParseError where
     isUnreachable _ = Nothing
 
 makeCategory :: Tree.OperatorsCategory With.ProgState -> Maybe Op.Category
-makeCategory (Tree.Catg (Tree.CatgName (name, _), ops, gt, lt, Tree.Fxty (fixity, _), _)) =
-    let keys = Keys.opsCategoryKeywords in
-    let inL = Keys.infixLeftKey keys in
-    let inR = Keys.infixRightKey keys in
-    let inN = Keys.infixNoneKey keys in
-    let pre = Keys.prefixKey keys in
-    let post = Keys.postfixKey keys in
-    let ops' = map repOf ops in
-    let gt' = map repOf gt in
-    let lt' = map repOf lt in
-    if fixity == inL
-    then Just $
-        Op.Category
-            { Op.name = name
-            , Op.operators = ops'
-            , Op.gt = gt'
-            , Op.lt = lt'
-            , Op.fixity = Op.In AssocLeft
+makeCategory (Tree.Catg (Tree.CatgName (name, _), ops, gt, lt, Tree.Fxty (fixity, _), _))
+    | fixity == inL =
+        Just $ baseCategory
+            { Op.fixity = Op.In AssocLeft
             }
-    else if fixity == inR
-    then Just $
-        Op.Category
-            { Op.name = name
-            , Op.operators = ops'
-            , Op.gt = gt'
-            , Op.lt = lt'
-            , Op.fixity = Op.In AssocRight
+    | fixity == inR =
+        Just $ baseCategory
+            { Op.fixity = Op.In AssocRight
             }
-    else if fixity == inN
-    then Just $
-        Op.Category
-            { Op.name = name
-            , Op.operators = ops'
-            , Op.gt = gt'
-            , Op.lt = lt'
-            , Op.fixity = Op.In AssocNone
+    | fixity == inN =
+        Just $ baseCategory
+            { Op.fixity = Op.In AssocNone
             }
-    else if fixity == pre
-    then Just $
-        Op.Category
-            { Op.name = name
-            , Op.operators = ops'
-            , Op.gt = gt'
-            , Op.lt = lt'
-            , Op.fixity = Op.Pre
+    | fixity == pre =
+        Just $ baseCategory
+            { Op.fixity = Op.Pre
             }
-    else if fixity == post
-    then Just $
-        Op.Category
-            { Op.name = name
-            , Op.operators = ops'
-            , Op.gt = gt'
-            , Op.lt = lt'
-            , Op.fixity = Op.Post
+    | fixity == post =
+        Just $ baseCategory
+            { Op.fixity = Op.Post
             }
-    else Nothing
+    | otherwise = Nothing
+    where
+        {- Even though this makes the compiler emit a warning (not initialized field), this is done in order not to
+        boiler-plate code. -}
+        baseCategory =
+            Op.Category
+                { Op.name = name
+                , Op.operators = ops'
+                , Op.gt = gt'
+                , Op.lt = lt'
+                }
+
+        keys = Keys.opsCategoryKeywords
+
+        inL = Keys.infixLeftKey keys
+
+        inR = Keys.infixRightKey keys
+
+        inN = Keys.infixNoneKey keys
+
+        pre = Keys.prefixKey keys
+
+        post = Keys.postfixKey keys
+
+        ops' = map repOf ops
+
+        gt' = map repOf gt
+
+        lt' = map repOf lt
 
 {- This parser fails if it cannot build a CustomOpTable for any reason, otherwise it does not consume any input
 and returns a CustomOpTable. ++ [[Op.defaultOperators]] is the add of the default operator parser (with the
