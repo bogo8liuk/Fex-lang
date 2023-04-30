@@ -1886,10 +1886,13 @@ lookupConts x f = do
         visitCont (Right y) c = f y c
 
 {- Same of TypeOp, but for hints. Not exported. -}
-newtype HintOp s err x a = HiOp { __doHiOp :: x
-                                           -> (x -> Hint s -> Either err (x, Hint s))
-                                           -> Either err (x, a)
-                                }
+newtype HintOp s err x a =
+    HiOp
+        { __doHiOp
+            :: x
+            -> (x -> Hint s -> Either err (x, Hint s))
+            -> Either err (x, a)
+        }
 
 instance Functor (HintOp s err x) where
     fmap f (HiOp g) = HiOp $ \x hf -> case g x hf of
