@@ -83,10 +83,10 @@ module Compiler.Ast.Tree
     , updateAllUnCons
     , lookupTypes
     , lookupUnCons
-    , lookupTypes'
-    , lookupUnCons'
+    , lookupAllTypes
+    , lookupAllUnCons
     , safeLookupTypes
-    , safeLookupTypes'
+    , safeLookupAllTypes
     , lookupAdt
     , safeLookupAdt
     , updateAdt
@@ -1619,11 +1619,11 @@ lookupTypes x f =
 lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpFilters -> AstOp s err a
 lookupUnCons x f filters = lookupTypes x <| unConTransLookup f <| filters
 
-lookupTypes' :: a -> (a -> Type s -> Either err a) -> AstOp s err a
-lookupTypes' x f = lookupTypes x f AOFAll
+lookupAllTypes :: a -> (a -> Type s -> Either err a) -> AstOp s err a
+lookupAllTypes x f = lookupTypes x f AOFAll
 
-lookupUnCons' :: a -> (a -> UnConType s -> Either err a) -> AstOp s err a
-lookupUnCons' x f = lookupUnCons x f AOFAll
+lookupAllUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOp s err a
+lookupAllUnCons x f = lookupUnCons x f AOFAll
 
 {- Variant of `lookupTypes` which takes a "safe" callback, namely a callback which does not return an error.
 NB: the returned ast operation is granted not to fail. -}
@@ -1633,8 +1633,8 @@ safeLookupTypes x f =
     where
         builtF y ty = Right (f y ty, ty)
 
-safeLookupTypes' :: a -> (a -> Type s -> a) -> AstOp s err a
-safeLookupTypes' x f = safeLookupTypes x f AOFAll
+safeLookupAllTypes :: a -> (a -> Type s -> a) -> AstOp s err a
+safeLookupAllTypes x f = safeLookupTypes x f AOFAll
 
 -------------------- Ast operations on declarations --------------------
 
@@ -1861,30 +1861,29 @@ setInst x f =
         builtF y decl = Right (y, decl)
 
 lookupConts :: a -> (a -> Constraint s -> Either err a) -> AstOp s err a
-lookupConts x f =
-    let builtF y (Type (cs, _, _)) = visitConts y f cs in
-        do { x' <- partialLookupConts x f
-           ; lookupTypes' x' builtF
-           }
+lookupConts x f = do
+    {- There are three different places where to search constraints:
+        1) types;
+        2) properties;
+        3) instances;
+    -}
+    x' <- lookupAllTypes x builtF
+    {- The lookup for properties and instances is just one to improve performances.
+    TODO: a possible further optimization is to gather all the lookups in just one parse of the ast -}
+    lookupInPropsAndInsts x' builtF'
     where
-        partialLookupConts x f = AstOp $ \p _ ->
-            let decls = declarationsFrom p in
-                searchConts decls x f []
+        lookupInPropsAndInsts = lookupDecls
 
-        searchConts [] x _ accum = Right (x, Program $ reverse accum)
-        searchConts (de @ (Intf (IntfTok (IntfDecl (_, cs, _, _), _, _))) : t) x f accum = visitContsRec t x f cs $ de : accum
-        searchConts (de @ (Ins (InstTok (_, cs, _, _, _))) : t) x f accum = visitContsRec t x f cs $ de : accum
-        searchConts (de : t) x f accum = searchConts t x f $ de : accum
+        builtF y ty = visitConts y $ contsFromType ty
 
-        visitContsRec t x f cs accum =
-            case visitConts x f cs of
-                Left err -> Left err
-                Right x' -> searchConts t x' f accum
+        builtF' y (Intf prop) = visitConts y $ contsFromIntf prop
+        builtF' y (Ins inst) = visitConts y $ contsFromInst inst
+        builtF' y _ = Right y
 
-        visitConts x f cs = foldl' <| visitC f <| Right x <| cs
+        visitConts y = foldl' visitCont $ Right y
 
-        visitC _ err @ (Left _) _ = err
-        visitC f (Right x) c = f x c
+        visitCont err @ (Left _) _ = err
+        visitCont (Right y) c = f y c
 
 {- Same of TypeOp, but for hints. Not exported. -}
 newtype HintOp s err x a = HiOp { __doHiOp :: x
