@@ -191,7 +191,7 @@ mkDataConParams nVal tag = do
         { dataconStrRep = repOf nVal
         , dataconName = name
         , dataconIsInfix = False
-        , dataconBang = forIterNo n $ HsSrcBang (SourceText valRep) NoSrcUnpack NoSrcStrict
+        , dataconBang = replicate n $ HsSrcBang (SourceText valRep) NoSrcUnpack NoSrcStrict
          --TODO: this must not be empty anymore when records will be added to the language
         , dataconFields = []
         , dataconUniv = univTyVars
