@@ -1505,9 +1505,9 @@ visitTypesInProp (IntfTok (i, sigs, st)) = do
     return $ IntfTok (i', sigs', st)
     where
         visitTypesInIntfDecl :: IntfDeclare s -> TypeOp s err a (IntfDeclare s)
-        visitTypesInIntfDecl (IntfDecl (pName, cs, pts, st)) = do
+        visitTypesInIntfDecl (IntfDecl (pName, cs, pts, dst)) = do
             cs' <- mapM visitTypesInCont cs
-            return $ IntfDecl (pName, cs', pts, st)
+            return $ IntfDecl (pName, cs', pts, dst)
 
 visitTypesInSig :: Signature s -> TypeOp s err a (Signature s)
 visitTypesInSig (SigTok (s, ty, st)) = do
@@ -1917,56 +1917,60 @@ instance Monad (HintOp s err x) where
 hintOpVisit :: Hint s -> HintOp s err a (Hint s)
 hintOpVisit h = HiOp $ \x hf -> hf x h
 
-__visitHintsInHeadSymDecl :: SymbolDeclaration s -> HintOp s err a (SymbolDeclaration s)
-__visitHintsInHeadSymDecl (SymTok (SymDecl (n, h, syms, sst), e, st)) = do
+visitHintsInHeadSymDecl :: SymbolDeclaration s -> HintOp s err a (SymbolDeclaration s)
+visitHintsInHeadSymDecl (SymTok (SymDecl (n, h, syms, sst), e, st)) = do
     h' <- hintOpVisit h
     return $ SymTok (SymDecl (n, h', syms, sst), e, st)
 
-__visitHintsInHeadMultiSymDecl :: MultiSymbolDeclaration s -> HintOp s err a (MultiSymbolDeclaration s)
-__visitHintsInHeadMultiSymDecl (MultiSymTok sn h mpm st) = do
+visitHintsInHeadMultiSymDecl :: MultiSymbolDeclaration s -> HintOp s err a (MultiSymbolDeclaration s)
+visitHintsInHeadMultiSymDecl (MultiSymTok sn h mpm st) = do
     h' <- hintOpVisit h
     return $ MultiSymTok sn h' mpm st
 
-callHintVisit :: (m s -> HintOp s err a (m s))
-              -> m s
-              -> a
-              -> (a -> Hint s -> Either err (a, Hint s))
-              -> Either err (a, m s)
-callHintVisit op d x f = __doHiOp (op d) x f
+runHintVisit
+    :: (m s -> HintOp s err a (m s))
+    -> m s
+    -> a
+    -> (a -> Hint s -> Either err (a, Hint s))
+    -> Either err (a, m s)
+runHintVisit op decl = __doHiOp $ op decl
+
+astOpHintVisit
+    :: (m s -> HintOp s err a (m s))
+    -> m s
+    -> a
+    -> (a -> Hint s -> Either err (a, Hint s))
+    -> AstOp s err (a, m s)
+astOpHintVisit op d x hintVisit =
+    case __doHiOp (op d) x hintVisit of
+        Left err -> astOpErr err
+        Right (x', decl') -> return (x', decl')
 
 {- It visits hints but uniquely in symbol declarations, in particular only the hint of the variable
 which is being defined. -}
-visitHintsInHeadSymDecl :: a -> (SymbolName s -> a -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
-visitHintsInHeadSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        visitHs decls x f []
+setHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
+setHintsInHeadSymDecl x f =
+    setSymDecl x builtF
     where
-        visitHs [] x _ accum = Right (x, Program $ reverse accum)
-        visitHs (Let d : t) x f accum =
-            let symName = symNameFrom d in
-            let builtF = f symName in
-                case callHintVisit __visitHintsInHeadSymDecl d x builtF of
-                    Left err -> Left err
-                    Right (x', d') -> visitHs t x' f (Let d' : accum)
-        visitHs (de : t) x f accum = visitHs t x f (de : accum)
+        builtF y symD =
+            let symName = symNameFrom symD in
+                runHintVisit visitHintsInHeadSymDecl symD y $ f' symName
 
-visitHintsInHeadMultiSymDecl :: a -> (SymbolName s -> a -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
-visitHintsInHeadMultiSymDecl x f = AstOp $ \p _ ->
-    let decls = declarationsFrom p in
-        visitHs decls x f []
+        f' sn y = f y sn
+
+setHintsInHeadMultiSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
+setHintsInHeadMultiSymDecl x f =
+    setMultiSymDecl x builtF
     where
-        visitHs [] x _ accum = Right (x, Program $ reverse accum)
-        visitHs (LetMulti d : t) x f accum =
-            let symName = symNameFromMultiSymDecl d in
-            let builtF = f symName in
-                case callHintVisit __visitHintsInHeadMultiSymDecl d x builtF of
-                    Left err -> Left err
-                    Right (x', d') -> visitHs t x' f (LetMulti d' : accum)
-        visitHs (de : t) x f accum = visitHs t x f (de : accum)
+        builtF y symD =
+            let symName = symNameFromMultiSymDecl symD in
+                runHintVisit visitHintsInHeadMultiSymDecl symD y $ f' symName
+
+        f' sn y = f y sn
 
 {- It visits and updates hints (through the callback) uniquely in symbol declarations, in particular
 only the hint of the variable which is being defined. -}
-updateHintsInHeadSymDecl :: a -> (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOp s err a
+updateHintsInHeadSymDecl :: a -> (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOp s err ()
 updateHintsInHeadSymDecl x f =
     let builtF n _ h = case f n h of
          Left err -> Left err
@@ -1974,17 +1978,17 @@ updateHintsInHeadSymDecl x f =
     in visitHintsInHeadSymDecl x builtF
 
 {- Safe version of updateHintsInHeadSymDecl. -}
-safeUpdateHintsInHeadSymDecl :: a -> (SymbolName s -> Hint s -> Hint s) -> AstOp s err a
+safeUpdateHintsInHeadSymDecl :: a -> (SymbolName s -> Hint s -> Hint s) -> AstOp s err ()
 safeUpdateHintsInHeadSymDecl x f =
     let builtF n _ h = Right (x, f n h) in visitHintsInHeadSymDecl x builtF
 
-safeUpdateHintsInHeadMultiSymDecl :: a -> (SymbolName s -> Hint s -> Hint s) -> AstOp s err a
+safeUpdateHintsInHeadMultiSymDecl :: a -> (SymbolName s -> Hint s -> Hint s) -> AstOp s err ()
 safeUpdateHintsInHeadMultiSymDecl x f =
     let builtF n _ h = Right (x, f n h) in visitHintsInHeadMultiSymDecl x builtF
 
 {- It visits and "reads" hints (through the callback) uniquely in symbol declarations, in particular
 only the hint of the variable which is being defined. -}
-lookupHintsInHeadSymDecl :: a -> (SymbolName s -> a -> Hint s -> Either err a) -> AstOp s err a
+lookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err a) -> AstOp s err a
 lookupHintsInHeadSymDecl x f =
     let builtF n y h = case f n y h of
          Left err -> Left err
@@ -1992,7 +1996,7 @@ lookupHintsInHeadSymDecl x f =
     in visitHintsInHeadSymDecl x builtF
 
 {- Safe version (it cannot fail) of lookupHintsInHeadSymDecl. -}
-safeLookupHintsInHeadSymDecl :: a -> (SymbolName s -> a -> Hint s -> a) -> AstOp s err a
+safeLookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> a) -> AstOp s err a
 safeLookupHintsInHeadSymDecl x f =
     let builtF n y h = Right (f n y h, h) in visitHintsInHeadSymDecl x builtF
 
