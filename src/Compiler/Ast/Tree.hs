@@ -108,6 +108,8 @@ module Compiler.Ast.Tree
     , safeLookupInst
     , setInst
     , lookupConts
+    , setHintsInHeadSymDecl
+    , setHintsInHeadMultiSymDecl
     , updateHintsInHeadSymDecl
     , updateHintsInHeadMultiSymDecl
     , safeUpdateHintsInHeadSymDecl
@@ -1517,6 +1519,74 @@ visitTypesInSig (SigTok (s, ty, st)) = do
     ty'' <- visitTypesInType ty'
     return $ SigTok (s, ty'', st)
 
+visitTypesInDecl :: Declaration s -> AstOpFilters -> TypeOp s err a (Declaration s)
+visitTypesInDecl decl aof =
+    if decl `isIncludedBy` aof
+    then
+        case decl of
+            ADT adt -> do
+                adt' <- visitTypesInAdt adt
+                return $ ADT adt'
+            AliasADT alias -> do
+                alias' <- visitTypesInAlias alias
+                return $ AliasADT alias'
+            Intf prop -> do
+                prop' <- visitTypesInProp prop
+                return $ Intf prop'
+            Ins inst -> do
+                inst' <- visitTypesInInst inst
+                return $ Ins inst'
+            Sig sig -> do
+                sig' <- visitTypesInSig sig
+                return $ Sig sig'
+            Let symD -> do
+                symD' <- visitTypesInSymDecl symD
+                return $ Let symD'
+            LetMulti symD -> do
+                symD' <- visitTypesInMultiSymDecl symD
+                return $ LetMulti symD'
+    else
+        return decl
+
+runTypeVisit
+    :: (m s -> TypeOp s err a (m s))
+    -> m s
+    -> a
+    -> (a -> Type s -> Either err (a, Type s))
+    -> Either err (a, m s)
+runTypeVisit op decl = __doTyOp $ op decl
+
+evalTypeVisit
+    :: (m s -> TypeOp s err a (m s))
+    -> m s
+    -> a
+    -> (a -> Type s -> Either err a)
+    -> Either err a
+evalTypeVisit op decl x typeVisit =
+    case __doTyOp (op decl) x typeVisit' of
+        Left err -> Left err
+        Right (x', _) -> Right x'
+    where
+        typeVisit' y ty =
+            case typeVisit y ty of
+                Left err -> Left err
+                Right y' -> Right (y', ty)
+
+execTypeVisit
+    :: (m s -> TypeOp s err () (m s))
+    -> m s
+    -> (Type s -> Either err (Type s))
+    -> Either err (m s)
+execTypeVisit op decl typeVisit =
+    case __doTyOp (op decl) () typeVisit' of
+        Left err -> Left err
+        Right (_, decl') -> Right decl'
+    where
+        typeVisit' () ty =
+            case typeVisit ty of
+                Left err -> Left err
+                Right ty' -> Right ((), ty')
+
 astOpTypeVisit
     :: (m s -> TypeOp s err a (m s))
     -> m s
@@ -1546,39 +1616,16 @@ visitTypes :: a -> (a -> Type s -> Either err (a, Type s)) -> AstOpFilters -> As
 visitTypes x f aof = do
     p <- get
     let decls = declarationsFrom p
-    (x', decls') <- forAllM decls visitIfIncluded `accumulatingIn` (x, [])
+    (x', decls') <- forAllM decls visit `accumulatingIn` (x, [])
     replaceProg $ reverse decls'    --Reversing is necessary since declarations have been accumulated from the head
     return x'
     where
         {- Just for a better readability. -}
         accumulatingIn = ($)
 
-        visitIfIncluded res @ (y, decls) decl =
-            if decl `isIncludedBy` aof
-            then visit decl res
-            else return (y, decl : decls)
-
-        visit (ADT adt) (y, decls) = do
-            (y', adt') <- astOpTypeVisit visitTypesInAdt adt y f
-            return (y', ADT adt' : decls)
-        visit (AliasADT alias) (y, decls) = do
-            (y', alias') <- astOpTypeVisit visitTypesInAlias alias y f
-            return (y', AliasADT alias' : decls)
-        visit (Intf intf) (y, decls) = do
-            (y', intf') <- astOpTypeVisit visitTypesInProp intf y f
-            return (y', Intf intf' : decls)
-        visit (Ins inst) (y, decls) = do
-            (y', inst') <- astOpTypeVisit visitTypesInInst inst y f
-            return (y', Ins inst' : decls)
-        visit (Sig sig) (y, decls) = do
-            (y', sig') <- astOpTypeVisit visitTypesInSig sig y f
-            return (y', Sig sig' : decls)
-        visit (Let symD) (y, decls) = do
-            (y', symD') <- astOpTypeVisit visitTypesInSymDecl symD y f
-            return (y', Let symD' : decls)
-        visit (LetMulti symD) (y, decls) = do
-            (y', symD') <- astOpTypeVisit visitTypesInMultiSymDecl symD y f
-            return (y', LetMulti symD' : decls)
+        visit (y, decls) decl = do
+            (y', decl') <- astOpTypeVisit (`visitTypesInDecl` aof) decl y f
+            return (y', decl' : decls)
 
 ----------------- Ast operations on types -----------------
 
@@ -1878,19 +1925,21 @@ lookupConts x f = do
         1) types;
         2) properties;
         3) instances;
+    Anyway, they are visited with just a single parse of ast (this is done for a better performance obviously).
     -}
-    x' <- lookupAllTypes x builtF
-    {- The lookup for properties and instances is just one to improve performances.
-    TODO: a possible further optimization is to gather all the lookups in just one parse of the ast -}
-    lookupInPropsAndInsts x' builtF'
+    lookupDecls x builtF
     where
-        lookupInPropsAndInsts = lookupDecls
+        typeVisit y ty = visitConts y $ contsFromType ty
 
-        builtF y ty = visitConts y $ contsFromType ty
+        builtF y decl =
+            {- The first part of the tuple is the evaluation of all the types (the constraints which are searched in
+            the types). The second part of the tuple is necessary to select properties and instances. -}
+            case (evalTypeVisit visitContsInDecl decl y typeVisit, decl) of
+                (Right y', Intf prop) -> visitConts y' $ contsFromIntf prop
+                (Right y', Ins inst) -> visitConts y' $ contsFromInst inst
+                (res, _) -> res
 
-        builtF' y (Intf prop) = visitConts y $ contsFromIntf prop
-        builtF' y (Ins inst) = visitConts y $ contsFromInst inst
-        builtF' y _ = Right y
+        visitContsInDecl decl = visitTypesInDecl decl AOFAll
 
         visitConts y = foldl' visitCont $ Right y
 
@@ -1977,17 +2026,6 @@ execHintVisit op decl hintVisit =
             case hintVisit h of
                 Left err -> Left err
                 Right h' -> Right ((), h')
-
-astOpHintVisit
-    :: (m s -> HintOp s err a (m s))
-    -> m s
-    -> a
-    -> (a -> Hint s -> Either err (a, Hint s))
-    -> AstOp s err (a, m s)
-astOpHintVisit op d x hintVisit =
-    case __doHiOp (op d) x hintVisit of
-        Left err -> astOpErr err
-        Right (x', decl') -> return (x', decl')
 
 {- It visits hints but uniquely in symbol declarations, in particular only the hint of the variable
 which is being defined. -}
