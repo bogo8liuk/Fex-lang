@@ -68,10 +68,11 @@ module Compiler.Ast.Tree
     , doOnUnCon'
     -- AstOp monad
     , AstOp
-    -- TODO: legacy, astOpMap
-    -- TODO: legacy, changeErrValue
-    -- TODO: legacy, (<?>)
-    -- TODO: legacy, runAstOp
+    , astOpErr
+    , runAstOp
+    , removeDeclsBy
+    , getDecls
+    , getDeclsBy
     , visitPtsInMany
     , visitPtsInCont
     , visitPtsInAdtCon
@@ -163,7 +164,6 @@ module Compiler.Ast.Tree
     , realTypes'
     , paramTypes
     , paramTypes'
-    , splitDecls
     , declarationsFrom
     , adtDeclFrom
     , aliasDeclFrom
@@ -913,15 +913,16 @@ newtype AstOp s err a =
 
 type AstOp s err = StateT (Program s) (Either err)
 
-getDecls :: AstOp s err [Declaration s]
-getDecls = gets declarationsFrom
-
 astOpErr :: err -> AstOp s err a
 astOpErr = lift . Left
 
 {- NB: dangerous operation! -}
 replaceProg :: [Declaration s] -> AstOp s err ()
 replaceProg = put . buildProgram
+
+{- It executes a AstOp. It needs a Program. -}
+runAstOp :: Program s -> AstOp s err a -> Either err (a, Program s)
+runAstOp = flip runStateT
 
 {- TODO: legacy
 astOpMap :: (a -> b) -> AstOp s err a -> AstOp s err b
@@ -973,12 +974,24 @@ infix 0 <?>
 (<?>) :: AstOp s err a -> err -> AstOp s err a
 (<?>) = changeErrValue
 
-{- It executes a AstOp. It needs a Program and a starting value for error case, however some of the
-AstOp functions can provide a way to set an error value during the computation, so the starting value
-would be ignored. -}
-runAstOp :: Program s -> err -> AstOp s err a -> Either err (a, Program s)
-runAstOp p err op = doOp op p err
 -}
+
+{- It removes declarations specified by filters and it returns them. -}
+removeDeclsBy :: AstOpFilters -> AstOp s err [Declaration s]
+removeDeclsBy aof = do
+    decls <- getDecls
+    let (incl, notIncl) = splitDecls decls aof
+    replaceProg notIncl
+    return incl
+
+getDecls :: AstOp s err [Declaration s]
+getDecls = gets declarationsFrom
+
+getDeclsBy :: AstOpFilters -> AstOp s err [Declaration s]
+getDeclsBy aof = do
+    decls <- getDecls
+    let decls' = filterDecls decls aof
+    return decls'
 
 doOnPts :: [ParamTypeName a]
         -> x
@@ -1303,12 +1316,6 @@ data AstOpFilters =
     | AOFSome [AstOpSingleFilter]
     | AOFExcept [AstOpSingleFilter]
 
-thereAOF :: AstOpSingleFilter -> AstOpFilters -> Bool
-thereAOF _ AOFAll = True
-thereAOF _ AOFNone = False
-thereAOF aof (AOFSome l) = aof `elem` l
-thereAOF aof (AOFExcept l) = aof `notElem` l
-
 isIncludedBy :: Declaration a -> AstOpFilters -> Bool
 isIncludedBy _ AOFAll = True
 isIncludedBy _ AOFNone = False
@@ -1327,8 +1334,19 @@ isIncludedBy (Let _) (AOFExcept fls) = AOFSymD `notElem` fls
 isIncludedBy (LetMulti _) (AOFSome fls) = AOFMultiSymD `elem` fls
 isIncludedBy (LetMulti _) (AOFExcept fls) = AOFMultiSymD `notElem` fls
 
+isNotIncludedBy :: Declaration a -> AstOpFilters -> Bool
+isNotIncludedBy decl aof = not $ isIncludedBy decl aof
+
 filterDecls :: [Declaration a] -> AstOpFilters -> [Declaration a]
 filterDecls decls aof = filter (`isIncludedBy` aof) decls
+
+{- The right-hand element of the returned tuple is the one which has declarations that matched the filter,
+viceversa for the other one. -}
+splitDecls :: [Declaration a] -> AstOpFilters -> ([Declaration a], [Declaration a])
+splitDecls decls aof =
+    ( filter (`isIncludedBy` aof) decls
+    , filter (`isNotIncludedBy` aof) decls
+    )
 
 typeOpVisit :: Type s -> TypeOp s err a (Type s)
 typeOpVisit ty = TyOp $ \x tyf -> tyf x ty
@@ -2429,43 +2447,6 @@ paramTypes (Composite (TyComp (Real _, ts, _)) : t) = paramTypes (ts ++ t)
 
 paramTypes' :: UnConType a -> [ParamTypeName a]
 paramTypes' uty = paramTypes [uty]
-
-{- It extracts and splits declarations from a program. To do the split AstOpFilters is exploited.
-The right-hand element of the returned tuple is the one which has declarations that matched the filter,
-viceversa for the other one. -}
-splitDecls :: [Declaration a] -> AstOpFilters -> ([Declaration a], [Declaration a])
-splitDecls ds fs = __split ds fs [] []
-    where
-        __split [] _ left right = (reverse left, reverse right)     --reverse to preserve the original order
-        {- TODO: use an helper function to match filters -}
-        __split (ADT d : t) fs left right =
-            if AOFAdt `thereAOF` fs
-            then __split t fs (ADT d : left) right
-            else __split t fs left (ADT d : right)
-        __split (AliasADT d : t) fs left right =
-            if AOFAlias `thereAOF` fs
-            then __split t fs (AliasADT d : left) right
-            else __split t fs left (AliasADT d : right)
-        __split (Intf d : t) fs left right =
-            if AOFIntf `thereAOF` fs
-            then __split t fs (Intf d : left) right
-            else __split t fs left (Intf d : right)
-        __split (Ins d : t) fs left right =
-            if AOFInst `thereAOF` fs
-            then __split t fs (Ins d : left) right
-            else __split t fs left (Ins d : right)
-        __split (Sig d : t) fs left right =
-            if AOFSig `thereAOF` fs
-            then __split t fs (Sig d : left) right
-            else __split t fs left (Sig d : right)
-        __split (Let d : t) fs left right =
-            if AOFSymD `thereAOF` fs
-            then __split t fs (Let d : left) right
-            else __split t fs left (Let d : right)
-        __split (LetMulti d : t) fs left right =
-            if AOFMultiSymD `thereAOF` fs
-            then __split t fs (LetMulti d : left) right
-            else __split t fs left (LetMulti d : right)
 
 declarationsFrom :: Program a -> [Declaration a]
 declarationsFrom (Program l) = l
