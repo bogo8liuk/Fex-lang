@@ -15,7 +15,6 @@ import Data.Array
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Fail
-import Lib.Monad.Repeat
 
 data TapeState a = TapeSt { tape :: Array Int a
                           , headOn :: Int
@@ -94,8 +93,6 @@ instance MonadPlus (Tape e)
 
 instance MonadFail (Tape e) where
     fail msg = Tape $ \_ -> OutOfBoundTape msg      --This is useful for a custom error message
-
-instance MonadRepeat (Tape e)
 
 isIn :: Int -> (Int, Int) -> Bool
 isIn i (min, max) = i >= min && i <= max

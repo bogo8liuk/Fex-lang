@@ -91,7 +91,6 @@ library
       Compiler.Types.Prepare.Sort
       Compiler.Types.Tables
       Lib.Counter
-      Lib.Monad.Repeat
       Lib.Monad.Tape
       Lib.Monad.Utils
       Lib.Result
