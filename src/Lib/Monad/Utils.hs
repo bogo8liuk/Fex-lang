@@ -8,6 +8,7 @@ module Lib.Monad.Utils
     , partitionM
     , forAllM
     , local'
+    , (>>*)
 ) where
 
 import Control.Monad.State.Lazy
@@ -66,3 +67,19 @@ local' stUpd op = do
     res <- op
     put st
     return res
+
+{- A way to concatenate a list of operations with Monad bind. Useful to decrease the amount of code, if there's a long
+chain of similar operations. For instance:
+
+f x = do            =>          f x = x >>* [g, h, g, m, h]
+    y <- g x
+    z <- h y
+    a <- g z
+    b <- m a
+    c <- h b
+    return c
+
+The syntax of >>* is also intuitive, because it executes >>= an arbitrary number of times (highlighted
+by * in >>*) -}
+(>>*) :: Monad m => a -> [a -> m a] -> m a
+(>>*) = foldM (\y fM -> fM y)
