@@ -54,16 +54,6 @@ module Compiler.Ast.Tree
     , MatchingExpression(..)
     , UnAltMatchingExpression(..)
     , HasHint(..)
-    -- TypeStretchAction and TypeAction monads
-    , TypeStretchAction
-    , makeSingleStrAction
-    , makeStrAction
-    , TypeStretchActionRes
-    , runStrAction
-    -- TODO: see in the implementation the reason these are commented
-    --, TypeAction
-    --, makeAction
-    --, doActionOnType
     , doOnUnCon
     , doOnUnCon'
     -- AstOp monad
@@ -280,9 +270,6 @@ module Compiler.Ast.Tree
 
 import Lib.Utils
 import Lib.Monad.Utils
-import Lib.Monad.Repeat
-import Control.Monad
-import Control.Applicative
 import Control.Monad.State
 import Data.Semigroup
 import Data.List(foldl')
@@ -541,14 +528,14 @@ element. -}
 instance Semigroup (UnConType s) where
     (<>) ty @ (Singleton nrty) ty' = let st = stateOf ty in
         Composite $ TyComp (nrty, [ty'], st)
-    (<>) comp @ (Composite (TyComp (nrty, ts, st))) ty' = let st' = stateOf comp in
+    (<>) comp @ (Composite (TyComp (nrty, ts, _))) ty' = let st' = stateOf comp in
         Composite $ TyComp (nrty, ts ++ [ty'], st')
 
     {- Overriding to ensure the correct and wanted implementation. -}
     sconcat (ty :| ts) = chaining ty ts
         where
-            chaining ty [] = ty
-            chaining ty (ty' : t) = chaining (ty <> ty') t
+            chaining ty' [] = ty'
+            chaining ty' (ty'' : t) = chaining (ty' <> ty'') t
 
 -- Instances: Functor
 
@@ -713,170 +700,6 @@ instance Functor Declaration where
 
 instance Functor Program where
     fmap f (Program decls) = Program $ map (fmap f) decls
-
--- TypeStretchAction and TypeAction monads
-
-{- This API is useful when the client wants to do operations on type Type without breaking the abstract
-data type (however, if the types change radically, then the signatures could change and the abstract data
-type is broken anyway). A TypeStretchAction is an action which can fail and takes place on a Type object,
-which can continue recursively (on the Type, which is a mutually recursive data type) an arbitrary number
-of times. -}
-
-data TypeRes s a = Continue ([(NonRecType s, TypeState)], a) | Success a | TyActError
-
-data TypeState = Singleton' | Base'
-
-newtype TypeStretchAction s a = TyStrAct { execAction :: [(NonRecType s, TypeState)] -> TypeRes s a }
-
-instance Functor (TypeStretchAction s) where
-    fmap f (TyStrAct g) = TyStrAct $ \tl -> case g tl of
-        Continue (l, x) -> Continue (l, f x)
-        Success x -> Success $ f x
-        TyActError -> TyActError
-
-instance Applicative (TypeStretchAction s) where
-    pure x = TyStrAct $ \_ -> Success x
-
-    (<*>) act act' = TyStrAct $ \tl -> case execAction act tl of
-        Continue (l, f) -> (case execAction act' l of
-            Continue (l', x) -> Continue (l', f x)
-            Success x -> Success $ f x
-            TyActError -> TyActError)
-        {- TODO: here the same problem as monad bind, namely it continue executing with the old list. -}
-        Success f -> (case execAction act' tl of
-            Continue (l, x) -> Continue (l, f x)
-            Success x -> Success $ f x
-            TyActError -> TyActError)
-        TyActError -> TyActError
-
-instance Monad (TypeStretchAction s) where
-    (>>=) tyact g = TyStrAct $ \tl -> case execAction tyact tl of
-        Continue (l, m) -> execAction (g m) l
-        {-TODO: continuing executing? If there's success, it should be stopped, but here it seems
-        it cannot be done. -}
-        Success m -> execAction (g m) tl
-        TyActError -> TyActError
-
-instance Alternative (TypeStretchAction s) where
-    empty = TyStrAct $ \_ -> TyActError
-
-    (<|>) (TyStrAct f) (TyStrAct g) = TyStrAct $ \tl -> case f tl of
-        Continue (l, _) -> g l
-        end -> end
-
-instance MonadPlus (TypeStretchAction s)
-
-instance MonadFail (TypeStretchAction s) where
-    fail _ = mzero
-
-instance MonadRepeat (TypeStretchAction s)
-
-{- Given an UnConType, this helper "stretches" it and returns a list of NonRecType, with an extra information telling
-if the NonRecType value was at the base of a composite type or was a singleton. -}
-flattenType :: UnConType s -> [(NonRecType s, TypeState)]
-flattenType ty = flat [ty]
-    where
-        flat [] = []
-        flat ((Singleton ty) : t) = (ty, Singleton') : flat t
-        flat ((Composite (TyComp (ty, tys, _))) : t) = (ty, Base') : flat (tys ++ t)
-
-{- This is like `makeStrAction` except for it consumes only the first element which occurs in a Type. -}
-makeSingleStrAction :: a
-                    -> (a -> ADTName s -> a)
-                    -> (a -> ParamTypeName s -> a)
-                    -> (a -> ADTName s -> a)
-                    -> (a -> ParamTypeName s -> a)
-                    -> TypeStretchAction s a
-makeSingleStrAction x sfr sfp bfr bfp =
-    TyStrAct $ \tl -> case tl of
-        [] -> Success x
-        (Real r, Singleton') : t -> Continue (t, sfr x r)
-        (Param p, Singleton') : t -> Continue (t, sfp x p)
-        (Real r, Base') : t -> Continue (t, bfr x r)
-        (Param p, Base') : t -> Continue (t, bfp x p)
-
-{- Helper for makeStrAction: this is a recursive function which consumes an entire list of NonRecType. -}
-__makeStrAction :: [(NonRecType s, TypeState)]
-                -> a
-                -> (a -> ADTName s -> a)
-                -> (a -> ParamTypeName s -> a)
-                -> (a -> ADTName s -> a)
-                -> (a -> ParamTypeName s -> a)
-                -> TypeRes s a
-__makeStrAction [] x _ _ _ _ = Success x
-__makeStrAction tl x sfr sfp bfr bfp =
-    case execAction (makeSingleStrAction x sfr sfp bfr bfp) tl of
-        Continue (l, y) -> __makeStrAction l y sfr sfp bfr bfp
-        end -> end
-
-{- makeStrAction offers a way to do something on a Type recursively (Type s is a mutually recursive type), without
-pattern matching on it (it does it "automatically"). It needs four callbacks, one for when the Type has an ADTName
-and is a singleton, one for when the Type has an ADTName and is a composite type, one for when the Type has a
-ParamTypeName and is a singleton and one for when the Type has a ParamTypeName and is a composite type (here, it
-does the pattern matching). This consumes a Type entirely, so each single token in a Type is "parsed". -}
-makeStrAction :: a
-              -> (a -> ADTName s -> a)
-              -> (a -> ParamTypeName s -> a)
-              -> (a -> ADTName s -> a)
-              -> (a -> ParamTypeName s -> a)
-              -> TypeStretchAction s a
-makeStrAction x sfr sfp bfr bfp = TyStrAct $ \tl -> __makeStrAction tl x sfr sfp bfr bfp
-
-data TypeStretchActionRes a =
-      Ok a
-    | NotFinished a
-    | Error
-
-runStrAction :: UnConType s -> TypeStretchAction s a -> TypeStretchActionRes a
-runStrAction ty (TyStrAct f) = case f $ flattenType ty of
-    Success x -> Ok x
-    Continue (_, x) -> NotFinished x
-    _ -> Error
-
-{- TODO: commented because of the overhead it brings: right now, there's no need of an abstraction with
-a monadic pattern, `doOnUnCon` just pattern matches a type and call a callback according to the case.
-
-{- Differently from TypeStrAction, this action does not work on a "pre-stretched" Type, but it works on an
-"untouched" Type, without the possibility of repeating the action recursively: it's up to the client to
-call a function recursively (usually in the third and fourth callbacks). However, this offers more elasticity
-because the client can works directly on the lists of Type and make operations on them, a fact not possible
-with TypeStrAction. -}
-TypeAction s a = TyAct { doAction :: Type s
-                                  -> (ADTName s -> a)
-                                  -> (ParamTypeName s -> a)
-                                  -> (ADTName s -> [Type s] -> a)
-                                  -> (ParamTypeName s -> [Type s] -> a)
-                                  -> a
-                       }
-
-instance Functor (TypeAction s a) where
-    fmap f (TyAct g) = TyAct $ \ty sfr sfp bfr bfp -> f $ g ty sfr sfp bfr bfp
-
-instance Applicative (TypeAction s a) where
-    pure x = TyAct $ \_ _ _ _ _ -> x
-
-    (<*>) (TyAct f) (TyAct g) = TyAct $ \ty sfr sfp bfr bfp -> f $ g ty sfr sfp bfr bfp
-
-instance Monad (TypeAction s a) where
-    (>>=) tyact g = TyAct $ \ty sfr sfp bfr bfp -> g $ doAction tyact ty sfr sfp bfr bfp
-
-makeAction :: TypeAction s a
-makeAction = TyAct $ \ty sfr sfp bfr bfp = case ty of
-    Singleton (Real r) -> sfr r
-    Singleton (Param p) -> sfp p
-    Comp (Real r, tys, _) -> bfr r tys
-    Comp (Param p, tys, _) -> bfp p tys
-
-doActionOnType :: Type s
-               -> (ADTName s -> a)
-               -> (ParamTypeName s -> a)
-               -> (ADTName s -> [Type s] -> a)
-               -> (ParamTypeName s -> [Type s] -> a)
-               -> TypeAction s a
-               -> a
-doActionOnType ty sfr sfp bfr bfp act = doAction act ty sfr sfp bfr bfp
-
-end of overhead -}
 
 doOnUnCon
     :: UnConType s
@@ -1623,11 +1446,8 @@ unConTransUpdate f ty =
         Left err -> Left err
         Right uty -> Right $ typeFromUnCon uty
 
-unConTransLookup :: (a -> UnConType s -> Either err a) -> (a -> Type s -> Either err a)
-unConTransLookup f x ty = f x $ unConFromType ty
-
-unConTransSafeLookup :: (a -> UnConType s -> a) -> (a -> Type s -> a)
-unConTransSafeLookup f x ty = f x $ unConFromType ty
+unConTransLookup :: (a -> UnConType s -> b) -> (a -> Type s -> b)
+unConTransLookup f x = f x . unConFromType
 
 {- Low-level ast visiting function. -}
 visitTypes :: a -> (a -> Type s -> Either err (a, Type s)) -> AstOpFilters -> AstOp s err a
