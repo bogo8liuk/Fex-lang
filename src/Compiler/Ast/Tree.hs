@@ -272,6 +272,7 @@ import Lib.Utils
 import Lib.Monad.Utils
 import Control.Monad.State
 import Control.Monad.Identity
+import Control.Monad.RWS
 import Data.Semigroup
 import Data.List(foldl')
 import Data.List.NonEmpty(NonEmpty(..))
@@ -1093,44 +1094,74 @@ instance Binder (Signature a) (ParamTypeName a) where
         let (ty', x') = visitPtsInContsInType ty x f in
             (SigTok (sn, ty', st), x')
 
-{- Monadic type to simplify visit functions. Its purpose is to avoid performing pattern matching on an
-Either result (from a visit functions) multiple times; it is not exported, it is just used to write a
-better code. -}
-newtype TypeOpT s st m a =
-    TyOp
-        { __doTyOp
-            :: st
-            -> (st -> Type s -> m (st, Type s))
-            -> m (st, a)
-        }
+{- Monad to simplify visit functions. The read-only environment is a function for tokens visit. It is read-only because
+it would be unpleasant if the visit function changes while evaluating an action. -}
+type TokenOpT tok s st m a = RWST (st -> tok s -> m (st, tok s)) () st m a
 
-type TypeOp s x = TypeOpT s x Identity
-type TypeOpRes s x err = TypeOpT s x (Either err)
+getVisit :: Monad m => TokenOpT tok s st m (st -> tok s -> m (st, tok s))
+getVisit = ask
 
-instance Monad m => Functor (TypeOpT s x m) where
-    --fmap :: (a -> b) -> TypeOp s x m a -> TypeOp s x m b
-    fmap f (TyOp opx) =
-        TyOp $ \st tyf -> do
-            (st', y) <- opx st tyf
-            return (st', f y)
+getState :: Monad m => TokenOpT tok s st m st
+getState = get
 
-instance Monad m => Applicative (TypeOpT s x m) where
-    pure y = TyOp $ \st _ -> pure (st, y)
+tokenOpVisit :: Monad m => tok s -> TokenOpT tok s st m (tok s)
+tokenOpVisit tok = do
+    f <- getVisit
+    x <- getState
+    (x', tok') <- lift $ f x tok
+    put x'
+    return tok'
 
-    (<*>) (TyOp opf) (TyOp opx) =
-        TyOp $ \st tyf -> do
-            (st', f) <- opf st tyf
-            (st'', y) <- opx st' tyf
-            return (st'', f y)
+runTokenVisit :: Monad m => st -> (st -> tok s -> m (st, tok s)) -> TokenOpT tok s st m a -> m (st, a)
+runTokenVisit st f op = do
+    (x, st', _) <- runRWST op f st
+    return (st', x)
 
-instance Monad m => Monad (TypeOpT s x m) where
-    (>>=) op cont =
-        TyOp $ \st tyf -> do
-            (st', y) <- runTypeOp op st tyf
-            runTypeOp (cont y) st' tyf
+runTokenVisitWith
+    :: Monad m
+    => (d s -> TokenOpT tok s a m (d s))
+    -> d s
+    -> a
+    -> (a -> tok s -> m (a, tok s))
+    -> m (a, d s)
+runTokenVisitWith op decl st f = runTokenVisit st f $ op decl
 
-runTypeOp :: TypeOpT s x m a -> x -> (x -> Type s -> m (x, Type s)) -> m (x, a)
-runTypeOp = __doTyOp
+evalTokenVisitWith
+    :: Monad m
+    => (d s -> TokenOpT tok s a m (d s))
+    -> d s
+    -> a
+    -> (a -> tok s -> m a)
+    -> m a
+evalTokenVisitWith op decl st f = do
+    (st', _) <- runTokenVisitWith op decl st f'
+    return st'
+    where
+        f' y tok = do
+            y' <- f y tok
+            return (y', tok)
+
+execTokenVisitWith
+    :: Monad m
+    => (d s -> TokenOpT tok s () m (d s))
+    -> d s
+    -> (tok s -> m (tok s))
+    -> m (d s)
+execTokenVisitWith op decl f = do
+    (_, decl') <- runTokenVisitWith op decl () f'
+    return decl'
+    where
+        f' () tok = do
+            tok' <- f tok
+            return ((), tok')
+
+type TypeOpT s st m a = TokenOpT Type s st m a
+--type TypeOp s st a = TypeOpT s st Identity a
+--type TypeOpRes s st err a = TypeOpT s st (Either err) a
+
+type HintOpT s st m a = TokenOpT Hint s st m a
+--type HintOp s st a = HintOpT s st Identity a
+--type HintOpRes s st err a = HintOpT s st (Either err) a
 
 {- Filters to let the client decide which tokens of a program to work with. Perhaps, there can be a
 situation where not all tokens have to be "touched". Each constructor has the suffix "AOF" which stands
@@ -1185,8 +1216,8 @@ splitDecls decls aof =
     , filter (`isNotIncludedBy` aof) decls
     )
 
-typeOpVisit :: Type s -> TypeOpT s a m (Type s)
-typeOpVisit ty = TyOp $ \x tyf -> tyf x ty
+typeOpVisit :: Monad m => Type s -> TypeOpT s a m (Type s)
+typeOpVisit = tokenOpVisit
 
 {- Parameterization of visit functions over lists of ast tokens. `m s` is a ast token. -}
 visitUntil :: Monad m => [d s] -> (d s -> TypeOpT s a m (d s)) -> TypeOpT s a m [d s]
@@ -1403,42 +1434,31 @@ visitTypesInDecl decl aof =
     else
         return decl
 
-runTypeVisit
-    :: (d s -> TypeOpT s a m (d s))
+runTypeVisitWith
+    :: Monad m
+    => (d s -> TypeOpT s a m (d s))
     -> d s
     -> a
     -> (a -> Type s -> m (a, Type s))
     -> m (a, d s)
-runTypeVisit op decl = __doTyOp $ op decl
+runTypeVisitWith = runTokenVisitWith
 
-evalTypeVisit
+evalTypeVisitWith
     :: Monad m
     => (d s -> TypeOpT s a m (d s))
     -> d s
     -> a
     -> (a -> Type s -> m a)
     -> m a
-evalTypeVisit op decl x typeVisit = do
-    (x', _) <- __doTyOp (op decl) x typeVisit'
-    return x'
-    where
-        typeVisit' y ty = do
-            y' <- typeVisit y ty
-            return (y', ty)
+evalTypeVisitWith = evalTokenVisitWith
 
-execTypeVisit
+execTypeVisitWith
     :: Monad m
     => (d s -> TypeOpT s () m (d s))
     -> d s
     -> (Type s -> m (Type s))
     -> m (d s)
-execTypeVisit op decl typeVisit = do
-    (_, decl') <- __doTyOp (op decl) () typeVisit'
-    return decl'
-    where
-        typeVisit' () ty = do
-            ty' <- typeVisit ty
-            return ((), ty')
+execTypeVisitWith = execTokenVisitWith
 
 astOpTypeVisit
     :: Monad m
@@ -1448,7 +1468,7 @@ astOpTypeVisit
     -> (a -> Type s -> m (a, Type s))
     -> AstOpT s m (a, d s)
 astOpTypeVisit op decl x tyVisit =
-    lift $ __doTyOp (op decl) x tyVisit
+    lift $ runTypeVisitWith op decl x tyVisit
 
 {- Conversion of UnConType updating function. -}
 unConTransUpdate :: (UnConType s -> Either err (UnConType s)) -> (Type s -> Either err (Type s))
@@ -1782,7 +1802,7 @@ lookupConts x f = do
         builtF y decl =
             {- The first part of the tuple is the evaluation of all the types (the constraints which are searched in
             the types). The second part of the tuple is necessary to select properties and instances. -}
-            case (evalTypeVisit visitContsInDecl decl y typeVisit, decl) of
+            case (evalTypeVisitWith visitContsInDecl decl y typeVisit, decl) of
                 (Right y', Intf prop) -> visitConts y' $ contsFromIntf prop
                 (Right y', Ins inst) -> visitConts y' $ contsFromInst inst
                 (res, _) -> res
@@ -1794,86 +1814,44 @@ lookupConts x f = do
         visitCont err @ (Left _) _ = err
         visitCont (Right y) c = f y c
 
-{- Same of TypeOp, but for hints. Not exported. -}
-newtype HintOp s err x a =
-    HiOp
-        { __doHiOp
-            :: x
-            -> (x -> Hint s -> Either err (x, Hint s))
-            -> Either err (x, a)
-        }
+hintOpVisit :: Monad m => Hint s -> HintOpT s a m (Hint s)
+hintOpVisit = tokenOpVisit
 
-instance Functor (HintOp s err x) where
-    fmap f (HiOp g) = HiOp $ \x hf -> case g x hf of
-        Left err -> Left err
-        Right (x', y) -> Right (x', f y)
-
-instance Applicative (HintOp s err x) where
-    pure y = HiOp $ \x _ -> Right (x, y)
-
-    (<*>) op op' = HiOp $ \x hf -> case __doHiOp op' x hf of
-        {- If `op'` fails, then bind fails, else `op` is tried. -}
-        Left err -> Left err
-        Right (x', y) -> case __doHiOp op x' hf of
-            Left err -> Left err
-            Right (x'', f) -> Right (x'', f y)
-
-instance Monad (HintOp s err x) where
-    (>>=) op f = HiOp $ \x hf -> case __doHiOp op x hf of
-        Left err -> Left err
-        Right (x', y) -> __doHiOp (f y) x' hf
-
-hintOpVisit :: Hint s -> HintOp s err a (Hint s)
-hintOpVisit h = HiOp $ \x hf -> hf x h
-
-visitHintsInHeadSymDecl :: SymbolDeclaration s -> HintOp s err a (SymbolDeclaration s)
+visitHintsInHeadSymDecl :: Monad m => SymbolDeclaration s -> HintOpT s a m (SymbolDeclaration s)
 visitHintsInHeadSymDecl (SymTok (SymDecl (n, h, syms, sst), e, st)) = do
     h' <- hintOpVisit h
     return $ SymTok (SymDecl (n, h', syms, sst), e, st)
 
-visitHintsInHeadMultiSymDecl :: MultiSymbolDeclaration s -> HintOp s err a (MultiSymbolDeclaration s)
+visitHintsInHeadMultiSymDecl :: Monad m => MultiSymbolDeclaration s -> HintOpT s a m (MultiSymbolDeclaration s)
 visitHintsInHeadMultiSymDecl (MultiSymTok sn h mpm st) = do
     h' <- hintOpVisit h
     return $ MultiSymTok sn h' mpm st
 
-runHintVisit
-    :: (m s -> HintOp s err a (m s))
-    -> m s
+runHintVisitWith
+    :: Monad m
+    => (d s -> HintOpT s a m (d s))
+    -> d s
     -> a
-    -> (a -> Hint s -> Either err (a, Hint s))
-    -> Either err (a, m s)
-runHintVisit op decl = __doHiOp $ op decl
+    -> (a -> Hint s -> m (a, Hint s))
+    -> m (a, d s)
+runHintVisitWith = runTokenVisitWith
 
-evalHintVisit
-    :: (m s -> HintOp s err a (m s))
-    -> m s
+evalHintVisitWith
+    :: Monad m
+    => (d s -> HintOpT s a m (d s))
+    -> d s
     -> a
-    -> (a -> Hint s -> Either err a)
-    -> Either err a
-evalHintVisit op decl x hintVisit =
-    case __doHiOp (op decl) x hintVisit' of
-        Left err -> Left err
-        Right (x', _) -> Right x'
-    where
-        hintVisit' y h =
-            case hintVisit y h of
-                Left err -> Left err
-                Right y' -> Right (y', h)
+    -> (a -> Hint s -> m a)
+    -> m a
+evalHintVisitWith = evalTokenVisitWith
 
-execHintVisit
-    :: (m s -> HintOp s err () (m s))
-    -> m s
-    -> (Hint s -> Either err (Hint s))
-    -> Either err (m s)
-execHintVisit op decl hintVisit =
-    case __doHiOp (op decl) () hintVisit' of
-        Left err -> Left err
-        Right (_, decl') -> Right decl'
-    where
-        hintVisit' () h =
-            case hintVisit h of
-                Left err -> Left err
-                Right h' -> Right ((), h')
+execHintVisitWith
+    :: Monad m
+    => (d s -> HintOpT s () m (d s))
+    -> d s
+    -> (Hint s -> m (Hint s))
+    -> m (d s)
+execHintVisitWith = execTokenVisitWith
 
 {- It visits hints but uniquely in symbol declarations, in particular only the hint of the variable
 which is being defined. -}
@@ -1883,7 +1861,7 @@ setHintsInHeadSymDecl x f =
     where
         builtF y symD =
             let symName = symNameFrom symD in
-                runHintVisit visitHintsInHeadSymDecl symD y $ f' symName
+                runHintVisitWith visitHintsInHeadSymDecl symD y $ f' symName
 
         f' sn y = f y sn
 
@@ -1893,7 +1871,7 @@ setHintsInHeadMultiSymDecl x f =
     where
         builtF y symD =
             let symName = symNameFromMultiSymDecl symD in
-                runHintVisit visitHintsInHeadMultiSymDecl symD y $ f' symName
+                runHintVisitWith visitHintsInHeadMultiSymDecl symD y $ f' symName
 
         f' sn y = f y sn
 
@@ -1905,7 +1883,7 @@ updateHintsInHeadSymDecl f =
     where
         builtF symD =
             let symName = symNameFrom symD in
-                execHintVisit visitHintsInHeadSymDecl symD $ f symName
+                execHintVisitWith visitHintsInHeadSymDecl symD $ f symName
 
 updateHintsInHeadMultiSymDecl :: (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOpRes s err ()
 updateHintsInHeadMultiSymDecl f =
@@ -1913,7 +1891,7 @@ updateHintsInHeadMultiSymDecl f =
     where
         builtF symD =
             let symName = symNameFromMultiSymDecl symD in
-                execHintVisit visitHintsInHeadMultiSymDecl symD $ f symName
+                execHintVisitWith visitHintsInHeadMultiSymDecl symD $ f symName
 
 {- Safe version of updateHintsInHeadSymDecl. -}
 safeUpdateHintsInHeadSymDecl :: (SymbolName s -> Hint s -> Hint s) -> AstOpRes s err ()
@@ -1936,7 +1914,7 @@ lookupHintsInHeadSymDecl x f =
     where
         builtF y symD =
             let symName = symNameFrom symD in
-                evalHintVisit visitHintsInHeadSymDecl symD y $ f' symName
+                evalHintVisitWith visitHintsInHeadSymDecl symD y $ f' symName
 
         f' sn y = f y sn
 
