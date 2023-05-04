@@ -4,20 +4,20 @@
 
 module Compiler.Desugar.TyVars
     ( updateTyVars
-    , RebindErr(..)
+    --, RebindErr(..)
     , BoundData
     , addToBound
     , getBind
 ) where
 
-import Lib.Result
+import Data.Tuple(swap)
 import Data.Map.Strict as M hiding (map)
 import Compiler.Ast.Common
 import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Types.Lib.FreeVars as Fresh
 
-newtype RebindErr =
-      ExternalErr String
+{-
+newtype RebindErr
 
 instance InfoShow RebindErr where
     infoShow (ExternalErr _) = unexpNoInfo
@@ -27,6 +27,7 @@ instance DebugShow RebindErr where
 
 instance UnreachableState RebindErr where
     isUnreachable (ExternalErr reason) = Just reason
+        -}
 
 {- This is useful to discover the variable another variable has been replaced with. The values in
 the map should correspond to bound variables in a container. -}
@@ -40,95 +41,87 @@ getBind pty = M.lookup (repOf pty)
 
 bindTyVar
     :: Raw.ParamTypeName a
-    -> Either RebindErr (Fresh.FV (), BoundData)
-    -> (Raw.ParamTypeName a, Either RebindErr (Fresh.FV (), BoundData))
-bindTyVar pty err @ (Left _) = (pty, err)
-bindTyVar pty (Right (fv, bd)) =
+    -> (Fresh.FV (), BoundData)
+    -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData))
+bindTyVar pty (fv, bd) =
     let pRep = repOf pty in
         {- Checking if pty is already bound. -}
         case getBind pty bd of
-            Just var -> (Raw.buildPtyName var $ stateOf pty, Right (fv, bd))
+            Just var -> (Raw.buildPtyName var $ stateOf pty, (fv, bd))
             Nothing ->
                 case Fresh.tryAllocFreeVar pRep () fv of
-                    Just fv' -> (pty, Right (fv', addToBound pty pRep bd))
+                    Just fv' -> (pty, (fv', addToBound pty pRep bd))
                     Nothing ->
                         let (var, fv') = Fresh.allocFreeVar () fv in
                             ( Raw.buildPtyName var $ stateOf pty
-                            , Right (fv', addToBound pty var bd)
+                            , (fv', addToBound pty var bd)
                             )
 
 replaceTyVar
     :: Raw.ParamTypeName a
-    -> Either RebindErr (Fresh.FV (), BoundData)
-    -> (Raw.ParamTypeName a, Either RebindErr (Fresh.FV (), BoundData))
-replaceTyVar pty err @ (Left _) = (pty, err)
-replaceTyVar pty (Right (fv, bd)) =
+    -> (Fresh.FV (), BoundData)
+    -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData))
+replaceTyVar pty vars @ (_, bd) =
     case getBind pty bd of
-        Just var -> (Raw.buildPtyName var $ stateOf pty, Right (fv, bd))
+        Just var -> (Raw.buildPtyName var $ stateOf pty, vars)
         {- In this case, the variable is not bound yet, so it is a binding! -}
-        Nothing -> bindTyVar pty (Right (fv, bd))
+        Nothing -> bindTyVar pty vars
 
 bind
     :: forall tok a. Binder (tok a) (Raw.ParamTypeName a)
     => (Fresh.FV (), BoundData)
     -> tok a
-    -> Either RebindErr ((Fresh.FV (), BoundData), tok a)
-bind (fv, bd) token =
+    -> ((Fresh.FV (), BoundData), tok a)
+bind vars token =
     {- This is a hack to quiet the compiler: without the help of ScopedTypeVariables extension, the function
     call of `onBindingsOf` below would result in a compiler error (something like "could not deduce...")
     because the context `Binder (tok a) (ParamTypeName a)` would not have matched the type of the previous
     named function call, because `bindTyVar` would have had a different `a` type variable. -}
     let bindF = bindTyVar
          :: Raw.ParamTypeName a
-         -> Either RebindErr (Fresh.FV (), BoundData)
-         -> (Raw.ParamTypeName a, Either RebindErr (Fresh.FV (), BoundData)) in
-        case onBindingsOf token (Right (fv, bd)) bindF of
-            (_, Left err) -> Left err
-            (token', Right res) -> Right (res, token')
+         -> (Fresh.FV (), BoundData)
+         -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData)) in
+        swap $ onBindingsOf token vars bindF
 
 replace
     :: forall tok a. Binder (tok a) (Raw.ParamTypeName a)
     => (Fresh.FV (), BoundData)
     -> tok a
-    -> Either RebindErr ((Fresh.FV (), BoundData), tok a)
-replace (fv, bd) token =
+    -> ((Fresh.FV (), BoundData), tok a)
+replace vars token =
     {- See `bind` for the reason of this -}
-    let replaceF = replaceTyVar :: Raw.ParamTypeName a
-                                -> Either RebindErr (Fresh.FV (), BoundData)
-                                -> (Raw.ParamTypeName a, Either RebindErr (Fresh.FV (), BoundData)) in
-        case onScopedOf token (Right (fv, bd)) replaceF of
-            (_, Left err) -> Left err
-            (token', Right res) -> Right (res, token')
+    let replaceF = replaceTyVar
+         :: Raw.ParamTypeName a
+         -> (Fresh.FV (), BoundData)
+         -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData)) in
+        swap $ onScopedOf token vars replaceF
 
 rebind
     :: Binder (tok a) (Raw.ParamTypeName a)
     => Fresh.FV ()
     -> tok a
-    -> Either RebindErr (Fresh.FV (), tok a)
+    -> (Fresh.FV (), tok a)
 rebind fv token =
-    case bind (fv, empty) token of
-        Left err -> Left err
-        Right ((fv', bd'), token') ->
-            case replace (fv', bd') token' of
-                Left err -> Left err
-                Right ((fv'', _), token'') -> Right (fv'', token'')
+    let ((fv', bd'), token') = bind (fv, empty) token in
+    let ((fv'', _), token'') = replace (fv', bd') token' in
+        (fv'', token'')
 
-rebindAdt :: Fresh.FV () -> Raw.AstOp a RebindErr (Fresh.FV ())
-rebindAdt fv = Raw.setAdt fv rebind
+rebindAdt :: Fresh.FV () -> Raw.AstOp a (Fresh.FV ())
+rebindAdt fv = Raw.safeSetAdt fv rebind
 
-rebindProp :: Fresh.FV () -> Raw.AstOp a RebindErr (Fresh.FV ())
-rebindProp fv = Raw.setProp fv rebind
+rebindProp :: Fresh.FV () -> Raw.AstOp a (Fresh.FV ())
+rebindProp fv = Raw.safeSetProp fv rebind
 
-rebindInst :: Fresh.FV () -> Raw.AstOp a RebindErr (Fresh.FV ())
-rebindInst fv = Raw.setInst fv rebind
+rebindInst :: Fresh.FV () -> Raw.AstOp a (Fresh.FV ())
+rebindInst fv = Raw.safeSetInst fv rebind
 
-rebindMultiSymDecl :: Fresh.FV () -> Raw.AstOp a RebindErr (Fresh.FV ())
-rebindMultiSymDecl fv = Raw.setMultiSymDecl fv rebind
+rebindMultiSymDecl :: Fresh.FV () -> Raw.AstOp a (Fresh.FV ())
+rebindMultiSymDecl fv = Raw.safeSetMultiSymDecl fv rebind
 
-rebindSymDecl :: Fresh.FV () -> Raw.AstOp a RebindErr (Fresh.FV ())
-rebindSymDecl fv = Raw.setSymDecl fv rebind
+rebindSymDecl :: Fresh.FV () -> Raw.AstOp a (Fresh.FV ())
+rebindSymDecl fv = Raw.safeSetSymDecl fv rebind
 
-updateOp :: Raw.AstOp a RebindErr (Fresh.FV ())
+updateOp :: Raw.AstOp a (Fresh.FV ())
 updateOp = do
     fv1 <- rebindAdt Fresh.newFreeVarsContainer
     fv2 <- rebindProp fv1
@@ -136,8 +129,6 @@ updateOp = do
     fv4 <- rebindMultiSymDecl fv3
     rebindSymDecl fv4
 
-updateTyVars
-    :: Raw.Program a
-    -> Either RebindErr (Fresh.FV (), Raw.Program a)
+updateTyVars :: Raw.Program a -> (Fresh.FV (), Raw.Program a)
 updateTyVars p =
-    Raw.runAstOp p (ExternalErr "initial state of rebinding phase") updateOp
+    Raw.runAstOp p updateOp
