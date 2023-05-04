@@ -61,6 +61,7 @@ module Compiler.Ast.Tree
     , AstOp
     , AstOpRes
     , astOpErr
+    , astOpRes
     , runAstOpT
     , runAstOp
     , runAstOpRes
@@ -753,6 +754,14 @@ type AstOpRes s err = AstOpT s (Either err)
 
 astOpErr :: err -> AstOpRes s err a
 astOpErr = lift . Left
+
+{- This is a way to turn a pure ast operation in a "result" ast operation which does exectly the same. -}
+astOpRes :: AstOp s a -> AstOpRes s err a
+astOpRes pureOp = do
+    p <- get
+    let (x, p') = runAstOp p pureOp
+    put p'
+    return x
 
 {- NB: dangerous operation! -}
 replaceProg :: Monad m => [Declaration s] -> AstOpT s m ()
