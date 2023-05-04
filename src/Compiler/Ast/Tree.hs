@@ -57,17 +57,17 @@ module Compiler.Ast.Tree
     , doOnUnCon
     , doOnUnCon'
     -- AstOp monad
-    , AstOp
+    , AstOpRes
     , astOpErr
-    , runAstOp
+    , runAstOpRes
     , removeDeclsBy
     , getDecls
     , getDeclsBy
     , visitPtsInMany
     , visitPtsInCont
     , visitPtsInAdtCon
-    , AstOpSingleFilter(..)
-    , AstOpFilters(..)
+    , AstOpResSingleFilter(..)
+    , AstOpResFilters(..)
     , updateTypes
     , updateUnCons
     , updateAllTypes
@@ -271,6 +271,7 @@ module Compiler.Ast.Tree
 import Lib.Utils
 import Lib.Monad.Utils
 import Control.Monad.State
+import Control.Monad.Identity
 import Data.Semigroup
 import Data.List(foldl')
 import Data.List.NonEmpty(NonEmpty(..))
@@ -723,94 +724,99 @@ doOnUnCon' (Singleton (Param n)) _ sfp _ _ = sfp n
 doOnUnCon' (Composite (TyComp (Real n, ts, st))) _ _ bfr _ = bfr n ts st
 doOnUnCon' (Composite (TyComp (Param n, ts, st))) _ _ _ bfp = bfp n ts st
 
--- AstOp monad (for operations on the tree)
+-- AstOpRes monad (for operations on the tree)
 
 {- A monadic very generic operation on the ast with type `err` for errors and type `a` for return type.
 It takes in input a Program and a default value for `err` type. -}
 {- TODO: legacy
-newtype AstOp s err a =
-    AstOp
+newtype AstOpRes s err a =
+    AstOpRes
         { doOp :: Program s -> err -> Either err (a, Program s)
         }
                 -}
 
-type AstOp s err = StateT (Program s) (Either err)
+type AstOpT s m = StateT (Program s) m
+type AstOp s = AstOpT s Identity
+type AstOpRes s err = AstOpT s (Either err)
 
-astOpErr :: err -> AstOp s err a
+astOpErr :: err -> AstOpRes s err a
 astOpErr = lift . Left
 
 {- NB: dangerous operation! -}
-replaceProg :: [Declaration s] -> AstOp s err ()
+replaceProg :: Monad m => [Declaration s] -> AstOpT s m ()
 replaceProg = put . buildProgram
 
-{- It executes a AstOp. It needs a Program. -}
-runAstOp :: Program s -> AstOp s err a -> Either err (a, Program s)
-runAstOp = flip runStateT
+runAstOpT :: Program s -> AstOpT s m a -> m (a, Program s)
+runAstOpT = flip runStateT
+
+{- It executes a AstOpRes. It needs a Program. -}
+runAstOpRes :: Program s -> AstOpRes s err a -> Either err (a, Program s)
+runAstOpRes = runAstOpT
 
 {- TODO: legacy
-astOpMap :: (a -> b) -> AstOp s err a -> AstOp s err b
-astOpMap f (AstOp g) = AstOp $ \p e -> case g p e of
+astOpMap :: (a -> b) -> AstOpRes s err a -> AstOpRes s err b
+astOpMap f (AstOpRes g) = AstOpRes $ \p e -> case g p e of
     Right (x, p) -> Right (f x, p)
     Left err -> Left err
 
-instance Functor (AstOp s err) where
+instance Functor (AstOpRes s err) where
     fmap = astOpMap
 
-instance Applicative (AstOp s err) where
-    pure x = AstOp $ \p _ -> Right (x, p)
+instance Applicative (AstOpRes s err) where
+    pure x = AstOpRes $ \p _ -> Right (x, p)
 
-    (<*>) op op' = AstOp $ \p e -> case doOp op p e of
+    (<*>) op op' = AstOpRes $ \p e -> case doOp op p e of
         Left err -> Left err
         {- TODO: not using astOpMap, because the output Program (p') is not discarded, but is it right like this? -}
         Right (f, p') -> (case doOp op' p' e of
             Left err -> Left err
             Right (x', p'') -> Right (f x', p''))
 
-instance Alternative (AstOp s err) where
-    empty = AstOp $ \_ e -> Left e
+instance Alternative (AstOpRes s err) where
+    empty = AstOpRes $ \_ e -> Left e
 
     {- It offers an alternative: if the first operation (op) fails, it tries the second one (op')
     with a new error value. -}
-    (<|>) op op' = AstOp $ \p e -> case doOp op p e of
+    (<|>) op op' = AstOpRes $ \p e -> case doOp op p e of
         {- Using the new error value as error (not e). -}
         Left err -> doOp op p err
         right -> right
 
-instance Monad (AstOp s err) where
-    (>>=) op f = AstOp $ \p e -> case doOp op p e of
+instance Monad (AstOpRes s err) where
+    (>>=) op f = AstOpRes $ \p e -> case doOp op p e of
         Right (x', p') -> doOp (f x') p' e
         Left err -> Left err
 
-instance MonadPlus (AstOp s err)
+instance MonadPlus (AstOpRes s err)
 
-instance MonadFail (AstOp s err) where
+instance MonadFail (AstOpRes s err) where
     fail _ = mzero
 
-changeErrValue :: AstOp s err a -> err -> AstOp s err a
+changeErrValue :: AstOpRes s err a -> err -> AstOpRes s err a
 {- Exploiting <|> which replaces the err value. -}
-changeErrValue op err = AstOp (\_ _ -> Left err) <|> op
+changeErrValue op err = AstOpRes (\_ _ -> Left err) <|> op
 
 {- <?> is a synonim for changeErrValue. It is inspired by Text.Parsec.Prim.(<?>) which offers a similar
 functionality. -}
 infix 0 <?>
 
-(<?>) :: AstOp s err a -> err -> AstOp s err a
+(<?>) :: AstOpRes s err a -> err -> AstOpRes s err a
 (<?>) = changeErrValue
 
 -}
 
 {- It removes declarations specified by filters and it returns them. -}
-removeDeclsBy :: AstOpFilters -> AstOp s err [Declaration s]
+removeDeclsBy :: Monad m => AstOpResFilters -> AstOpT s m [Declaration s]
 removeDeclsBy aof = do
     decls <- getDecls
     let (incl, notIncl) = splitDecls decls aof
     replaceProg notIncl
     return incl
 
-getDecls :: AstOp s err [Declaration s]
+getDecls :: Monad m => AstOpT s m [Declaration s]
 getDecls = gets declarationsFrom
 
-getDeclsBy :: AstOpFilters -> AstOp s err [Declaration s]
+getDeclsBy :: Monad m => AstOpResFilters -> AstOpT s m [Declaration s]
 getDeclsBy aof = do
     decls <- getDecls
     let decls' = filterDecls decls aof
@@ -1090,38 +1096,46 @@ instance Binder (Signature a) (ParamTypeName a) where
 {- Monadic type to simplify visit functions. Its purpose is to avoid performing pattern matching on an
 Either result (from a visit functions) multiple times; it is not exported, it is just used to write a
 better code. -}
-newtype TypeOp s err x a =
+newtype TypeOpT s st m a =
     TyOp
         { __doTyOp
-            :: x
-            -> (x -> Type s -> Either err (x, Type s))
-            -> Either err (x, a)
+            :: st
+            -> (st -> Type s -> m (st, Type s))
+            -> m (st, a)
         }
 
-instance Functor (TypeOp s err x) where
-    fmap f (TyOp g) = TyOp $ \x tyf -> case g x tyf of
-        Left err -> Left err
-        Right (x', y) -> Right (x', f y)
+type TypeOp s x = TypeOpT s x Identity
+type TypeOpRes s x err = TypeOpT s x (Either err)
 
-instance Applicative (TypeOp s err x) where
-    pure y = TyOp $ \x _ -> Right (x, y)
+instance Monad m => Functor (TypeOpT s x m) where
+    --fmap :: (a -> b) -> TypeOp s x m a -> TypeOp s x m b
+    fmap f (TyOp opx) =
+        TyOp $ \st tyf -> do
+            (st', y) <- opx st tyf
+            return (st', f y)
 
-    (<*>) op op' = TyOp $ \x tyf -> case __doTyOp op' x tyf of
-        {- If `op'` fails, then bind fails, else `op` is tried. -}
-        Left err -> Left err
-        Right (x', y) -> case __doTyOp op x' tyf of
-            Left err -> Left err
-            Right (x'', f) -> Right (x'', f y)
+instance Monad m => Applicative (TypeOpT s x m) where
+    pure y = TyOp $ \st _ -> pure (st, y)
 
-instance Monad (TypeOp s err x) where
-    (>>=) op f = TyOp $ \x tyf -> case __doTyOp op x tyf of
-        Left err -> Left err
-        Right (x', y) -> __doTyOp (f y) x' tyf
+    (<*>) (TyOp opf) (TyOp opx) =
+        TyOp $ \st tyf -> do
+            (st', f) <- opf st tyf
+            (st'', y) <- opx st' tyf
+            return (st'', f y)
+
+instance Monad m => Monad (TypeOpT s x m) where
+    (>>=) op cont =
+        TyOp $ \st tyf -> do
+            (st', y) <- runTypeOp op st tyf
+            runTypeOp (cont y) st' tyf
+
+runTypeOp :: TypeOpT s x m a -> x -> (x -> Type s -> m (x, Type s)) -> m (x, a)
+runTypeOp = __doTyOp
 
 {- Filters to let the client decide which tokens of a program to work with. Perhaps, there can be a
 situation where not all tokens have to be "touched". Each constructor has the suffix "AOF" which stands
-for "AstOpFilters", just not to have clashing names problems. -}
-data AstOpSingleFilter =
+for "AstOpResFilters", just not to have clashing names problems. -}
+data AstOpResSingleFilter =
       AOFAdt
     | AOFAlias
     | AOFIntf
@@ -1131,15 +1145,15 @@ data AstOpSingleFilter =
     | AOFMultiSymD
     deriving Eq
 
-data AstOpFilters =
+data AstOpResFilters =
     {- shorthand to have all filters. -}
       AOFAll
     {- shorthand to have no filter. -}
     | AOFNone
-    | AOFSome [AstOpSingleFilter]
-    | AOFExcept [AstOpSingleFilter]
+    | AOFSome [AstOpResSingleFilter]
+    | AOFExcept [AstOpResSingleFilter]
 
-isIncludedBy :: Declaration a -> AstOpFilters -> Bool
+isIncludedBy :: Declaration a -> AstOpResFilters -> Bool
 isIncludedBy _ AOFAll = True
 isIncludedBy _ AOFNone = False
 isIncludedBy (ADT _) (AOFSome fls) = AOFAdt `elem` fls
@@ -1157,32 +1171,32 @@ isIncludedBy (Let _) (AOFExcept fls) = AOFSymD `notElem` fls
 isIncludedBy (LetMulti _) (AOFSome fls) = AOFMultiSymD `elem` fls
 isIncludedBy (LetMulti _) (AOFExcept fls) = AOFMultiSymD `notElem` fls
 
-isNotIncludedBy :: Declaration a -> AstOpFilters -> Bool
+isNotIncludedBy :: Declaration a -> AstOpResFilters -> Bool
 isNotIncludedBy decl aof = not $ isIncludedBy decl aof
 
-filterDecls :: [Declaration a] -> AstOpFilters -> [Declaration a]
+filterDecls :: [Declaration a] -> AstOpResFilters -> [Declaration a]
 filterDecls decls aof = filter (`isIncludedBy` aof) decls
 
 {- The right-hand element of the returned tuple is the one which has declarations that matched the filter,
 viceversa for the other one. -}
-splitDecls :: [Declaration a] -> AstOpFilters -> ([Declaration a], [Declaration a])
+splitDecls :: [Declaration a] -> AstOpResFilters -> ([Declaration a], [Declaration a])
 splitDecls decls aof =
     ( filter (`isIncludedBy` aof) decls
     , filter (`isNotIncludedBy` aof) decls
     )
 
-typeOpVisit :: Type s -> TypeOp s err a (Type s)
+typeOpVisit :: Type s -> TypeOpT s a m (Type s)
 typeOpVisit ty = TyOp $ \x tyf -> tyf x ty
 
 {- Parameterization of visit functions over lists of ast tokens. `m s` is a ast token. -}
-visitUntil :: [m s] -> (m s -> TypeOp s err a (m s)) -> TypeOp s err a [m s]
+visitUntil :: Monad m => [d s] -> (d s -> TypeOpT s a m (d s)) -> TypeOpT s a m [d s]
 visitUntil [] _ = return []
 visitUntil (m : t) op = do
     m' <- op m
     t' <- visitUntil t op
     return $ m' : t'
 
-withinTypes :: [Type s] -> TypeOp s err a [Type s]
+withinTypes :: Monad m => [Type s] -> TypeOpT s a m [Type s]
 withinTypes [] = return []
 {- The Singleton case has only the "base" Type, so no visit has to be performed -}
 withinTypes (Type (cs, singleton @ (Singleton _), st) : t) = do
@@ -1202,7 +1216,7 @@ withinTypes (Type (cs, Composite (TyComp (nrty, ts, st)), st') : t) = do
 {- Even a Type could have a Type(s) within, so it is necessary a function to visit a Type. It does not
 perform the visit on the Type which represent the "base", namely the first Type which appears when it
 is written. -}
-visitTypesInType :: Type s -> TypeOp s err a (Type s)
+visitTypesInType :: Monad m => Type s -> TypeOpT s a m (Type s)
 visitTypesInType (Type (cs, uty @ (Singleton _), st)) = do
     cs' <- mapM visitTypesInCont cs
     return $ Type (cs', uty, st)
@@ -1212,20 +1226,20 @@ visitTypesInType (Type (cs, Composite (TyComp (nrty, ts, st)), st')) = do
     return $ Type (cs', Composite $ TyComp (nrty, map unConFromType ts', st), st')
 
 {- The right operation to visit a Type token entirely. -}
-visitEntireType :: Type s -> TypeOp s err a (Type s)
+visitEntireType :: Monad m => Type s -> TypeOpT s a m (Type s)
 visitEntireType ty = do
     ty' <- typeOpVisit ty
     visitTypesInType ty'
 
-visitEntireTypes :: [Type s] -> TypeOp s err a [Type s]
+visitEntireTypes :: Monad m => [Type s] -> TypeOpT s a m [Type s]
 visitEntireTypes = mapM visitEntireType
 
-visitTypesInAdtCon :: ADTConstructor s -> TypeOp s err a (ADTConstructor s)
+visitTypesInAdtCon :: Monad m => ADTConstructor s -> TypeOpT s a m (ADTConstructor s)
 visitTypesInAdtCon (ADTCon (c, ts, st)) = do
     ts' <- visitEntireTypes $ map typeFromUnCon ts
     return $ ADTCon (c, map unConFromType ts', st)
 
-visitTypesInAdt :: AlgebraicDataType s -> TypeOp s err a (AlgebraicDataType s)
+visitTypesInAdt :: Monad m => AlgebraicDataType s -> TypeOpT s a m (AlgebraicDataType s)
 visitTypesInAdt (ADTTok (a, [], st)) = return $ ADTTok (a, [], st)
 visitTypesInAdt (ADTTok (a, c : t, st)) = do
     c' <- visitTypesInAdtCon c
@@ -1233,25 +1247,25 @@ visitTypesInAdt (ADTTok (a, c : t, st)) = do
     return $ case adt of
         ADTTok (_, t', _) -> ADTTok (a, c' : t', st)
 
-visitTypesInAlias :: AliasAlgebraicDataType s -> TypeOp s err a (AliasAlgebraicDataType s)
+visitTypesInAlias :: Monad m => AliasAlgebraicDataType s -> TypeOpT s a m (AliasAlgebraicDataType s)
 visitTypesInAlias (AliasTok (d, ty, st)) = do
     ty' <- typeOpVisit $ typeFromUnCon ty
     ty'' <- visitTypesInType ty'
     return $ AliasTok (d, unConFromType ty'', st)
 
-visitTypesInHint :: Hint s -> TypeOp s err a (Hint s)
+visitTypesInHint :: Monad m => Hint s -> TypeOpT s a m (Hint s)
 visitTypesInHint (Hint (Nothing, st)) = return $ Hint (Nothing, st)
 visitTypesInHint (Hint (Just ty, st)) = do
     ty' <- typeOpVisit ty
     ty'' <- visitTypesInType ty'
     return $ Hint (Just ty'', st)
 
-visitTypesInCont :: Constraint s -> TypeOp s err a (Constraint s)
+visitTypesInCont :: Monad m => Constraint s -> TypeOpT s a m (Constraint s)
 visitTypesInCont (Cont (pName, ts, st)) = do
     ts' <- visitEntireTypes $ map typeFromUnCon ts
     return $ Cont (pName, map unConFromType ts', st)
 
-visitTypesInMatchExpr :: MatchingExpression s -> TypeOp s err a (MatchingExpression s)
+visitTypesInMatchExpr :: Monad m => MatchingExpression s -> TypeOpT s a m (MatchingExpression s)
 visitTypesInMatchExpr (MatchExpr me st) = do
     case me of
         MADTApp (ADTAppMExpr (cn, ms, mst)) -> do
@@ -1263,24 +1277,24 @@ visitTypesInMatchExpr (MatchExpr me st) = do
         MBase _ -> return $ MatchExpr me st
         MADTBase _ -> return $ MatchExpr me st
 
-visitTypesInMatchCase :: MatchCase s -> TypeOp s err a (MatchCase s)
+visitTypesInMatchCase :: Monad m => MatchCase s -> TypeOpT s a m (MatchCase s)
 visitTypesInMatchCase (Case (m, e, st)) = do
     m' <- visitTypesInMatchExpr m
     e' <- visitTypesInExpr e
     return $ Case (m', e', st)
 
-visitTypesInMultiCase :: MultiMatchCase s -> TypeOp s err a (MultiMatchCase s)
+visitTypesInMultiCase :: Monad m => MultiMatchCase s -> TypeOpT s a m (MultiMatchCase s)
 visitTypesInMultiCase (MultiCase ms e st) = do
     ms' <- mapM visitTypesInMatchExpr ms
     e' <- visitTypesInExpr e
     return $ MultiCase ms' e' st
 
-visitTypesInMultiPM :: MultiPatternMatch s -> TypeOp s err a (MultiPatternMatch s)
+visitTypesInMultiPM :: Monad m => MultiPatternMatch s -> TypeOpT s a m (MultiPatternMatch s)
 visitTypesInMultiPM (MultiPattMatch cs st) = do
     cs' <- mapM visitTypesInMultiCase cs
     return $ MultiPattMatch cs' st
 
-visitTypesInExpr :: Expression s -> TypeOp s err a (Expression s)
+visitTypesInExpr :: Monad m => Expression s -> TypeOpT s a m (Expression s)
 visitTypesInExpr (Expr (e, h, st)) = do
     h' <- visitTypesInHint h
     (case e of
@@ -1316,19 +1330,19 @@ visitTypesInExpr (Expr (e, h, st)) = do
                }
         Lit _ -> return $ Expr (e, h', st))
 
-visitTypesInSymDecl :: SymbolDeclaration s -> TypeOp s err a (SymbolDeclaration s)
+visitTypesInSymDecl :: Monad m => SymbolDeclaration s -> TypeOpT s a m (SymbolDeclaration s)
 visitTypesInSymDecl (SymTok (SymDecl (sn, h, syms, sdst), e, st)) = do
     h' <- visitTypesInHint h
     e' <- visitTypesInExpr e
     return $ SymTok (SymDecl (sn, h', syms, sdst), e', st)
 
-visitTypesInMultiSymDecl :: MultiSymbolDeclaration s -> TypeOp s err a (MultiSymbolDeclaration s)
+visitTypesInMultiSymDecl :: Monad m => MultiSymbolDeclaration s -> TypeOpT s a m (MultiSymbolDeclaration s)
 visitTypesInMultiSymDecl (MultiSymTok sn h mpm st) = do
     h' <- visitTypesInHint h
     mpm' <- visitTypesInMultiPM mpm
     return $ MultiSymTok sn h' mpm' st
 
-visitTypesInSD :: SDUnion s -> TypeOp s err a (SDUnion s)
+visitTypesInSD :: Monad m => SDUnion s -> TypeOpT s a m (SDUnion s)
 visitTypesInSD (SD sd) = do
     sd' <- visitTypesInSymDecl sd
     return $ SD sd'
@@ -1336,31 +1350,31 @@ visitTypesInSD (MSD msd) = do
     msd' <- visitTypesInMultiSymDecl msd
     return $ MSD msd'
 
-visitTypesInInst :: Instance s -> TypeOp s err a (Instance s)
+visitTypesInInst :: Monad m => Instance s -> TypeOpT s a m (Instance s)
 visitTypesInInst (InstTok (i, cs, ts, syms, st)) = do
     cs' <- mapM visitTypesInCont cs
     ts' <- visitEntireTypes $ map typeFromUnCon ts
     syms' <- visitUntil syms visitTypesInSD
     return $ InstTok (i, cs', map unConFromType ts', syms', st)
 
-visitTypesInProp :: Interface s -> TypeOp s err a (Interface s)
+visitTypesInProp :: Monad m => Interface s -> TypeOpT s a m (Interface s)
 visitTypesInProp (IntfTok (i, sigs, st)) = do
     i' <- visitTypesInIntfDecl i
     sigs' <- visitUntil sigs visitTypesInSig
     return $ IntfTok (i', sigs', st)
     where
-        visitTypesInIntfDecl :: IntfDeclare s -> TypeOp s err a (IntfDeclare s)
+        visitTypesInIntfDecl :: Monad m => IntfDeclare s -> TypeOpT s a m (IntfDeclare s)
         visitTypesInIntfDecl (IntfDecl (pName, cs, pts, dst)) = do
             cs' <- mapM visitTypesInCont cs
             return $ IntfDecl (pName, cs', pts, dst)
 
-visitTypesInSig :: Signature s -> TypeOp s err a (Signature s)
+visitTypesInSig :: Monad m => Signature s -> TypeOpT s a m (Signature s)
 visitTypesInSig (SigTok (s, ty, st)) = do
     ty' <- typeOpVisit ty
     ty'' <- visitTypesInType ty'
     return $ SigTok (s, ty'', st)
 
-visitTypesInDecl :: Declaration s -> AstOpFilters -> TypeOp s err a (Declaration s)
+visitTypesInDecl :: Monad m => Declaration s -> AstOpResFilters -> TypeOpT s a m (Declaration s)
 visitTypesInDecl decl aof =
     if decl `isIncludedBy` aof
     then
@@ -1390,54 +1404,51 @@ visitTypesInDecl decl aof =
         return decl
 
 runTypeVisit
-    :: (m s -> TypeOp s err a (m s))
-    -> m s
+    :: (d s -> TypeOpT s a m (d s))
+    -> d s
     -> a
-    -> (a -> Type s -> Either err (a, Type s))
-    -> Either err (a, m s)
+    -> (a -> Type s -> m (a, Type s))
+    -> m (a, d s)
 runTypeVisit op decl = __doTyOp $ op decl
 
 evalTypeVisit
-    :: (m s -> TypeOp s err a (m s))
-    -> m s
+    :: Monad m
+    => (d s -> TypeOpT s a m (d s))
+    -> d s
     -> a
-    -> (a -> Type s -> Either err a)
-    -> Either err a
-evalTypeVisit op decl x typeVisit =
-    case __doTyOp (op decl) x typeVisit' of
-        Left err -> Left err
-        Right (x', _) -> Right x'
+    -> (a -> Type s -> m a)
+    -> m a
+evalTypeVisit op decl x typeVisit = do
+    (x', _) <- __doTyOp (op decl) x typeVisit'
+    return x'
     where
-        typeVisit' y ty =
-            case typeVisit y ty of
-                Left err -> Left err
-                Right y' -> Right (y', ty)
+        typeVisit' y ty = do
+            y' <- typeVisit y ty
+            return (y', ty)
 
 execTypeVisit
-    :: (m s -> TypeOp s err () (m s))
-    -> m s
-    -> (Type s -> Either err (Type s))
-    -> Either err (m s)
-execTypeVisit op decl typeVisit =
-    case __doTyOp (op decl) () typeVisit' of
-        Left err -> Left err
-        Right (_, decl') -> Right decl'
+    :: Monad m
+    => (d s -> TypeOpT s () m (d s))
+    -> d s
+    -> (Type s -> m (Type s))
+    -> m (d s)
+execTypeVisit op decl typeVisit = do
+    (_, decl') <- __doTyOp (op decl) () typeVisit'
+    return decl'
     where
-        typeVisit' () ty =
-            case typeVisit ty of
-                Left err -> Left err
-                Right ty' -> Right ((), ty')
+        typeVisit' () ty = do
+            ty' <- typeVisit ty
+            return ((), ty')
 
 astOpTypeVisit
-    :: (m s -> TypeOp s err a (m s))
-    -> m s
+    :: Monad m
+    => (d s -> TypeOpT s a m (d s))
+    -> d s
     -> a
-    -> (a -> Type s -> Either err (a, Type s))
-    -> AstOp s err (a, m s)
+    -> (a -> Type s -> m (a, Type s))
+    -> AstOpT s m (a, d s)
 astOpTypeVisit op decl x tyVisit =
-    case __doTyOp (op decl) x tyVisit of
-        Left err -> astOpErr err
-        Right (x', decl') -> return (x', decl')
+    lift $ __doTyOp (op decl) x tyVisit
 
 {- Conversion of UnConType updating function. -}
 unConTransUpdate :: (UnConType s -> Either err (UnConType s)) -> (Type s -> Either err (Type s))
@@ -1450,7 +1461,7 @@ unConTransLookup :: (a -> UnConType s -> b) -> (a -> Type s -> b)
 unConTransLookup f x = f x . unConFromType
 
 {- Low-level ast visiting function. -}
-visitTypes :: a -> (a -> Type s -> Either err (a, Type s)) -> AstOpFilters -> AstOp s err a
+visitTypes :: Monad m => a -> (a -> Type s -> m (a, Type s)) -> AstOpResFilters -> AstOpT s m a
 visitTypes x f aof = do
     p <- get
     let decls = declarationsFrom p
@@ -1470,7 +1481,7 @@ visitTypes x f aof = do
 {- It offers an operation to change values of type Type. This is very useful to avoid direct pattern
 matching on a Program, which would break the abstract data type and would bring boiler-plate code.
 The callback provides a way to set the value for the error case. -}
-updateTypes :: (Type s -> Either err (Type s)) -> AstOpFilters -> AstOp s err ()
+updateTypes :: (Type s -> Either err (Type s)) -> AstOpResFilters -> AstOpRes s err ()
 updateTypes f =
     visitTypes () builtF
     where
@@ -1481,19 +1492,19 @@ updateTypes f =
             Right ty' -> Right ((), ty')
 
 {- Same of updateTypes, but it acts on UnConType. -}
-updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpFilters -> AstOp s err ()
+updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpResFilters -> AstOpRes s err ()
 updateUnCons f = updateTypes $ unConTransUpdate f
 
 {- `updateAllTypes x f` is a shorthand for `updateTypes x f AOFAll` -}
-updateAllTypes :: (Type s -> Either err (Type s)) -> AstOp s err ()
+updateAllTypes :: (Type s -> Either err (Type s)) -> AstOpRes s err ()
 updateAllTypes f = updateTypes f AOFAll
 
-updateAllUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOp s err ()
+updateAllUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpRes s err ()
 updateAllUnCons f = updateUnCons f AOFAll
 
 {- It offers an operation to "read" all values of type Type. Like updateTypes, this is useful to avoid
 pattern matching on a Program. -}
-lookupTypes :: a -> (a -> Type s -> Either err a) -> AstOpFilters -> AstOp s err a
+lookupTypes :: a -> (a -> Type s -> Either err a) -> AstOpResFilters -> AstOpRes s err a
 lookupTypes x f =
     visitTypes x builtF
     where
@@ -1503,55 +1514,49 @@ lookupTypes x f =
             Left err -> Left err
             Right y' -> Right (y', ty)
 
-lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpFilters -> AstOp s err a
+lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpResFilters -> AstOpRes s err a
 lookupUnCons x f filters = lookupTypes x <| unConTransLookup f <| filters
 
-lookupAllTypes :: a -> (a -> Type s -> Either err a) -> AstOp s err a
+lookupAllTypes :: a -> (a -> Type s -> Either err a) -> AstOpRes s err a
 lookupAllTypes x f = lookupTypes x f AOFAll
 
-lookupAllUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOp s err a
+lookupAllUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpRes s err a
 lookupAllUnCons x f = lookupUnCons x f AOFAll
 
 {- Variant of `lookupTypes` which takes a "safe" callback, namely a callback which does not return an error.
 NB: the returned ast operation is granted not to fail. -}
-safeLookupTypes :: a -> (a -> Type s -> a) -> AstOpFilters -> AstOp s err a
+safeLookupTypes :: a -> (a -> Type s -> a) -> AstOpResFilters -> AstOp s a
 safeLookupTypes x f =
     visitTypes x builtF
     where
-        builtF y ty = Right (f y ty, ty)
+        builtF y ty = do
+            let y' = f y ty
+            return (y', ty)
 
-safeLookupAllTypes :: a -> (a -> Type s -> a) -> AstOp s err a
+safeLookupAllTypes :: a -> (a -> Type s -> a) -> AstOp s a
 safeLookupAllTypes x f = safeLookupTypes x f AOFAll
 
 -------------------- Ast operations on declarations --------------------
 
 {- Generic ast-operation to read a declaration. -}
-lookupDecl :: (a -> Declaration s -> Either err a) -> a -> Declaration s -> AstOp s err a
-lookupDecl f x decl =
-    case f x decl of
-        Left err -> astOpErr err
-        Right x' -> return x'
+lookupDecl :: Monad m => (a -> Declaration s -> m a) -> a -> Declaration s -> AstOpT s m a
+lookupDecl f x decl = lift $ f x decl
 
 {- Generic ast-operation to read-and-update a declaration. -}
 setDecl
-    :: (a -> Declaration s -> Either err (a, Declaration s))
+    :: Monad m
+    => (a -> Declaration s -> m (a, Declaration s))
     -> a
     -> Declaration s
-    -> AstOp s err (a, Declaration s)
-setDecl f x decl =
-    case f x decl of
-        Left err -> astOpErr err
-        Right (x', decl') -> return (x' ,decl')
+    -> AstOpT s m (a, Declaration s)
+setDecl f x decl = lift $ f x decl
 
 {- Generic ast-operation to update a declaration. -}
-updateDecl :: (Declaration s -> Either err (Declaration s)) -> Declaration s -> AstOp s err (Declaration s)
-updateDecl f decl =
-    case f decl of
-        Left err -> astOpErr err
-        Right decl' -> return decl'
+updateDecl :: Monad m => (Declaration s -> m (Declaration s)) -> Declaration s -> AstOpT s m (Declaration s)
+updateDecl f = lift . f
 
 {- Generic ast-operation to read declarations in a program. -}
-lookupDecls :: a -> (a -> Declaration s -> Either err a) -> AstOp s err a
+lookupDecls :: Monad m => a -> (a -> Declaration s -> m a) -> AstOpT s m a
 lookupDecls x f = do
     decls <- getDecls
     forAllM decls doLookup x
@@ -1559,7 +1564,7 @@ lookupDecls x f = do
         doLookup = lookupDecl f
 
 {- Generic ast-operation to read-and-update declarations in a program. -}
-setDecls :: a -> (a -> Declaration s -> Either err (a, Declaration s)) -> AstOp s err a
+setDecls :: Monad m => a -> (a -> Declaration s -> m (a, Declaration s)) -> AstOpT s m a
 setDecls x f = do
     decls <- getDecls
     (x', decls') <- forAllM decls doVisit `accumulatingIn` (x, [])
@@ -1568,13 +1573,12 @@ setDecls x f = do
     where
         accumulatingIn = ($)
 
-        doVisit (y, decls) decl =
-            case f y decl of
-                Left err -> astOpErr err
-                Right (y', decl') -> return (y', decl' : decls)
+        doVisit (y, decls) decl = do
+            (y', decl') <- lift $ f y decl
+            return (y', decl' : decls)
 
 {- Generic ast-operation to update declarations in a program. -}
-updateDecls :: (Declaration s -> Either err (Declaration s)) -> AstOp s err ()
+updateDecls :: Monad m => (Declaration s -> m (Declaration s)) -> AstOpT s m ()
 updateDecls f = do
     decls <- getDecls
     decls' <- mapM doUpdate decls
@@ -1583,7 +1587,7 @@ updateDecls f = do
         doUpdate = updateDecl f
 
 {- Operation to "read" all occurrences of declaration of adt. -}
-lookupAdt :: a -> (a -> AlgebraicDataType s -> Either err a) -> AstOp s err a
+lookupAdt :: a -> (a -> AlgebraicDataType s -> Either err a) -> AstOpRes s err a
 lookupAdt x f =
     lookupDecls x builtF
     where
@@ -1591,13 +1595,14 @@ lookupAdt x f =
         builtF y _ = Right y
 
 {- Safe version of `lookupAdt`, namely it is granted not to fail. -}
-safeLookupAdt :: a -> (a -> AlgebraicDataType s -> a) -> AstOp s err a
+safeLookupAdt :: a -> (a -> AlgebraicDataType s -> a) -> AstOp s a
 safeLookupAdt x f =
-    lookupAdt x builtF
+    lookupDecls x builtF
     where
-        builtF y decl = Right $ f y decl
+        builtF y (ADT adt) = pure $ f y adt
+        builtF y _ = pure y
 
-updateAdt :: (AlgebraicDataType s -> Either err (AlgebraicDataType s)) -> AstOp s err ()
+updateAdt :: (AlgebraicDataType s -> Either err (AlgebraicDataType s)) -> AstOpRes s err ()
 updateAdt f =
     updateDecls builtF
     where
@@ -1609,7 +1614,7 @@ updateAdt f =
 
 {- Instead of write-only functions (like `update<token>`), it updates a token (in this case an adt)
 and returns also a user-defined value. Thus, it can be seen as a read-and-write operation on ast. -}
-setAdt :: a -> (a -> AlgebraicDataType s -> Either err (a, AlgebraicDataType s)) -> AstOp s err a
+setAdt :: a -> (a -> AlgebraicDataType s -> Either err (a, AlgebraicDataType s)) -> AstOpRes s err a
 setAdt x f =
     setDecls x builtF
     where
@@ -1620,7 +1625,7 @@ setAdt x f =
         builtF y decl = Right (y, decl)
 
 {- Operation to "read" all occurrences of declaration of alias. -}
-lookupAlias :: a -> (a -> AliasAlgebraicDataType s -> Either err a) -> AstOp s err a
+lookupAlias :: a -> (a -> AliasAlgebraicDataType s -> Either err a) -> AstOpRes s err a
 lookupAlias x f =
     lookupDecls x builtF
     where
@@ -1628,27 +1633,29 @@ lookupAlias x f =
         builtF y _ = Right y
 
 {- Safe version of `lookupAlias`, namely it is granted not to fail. -}
-safeLookupAlias :: a -> (a -> AliasAlgebraicDataType s -> a) -> AstOp s err a
+safeLookupAlias :: a -> (a -> AliasAlgebraicDataType s -> a) -> AstOp s a
 safeLookupAlias x f =
-    lookupAlias x builtF
+    lookupDecls x builtF
     where
-        builtF y decl = Right $ f y decl
+        builtF y (AliasADT alias) = pure $ f y alias
+        builtF y _ = pure y
 
-lookupSymDecl :: a -> (a -> SymbolDeclaration s -> Either err a) -> AstOp s err a
+lookupSymDecl :: a -> (a -> SymbolDeclaration s -> Either err a) -> AstOpRes s err a
 lookupSymDecl x f =
     lookupDecls x builtF
     where
         builtF y (Let symD) = f y symD
         builtF y _ = Right y
 
-safeLookupSymDecl :: a -> (a -> SymbolDeclaration s -> a) -> AstOp s err a
+safeLookupSymDecl :: a -> (a -> SymbolDeclaration s -> a) -> AstOp s a
 safeLookupSymDecl x f =
-    lookupSymDecl x builtF
+    lookupDecls x builtF
     where
-        builtF y decl = Right $ f y decl
+        builtF y (Let symD) = pure $ f y symD
+        builtF y _ = pure y
 
 {- Operation to update all occurrences of declaration of symbols. -}
-updateSymDecl :: (SymbolDeclaration s -> Either err (SymbolDeclaration s)) -> AstOp s err ()
+updateSymDecl :: (SymbolDeclaration s -> Either err (SymbolDeclaration s)) -> AstOpRes s err ()
 updateSymDecl f =
     updateDecls builtF
     where
@@ -1658,7 +1665,7 @@ updateSymDecl f =
                 Right symD' -> Right $ Let symD'
         builtF decl = Right decl
 
-updateMultiSymDecl :: (MultiSymbolDeclaration s -> Either err (MultiSymbolDeclaration s)) -> AstOp s err ()
+updateMultiSymDecl :: (MultiSymbolDeclaration s -> Either err (MultiSymbolDeclaration s)) -> AstOpRes s err ()
 updateMultiSymDecl f =
     updateDecls builtF
     where
@@ -1672,7 +1679,7 @@ lookupGenSymDecl
     :: a
     -> (a -> SymbolDeclaration s -> Either err a)
     -> (a -> MultiSymbolDeclaration s -> Either err a)
-    -> AstOp s err a
+    -> AstOpRes s err a
 lookupGenSymDecl x sdf msdf =
     lookupDecls x builtF
     where
@@ -1684,14 +1691,15 @@ safeLookupGenSymDecl
     :: a
     -> (a -> SymbolDeclaration s -> a)
     -> (a -> MultiSymbolDeclaration s -> a)
-    -> AstOp s err a
+    -> AstOp s a
 safeLookupGenSymDecl x sdf msdf =
-    lookupGenSymDecl x builtSdF builtMsdF
+    lookupDecls x builtF
     where
-        builtSdF y symD = Right $ sdf y symD
-        builtMsdF y symD = Right $ msdf y symD
+        builtF y (Let symD) = pure $ sdf y symD
+        builtF y (LetMulti symD) = pure $ msdf y symD
+        builtF y _ = pure y
 
-setSymDecl :: a -> (a -> SymbolDeclaration s -> Either err (a, SymbolDeclaration s)) -> AstOp s err a
+setSymDecl :: a -> (a -> SymbolDeclaration s -> Either err (a, SymbolDeclaration s)) -> AstOpRes s err a
 setSymDecl x f =
     setDecls x builtF
     where
@@ -1701,7 +1709,7 @@ setSymDecl x f =
                 Right (y', symD') -> Right (y', Let symD')
         builtF y decl = Right (y, decl)
 
-setMultiSymDecl :: a -> (a -> MultiSymbolDeclaration s -> Either err (a, MultiSymbolDeclaration s)) -> AstOp s err a
+setMultiSymDecl :: a -> (a -> MultiSymbolDeclaration s -> Either err (a, MultiSymbolDeclaration s)) -> AstOpRes s err a
 setMultiSymDecl x f =
     setDecls x builtF
     where
@@ -1711,20 +1719,21 @@ setMultiSymDecl x f =
                 Right (y', symD') -> Right (y', LetMulti symD')
         builtF y decl = Right (y, decl)
 
-lookupProp :: a -> (a -> Interface s -> Either err a) -> AstOp s err a
+lookupProp :: a -> (a -> Interface s -> Either err a) -> AstOpRes s err a
 lookupProp x f =
     lookupDecls x builtF
     where
         builtF y (Intf prop) = f y prop
         builtF y _ = Right y
 
-safeLookupProp :: a -> (a -> Interface s -> a) -> AstOp s err a
+safeLookupProp :: a -> (a -> Interface s -> a) -> AstOp s a
 safeLookupProp x f =
-    lookupProp x builtF
+    lookupDecls x builtF
     where
-        builtF y decl = Right $ f y decl
+        builtF y (Intf prop) = pure $ f y prop
+        builtF y _ = pure y
 
-setProp :: a -> (a -> Interface s -> Either err (a, Interface s)) -> AstOp s err a
+setProp :: a -> (a -> Interface s -> Either err (a, Interface s)) -> AstOpRes s err a
 setProp x f =
     setDecls x builtF
     where
@@ -1734,20 +1743,21 @@ setProp x f =
                 Right (y', prop') -> Right (y', Intf prop')
         builtF y decl = Right (y, decl)
 
-lookupInst :: a -> (a -> Instance s -> Either err a) -> AstOp s err a
+lookupInst :: a -> (a -> Instance s -> Either err a) -> AstOpRes s err a
 lookupInst x f =
     lookupDecls x builtF
     where
         builtF y (Ins inst) = f y inst
         builtF y _ = Right y
 
-safeLookupInst :: a -> (a -> Instance s -> a) -> AstOp s err a
+safeLookupInst :: a -> (a -> Instance s -> a) -> AstOp s a
 safeLookupInst x f =
-    lookupInst x builtF
+    lookupDecls x builtF
     where
-        builtF y decl = Right $ f y decl
+        builtF y (Ins inst) = pure $ f y inst
+        builtF y _ = pure y
 
-setInst :: a -> (a -> Instance s -> Either err (a, Instance s)) -> AstOp s err a
+setInst :: a -> (a -> Instance s -> Either err (a, Instance s)) -> AstOpRes s err a
 setInst x f =
     setDecls x builtF
     where
@@ -1757,7 +1767,7 @@ setInst x f =
                 Right (y', inst') -> Right (y', Ins inst')
         builtF y decl = Right (y, decl)
 
-lookupConts :: a -> (a -> Constraint s -> Either err a) -> AstOp s err a
+lookupConts :: a -> (a -> Constraint s -> Either err a) -> AstOpRes s err a
 lookupConts x f = do
     {- There are three different places where to search constraints:
         1) types;
@@ -1867,7 +1877,7 @@ execHintVisit op decl hintVisit =
 
 {- It visits hints but uniquely in symbol declarations, in particular only the hint of the variable
 which is being defined. -}
-setHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
+setHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOpRes s err a
 setHintsInHeadSymDecl x f =
     setSymDecl x builtF
     where
@@ -1877,7 +1887,7 @@ setHintsInHeadSymDecl x f =
 
         f' sn y = f y sn
 
-setHintsInHeadMultiSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOp s err a
+setHintsInHeadMultiSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err (a, Hint s)) -> AstOpRes s err a
 setHintsInHeadMultiSymDecl x f =
     setMultiSymDecl x builtF
     where
@@ -1889,7 +1899,7 @@ setHintsInHeadMultiSymDecl x f =
 
 {- It visits and updates hints (through the callback) uniquely in symbol declarations, in particular
 only the hint of the variable which is being defined. -}
-updateHintsInHeadSymDecl :: (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOp s err ()
+updateHintsInHeadSymDecl :: (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOpRes s err ()
 updateHintsInHeadSymDecl f =
     updateSymDecl builtF
     where
@@ -1897,7 +1907,7 @@ updateHintsInHeadSymDecl f =
             let symName = symNameFrom symD in
                 execHintVisit visitHintsInHeadSymDecl symD $ f symName
 
-updateHintsInHeadMultiSymDecl :: (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOp s err ()
+updateHintsInHeadMultiSymDecl :: (SymbolName s -> Hint s -> Either err (Hint s)) -> AstOpRes s err ()
 updateHintsInHeadMultiSymDecl f =
     updateMultiSymDecl builtF
     where
@@ -1906,13 +1916,13 @@ updateHintsInHeadMultiSymDecl f =
                 execHintVisit visitHintsInHeadMultiSymDecl symD $ f symName
 
 {- Safe version of updateHintsInHeadSymDecl. -}
-safeUpdateHintsInHeadSymDecl :: (SymbolName s -> Hint s -> Hint s) -> AstOp s err ()
+safeUpdateHintsInHeadSymDecl :: (SymbolName s -> Hint s -> Hint s) -> AstOpRes s err ()
 safeUpdateHintsInHeadSymDecl f =
     updateHintsInHeadSymDecl builtF
     where
         builtF sn h = Right $ f sn h
 
-safeUpdateHintsInHeadMultiSymDecl :: (SymbolName s -> Hint s -> Hint s) -> AstOp s err ()
+safeUpdateHintsInHeadMultiSymDecl :: (SymbolName s -> Hint s -> Hint s) -> AstOpRes s err ()
 safeUpdateHintsInHeadMultiSymDecl f =
     updateHintsInHeadMultiSymDecl builtF
     where
@@ -1920,7 +1930,7 @@ safeUpdateHintsInHeadMultiSymDecl f =
 
 {- It visits and "reads" hints (through the callback) uniquely in symbol declarations, in particular
 only the hint of the variable which is being defined. -}
-lookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err a) -> AstOp s err a
+lookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> Either err a) -> AstOpRes s err a
 lookupHintsInHeadSymDecl x f =
     lookupSymDecl x builtF
     where
@@ -1931,7 +1941,7 @@ lookupHintsInHeadSymDecl x f =
         f' sn y = f y sn
 
 {- Safe version of lookupHintsInHeadSymDecl. -}
-safeLookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> a) -> AstOp s err a
+safeLookupHintsInHeadSymDecl :: a -> (a -> SymbolName s -> Hint s -> a) -> AstOpRes s err a
 safeLookupHintsInHeadSymDecl x f =
     lookupHintsInHeadSymDecl x builtF
     where
