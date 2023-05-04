@@ -86,6 +86,7 @@ module Compiler.Ast.Tree
     , safeLookupAdt
     , updateAdt
     , setAdt
+    , safeSetAdt
     , lookupAlias
     , safeLookupAlias
     , updateSymDecl
@@ -95,13 +96,17 @@ module Compiler.Ast.Tree
     , lookupGenSymDecl
     , safeLookupGenSymDecl
     , setSymDecl
+    , safeSetSymDecl
     , setMultiSymDecl
+    , safeSetMultiSymDecl
     , lookupProp
     , safeLookupProp
     , setProp
+    , safeSetProp
     , lookupInst
     , safeLookupInst
     , setInst
+    , safeSetInst
     , lookupConts
     , setHintsInHeadSymDecl
     , setHintsInHeadMultiSymDecl
@@ -1651,6 +1656,15 @@ setAdt x f =
                 Right (y', adt') -> Right (y', ADT adt')
         builtF y decl = Right (y, decl)
 
+safeSetAdt :: a -> (a -> AlgebraicDataType s -> (a, AlgebraicDataType s)) -> AstOp s a
+safeSetAdt x f =
+    setDecls x builtF
+    where
+        builtF y (ADT adt) = do
+            let (y', adt') = f y adt
+            return (y', ADT adt')
+        builtF y decl = pure (y, decl)
+
 {- Operation to "read" all occurrences of declaration of alias. -}
 lookupAlias :: a -> (a -> AliasAlgebraicDataType s -> Either err a) -> AstOpRes s err a
 lookupAlias x f =
@@ -1736,6 +1750,15 @@ setSymDecl x f =
                 Right (y', symD') -> Right (y', Let symD')
         builtF y decl = Right (y, decl)
 
+safeSetSymDecl :: a -> (a -> SymbolDeclaration s -> (a, SymbolDeclaration s)) -> AstOp s a
+safeSetSymDecl x f =
+    setDecls x builtF
+    where
+        builtF y (Let symD) = do
+            let (y', symD') = f y symD
+            return (y', Let symD')
+        builtF y decl = pure (y, decl)
+
 setMultiSymDecl :: a -> (a -> MultiSymbolDeclaration s -> Either err (a, MultiSymbolDeclaration s)) -> AstOpRes s err a
 setMultiSymDecl x f =
     setDecls x builtF
@@ -1745,6 +1768,15 @@ setMultiSymDecl x f =
                 Left err -> Left err
                 Right (y', symD') -> Right (y', LetMulti symD')
         builtF y decl = Right (y, decl)
+
+safeSetMultiSymDecl :: a -> (a -> MultiSymbolDeclaration s -> (a, MultiSymbolDeclaration s)) -> AstOp s a
+safeSetMultiSymDecl x f =
+    setDecls x builtF
+    where
+        builtF y (LetMulti symD) = do
+            let (y', symD') = f y symD
+            return (y', LetMulti symD')
+        builtF y decl = pure (y, decl)
 
 lookupProp :: a -> (a -> Interface s -> Either err a) -> AstOpRes s err a
 lookupProp x f =
@@ -1770,6 +1802,15 @@ setProp x f =
                 Right (y', prop') -> Right (y', Intf prop')
         builtF y decl = Right (y, decl)
 
+safeSetProp :: a -> (a -> Interface s -> (a, Interface s)) -> AstOp s a
+safeSetProp x f =
+    setDecls x builtF
+    where
+        builtF y (Intf prop) = do
+            let (y', prop') = f y prop
+            return (y', Intf prop')
+        builtF y decl = pure (y, decl)
+
 lookupInst :: a -> (a -> Instance s -> Either err a) -> AstOpRes s err a
 lookupInst x f =
     lookupDecls x builtF
@@ -1793,6 +1834,15 @@ setInst x f =
                 Left err -> Left err
                 Right (y', inst') -> Right (y', Ins inst')
         builtF y decl = Right (y, decl)
+
+safeSetInst :: a -> (a -> Instance s -> (a, Instance s)) -> AstOp s a
+safeSetInst x f =
+    setDecls x builtF
+    where
+        builtF y (Ins inst) = do
+            let (y', inst') = f y inst
+            return (y', Ins inst')
+        builtF y decl = pure (y, decl)
 
 lookupConts :: a -> (a -> Constraint s -> Either err a) -> AstOpRes s err a
 lookupConts x f = do
