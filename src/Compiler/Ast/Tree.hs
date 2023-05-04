@@ -57,8 +57,12 @@ module Compiler.Ast.Tree
     , doOnUnCon
     , doOnUnCon'
     -- AstOp monad
+    , AstOpT
+    , AstOp
     , AstOpRes
     , astOpErr
+    , runAstOpT
+    , runAstOp
     , runAstOpRes
     , removeDeclsBy
     , getDecls
@@ -749,6 +753,9 @@ replaceProg = put . buildProgram
 
 runAstOpT :: Program s -> AstOpT s m a -> m (a, Program s)
 runAstOpT = flip runStateT
+
+runAstOp :: Program s -> AstOp s a -> (a, Program s)
+runAstOp p op = runIdentity $ runAstOpT p op
 
 {- It executes a AstOpRes. It needs a Program. -}
 runAstOpRes :: Program s -> AstOpRes s err a -> Either err (a, Program s)
