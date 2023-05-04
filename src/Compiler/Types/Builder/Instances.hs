@@ -421,7 +421,7 @@ propSyms st = do
         addMethodsToTables :: Raw.AstOp With.ProgState InstanceErr InstState
         addMethodsToTables =
             case execStateT mkAllPropSyms st of
-                Left err -> mzero Raw.<?> err
+                Left err -> Raw.astOpErr err
                 Right st' -> return st'
 
 instsCheck :: NecessaryInsts -> Raw.AstOp With.ProgState InstanceErr ()
@@ -429,7 +429,7 @@ instsCheck nInsts = do
     leftInsts <- Raw.safeLookupInst nInsts removeNecessaryInsts
     case leftInsts of
         [] -> return ()
-        cs -> mzero Raw.<?> NoInst cs
+        cs -> Raw.astOpErr $ NoInst cs
 
 build
     :: TypesTable With.ProgState
