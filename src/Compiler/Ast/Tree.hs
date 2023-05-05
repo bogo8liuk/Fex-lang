@@ -71,8 +71,10 @@ module Compiler.Ast.Tree
     , visitPtsInMany
     , visitPtsInCont
     , visitPtsInAdtCon
-    , AstOpResSingleFilter(..)
-    , AstOpResFilters(..)
+    , AstOpSingleFilter(..)
+    , AstOpFilters(..)
+    , filterDecls
+    , splitDecls
     , updateTypes
     , updateUnCons
     , updateAllTypes
@@ -286,7 +288,7 @@ import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.RWS
 import Data.Semigroup
-import Data.List(foldl')
+import Data.List(foldl', partition)
 import Data.List.NonEmpty(NonEmpty(..))
 import Compiler.Ast.Common
 
@@ -830,7 +832,7 @@ infix 0 <?>
 -}
 
 {- It removes declarations specified by filters and it returns them. -}
-removeDeclsBy :: Monad m => AstOpResFilters -> AstOpT s m [Declaration s]
+removeDeclsBy :: Monad m => AstOpFilters -> AstOpT s m [Declaration s]
 removeDeclsBy aof = do
     decls <- getDecls
     let (incl, notIncl) = splitDecls decls aof
@@ -840,7 +842,7 @@ removeDeclsBy aof = do
 getDecls :: Monad m => AstOpT s m [Declaration s]
 getDecls = gets declarationsFrom
 
-getDeclsBy :: Monad m => AstOpResFilters -> AstOpT s m [Declaration s]
+getDeclsBy :: Monad m => AstOpFilters -> AstOpT s m [Declaration s]
 getDeclsBy aof = do
     decls <- getDecls
     let decls' = filterDecls decls aof
@@ -1189,7 +1191,7 @@ type HintOpT s st m a = TokenOpT Hint s st m a
 {- Filters to let the client decide which tokens of a program to work with. Perhaps, there can be a
 situation where not all tokens have to be "touched". Each constructor has the suffix "AOF" which stands
 for "AstOpResFilters", just not to have clashing names problems. -}
-data AstOpResSingleFilter =
+data AstOpSingleFilter =
       AOFAdt
     | AOFAlias
     | AOFIntf
@@ -1199,15 +1201,15 @@ data AstOpResSingleFilter =
     | AOFMultiSymD
     deriving Eq
 
-data AstOpResFilters =
+data AstOpFilters =
     {- shorthand to have all filters. -}
       AOFAll
     {- shorthand to have no filter. -}
     | AOFNone
-    | AOFSome [AstOpResSingleFilter]
-    | AOFExcept [AstOpResSingleFilter]
+    | AOFSome [AstOpSingleFilter]
+    | AOFExcept [AstOpSingleFilter]
 
-isIncludedBy :: Declaration a -> AstOpResFilters -> Bool
+isIncludedBy :: Declaration a -> AstOpFilters -> Bool
 isIncludedBy _ AOFAll = True
 isIncludedBy _ AOFNone = False
 isIncludedBy (ADT _) (AOFSome fls) = AOFAdt `elem` fls
@@ -1225,19 +1227,17 @@ isIncludedBy (Let _) (AOFExcept fls) = AOFSymD `notElem` fls
 isIncludedBy (LetMulti _) (AOFSome fls) = AOFMultiSymD `elem` fls
 isIncludedBy (LetMulti _) (AOFExcept fls) = AOFMultiSymD `notElem` fls
 
-isNotIncludedBy :: Declaration a -> AstOpResFilters -> Bool
+isNotIncludedBy :: Declaration a -> AstOpFilters -> Bool
 isNotIncludedBy decl aof = not $ isIncludedBy decl aof
 
-filterDecls :: [Declaration a] -> AstOpResFilters -> [Declaration a]
+filterDecls :: [Declaration a] -> AstOpFilters -> [Declaration a]
 filterDecls decls aof = filter (`isIncludedBy` aof) decls
 
 {- The right-hand element of the returned tuple is the one which has declarations that matched the filter,
 viceversa for the other one. -}
-splitDecls :: [Declaration a] -> AstOpResFilters -> ([Declaration a], [Declaration a])
+splitDecls :: [Declaration a] -> AstOpFilters -> ([Declaration a], [Declaration a])
 splitDecls decls aof =
-    ( filter (`isIncludedBy` aof) decls
-    , filter (`isNotIncludedBy` aof) decls
-    )
+    partition (`isIncludedBy` aof) decls
 
 typeOpVisit :: Monad m => Type s -> TypeOpT s a m (Type s)
 typeOpVisit = tokenOpVisit
@@ -1428,7 +1428,7 @@ visitTypesInSig (SigTok (s, ty, st)) = do
     ty'' <- visitTypesInType ty'
     return $ SigTok (s, ty'', st)
 
-visitTypesInDecl :: Monad m => Declaration s -> AstOpResFilters -> TypeOpT s a m (Declaration s)
+visitTypesInDecl :: Monad m => Declaration s -> AstOpFilters -> TypeOpT s a m (Declaration s)
 visitTypesInDecl decl aof =
     if decl `isIncludedBy` aof
     then
@@ -1504,7 +1504,7 @@ unConTransLookup :: (a -> UnConType s -> b) -> (a -> Type s -> b)
 unConTransLookup f x = f x . unConFromType
 
 {- Low-level ast visiting function. -}
-visitTypes :: Monad m => a -> (a -> Type s -> m (a, Type s)) -> AstOpResFilters -> AstOpT s m a
+visitTypes :: Monad m => a -> (a -> Type s -> m (a, Type s)) -> AstOpFilters -> AstOpT s m a
 visitTypes x f aof = do
     p <- get
     let decls = declarationsFrom p
@@ -1524,7 +1524,7 @@ visitTypes x f aof = do
 {- It offers an operation to change values of type Type. This is very useful to avoid direct pattern
 matching on a Program, which would break the abstract data type and would bring boiler-plate code.
 The callback provides a way to set the value for the error case. -}
-updateTypes :: (Type s -> Either err (Type s)) -> AstOpResFilters -> AstOpRes s err ()
+updateTypes :: (Type s -> Either err (Type s)) -> AstOpFilters -> AstOpRes s err ()
 updateTypes f =
     visitTypes () builtF
     where
@@ -1535,7 +1535,7 @@ updateTypes f =
             Right ty' -> Right ((), ty')
 
 {- Same of updateTypes, but it acts on UnConType. -}
-updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpResFilters -> AstOpRes s err ()
+updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpFilters -> AstOpRes s err ()
 updateUnCons f = updateTypes $ unConTransUpdate f
 
 {- `updateAllTypes x f` is a shorthand for `updateTypes x f AOFAll` -}
@@ -1547,7 +1547,7 @@ updateAllUnCons f = updateUnCons f AOFAll
 
 {- It offers an operation to "read" all values of type Type. Like updateTypes, this is useful to avoid
 pattern matching on a Program. -}
-lookupTypes :: a -> (a -> Type s -> Either err a) -> AstOpResFilters -> AstOpRes s err a
+lookupTypes :: a -> (a -> Type s -> Either err a) -> AstOpFilters -> AstOpRes s err a
 lookupTypes x f =
     visitTypes x builtF
     where
@@ -1557,7 +1557,7 @@ lookupTypes x f =
             Left err -> Left err
             Right y' -> Right (y', ty)
 
-lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpResFilters -> AstOpRes s err a
+lookupUnCons :: a -> (a -> UnConType s -> Either err a) -> AstOpFilters -> AstOpRes s err a
 lookupUnCons x f filters = lookupTypes x <| unConTransLookup f <| filters
 
 lookupAllTypes :: a -> (a -> Type s -> Either err a) -> AstOpRes s err a
@@ -1568,7 +1568,7 @@ lookupAllUnCons x f = lookupUnCons x f AOFAll
 
 {- Variant of `lookupTypes` which takes a "safe" callback, namely a callback which does not return an error.
 NB: the returned ast operation is granted not to fail. -}
-safeLookupTypes :: a -> (a -> Type s -> a) -> AstOpResFilters -> AstOp s a
+safeLookupTypes :: a -> (a -> Type s -> a) -> AstOpFilters -> AstOp s a
 safeLookupTypes x f =
     visitTypes x builtF
     where
