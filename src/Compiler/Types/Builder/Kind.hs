@@ -475,5 +475,5 @@ kindOf (kt, cont) adt =
         (Raw.boundParamTNamesFromAdt adt)
         (Raw.adtConsFrom adt)
 
-kindDiscover :: KindsTable -> Raw.AstOp With.ProgState TypeGenErr (KindsTable, Fresh.FV ())
+kindDiscover :: KindsTable -> Raw.AstOpRes With.ProgState TypeGenErr (KindsTable, Fresh.FV ())
 kindDiscover kt = Raw.lookupAdt (kt, Fresh.newFreeVarsContainer) kindOf

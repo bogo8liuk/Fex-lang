@@ -48,7 +48,7 @@ addAdt kt tt adt =
                     Nothing -> Left $ UnreachableState "Inconsistent kind with number of states"
                     Just lnty -> Right $ addElem lnty tt
 
-buildTypesTable :: KindsTable -> Raw.AstOp With.ProgState TypeGenErr (TypesTable With.ProgState)
+buildTypesTable :: KindsTable -> Raw.AstOpRes With.ProgState TypeGenErr (TypesTable With.ProgState)
 buildTypesTable kt =
     Raw.lookupAdt noElems $ addAdt kt
 
@@ -73,10 +73,10 @@ cleanVars kt = fromList . clean $ toAscList kt
         cleanKinds (SubLK ks : t) = SubLK (cleanKinds ks) : cleanKinds t
         cleanKinds (other : t) = other : cleanKinds t
 
-cleanVarsOp :: KindsTable -> Raw.AstOp With.ProgState err KindsTable
+cleanVarsOp :: KindsTable -> Raw.AstOpRes With.ProgState err KindsTable
 cleanVarsOp kt = return $ cleanVars kt
 
-build :: Raw.AstOp With.ProgState TypeGenErr (TypesTable With.ProgState)
+build :: Raw.AstOpRes With.ProgState TypeGenErr (TypesTable With.ProgState)
 build = do
     (kt, _) <- kindDiscover empty
     kt' <- cleanVarsOp kt

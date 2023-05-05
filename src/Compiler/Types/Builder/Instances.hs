@@ -383,7 +383,7 @@ removeNecessaryInsts (c : t) inst =
     then removeNecessaryInsts t inst
     else c : removeNecessaryInsts t inst
 
-visitProp :: InstState -> Raw.AstOp With.ProgState InstanceErr InstState
+visitProp :: InstState -> Raw.AstOpRes With.ProgState InstanceErr InstState
 visitProp st = Raw.lookupProp st fetch
     where
         fetch :: InstState -> Raw.Interface With.ProgState -> Either InstanceErr InstState
@@ -391,7 +391,7 @@ visitProp st = Raw.lookupProp st fetch
 
 symsAndImpls
     :: InstState
-    -> Raw.AstOp With.ProgState InstanceErr
+    -> Raw.AstOpRes With.ProgState InstanceErr
         ( InstState
         , NecessaryInsts
         )
@@ -410,7 +410,7 @@ symsAndImpls st =
 
 propSyms
     :: InstState
-    -> Raw.AstOp With.ProgState InstanceErr
+    -> Raw.AstOpRes With.ProgState InstanceErr
         ( PropMethodsTable With.ProgState
         , Fresh.FV ()
         )
@@ -418,15 +418,15 @@ propSyms st = do
     st' <- addMethodsToTables
     return (S.fetchMethods st', S.fetchFV st')
     where
-        addMethodsToTables :: Raw.AstOp With.ProgState InstanceErr InstState
+        addMethodsToTables :: Raw.AstOpRes With.ProgState InstanceErr InstState
         addMethodsToTables =
             case execStateT mkAllPropSyms st of
                 Left err -> Raw.astOpErr err
                 Right st' -> return st'
 
-instsCheck :: NecessaryInsts -> Raw.AstOp With.ProgState InstanceErr ()
+instsCheck :: NecessaryInsts -> Raw.AstOpRes With.ProgState InstanceErr ()
 instsCheck nInsts = do
-    leftInsts <- Raw.safeLookupInst nInsts removeNecessaryInsts
+    leftInsts <- Raw.astOpRes $ Raw.safeLookupInst nInsts removeNecessaryInsts
     case leftInsts of
         [] -> return ()
         cs -> Raw.astOpErr $ NoInst cs
@@ -435,7 +435,7 @@ build
     :: TypesTable With.ProgState
     -> ConstraintsTable With.ProgState
     -> Fresh.FV ()
-    -> Raw.AstOp With.ProgState InstanceErr
+    -> Raw.AstOpRes With.ProgState InstanceErr
         ( InstsTable With.ProgState
         , PropMethodsTable With.ProgState
         , ImplTable With.ProgState

@@ -171,7 +171,7 @@ consFromAdt tt (ct, fv) adt =
 build
     :: TypesTable With.ProgState
     -> Fresh.FV ()
-    -> Raw.AstOp
+    -> Raw.AstOpRes
         With.ProgState
         ConsBuildError
         (DataConsTable With.ProgState, Fresh.FV ())

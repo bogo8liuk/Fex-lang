@@ -101,7 +101,7 @@ replaceAlias a a' =
 
 splitAliases :: [Raw.Declaration With.ProgState]
              -> ([Raw.AliasAlgebraicDataType With.ProgState], [Raw.Declaration With.ProgState])
-splitAliases l = doOnFst (map unWrap) . Raw.splitDecls l $ Raw.AOFSome [AOFAlias]
+splitAliases l = onFst (map unWrap) . Raw.splitDecls l $ Raw.AOFSome [AOFAlias]
     where
         unWrap (AliasADT a) = a
 
@@ -214,15 +214,15 @@ make up the cycle. -}
 aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either [Raw.AliasAlgebraicDataType With.ProgState] AliasMap
 aliasSubst l = __aliasSubst l [] l
 
-aliasSubstOp :: AliasMap -> Raw.AstOp With.ProgState () ()
-aliasSubstOp m = Raw.updateTypes () <| substCallback <| AOFExcept [AOFAlias]
+aliasSubstOp :: AliasMap -> Raw.AstOp With.ProgState ()
+aliasSubstOp m = Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
     where
         substCallback ty =
             let conts = Raw.contsFromType ty in
             let unCon = Raw.unConFromType ty in
             let newConts = map mkNewCont conts in
             let newUnCon = substCallback' unCon in
-                Right . Raw.buildType newConts newUnCon $ stateOf ty
+                Raw.buildType newConts newUnCon $ stateOf ty
 
         mkNewCont c =
             let ts = map substCallback' $ Raw.unConsFromCont c in
@@ -241,10 +241,8 @@ aliasSubstOp m = Raw.updateTypes () <| substCallback <| AOFExcept [AOFAlias]
                 Nothing -> ty
                 Just (params, bty) -> replace params name bty ty
 
-aliasSubstitutionForDecls :: AliasMap -> Raw.Program With.ProgState -> Maybe (Raw.Program With.ProgState)
-aliasSubstitutionForDecls m p = case runAstOp p () $ aliasSubstOp m of
-    Left _ -> Nothing   --unreachable state
-    Right (_, p') -> Just p'
+aliasSubstitutionForDecls :: AliasMap -> Raw.Program With.ProgState -> Raw.Program With.ProgState
+aliasSubstitutionForDecls m p = snd . runAstOp p $ aliasSubstOp m
 
 {- Given a Program, it returns a new Program, namely the changed version of the old one, where all occurrences
 of aliases are replaced with the implementations of those aliases (until no aliases remain). It handles also
@@ -256,4 +254,4 @@ aliasSubstitution p = case splitAliases $ Raw.declarationsFrom p of
     (aliases, nonAliases) -> (case aliasSubst aliases of
         Left [] -> None     --This is unreachable
         Left err -> That err
-        Right m -> maybe None This . aliasSubstitutionForDecls m $ Raw.buildProgram nonAliases)
+        Right m -> This . aliasSubstitutionForDecls m $ Raw.buildProgram nonAliases)

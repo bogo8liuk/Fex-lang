@@ -103,9 +103,9 @@ checkAmbigVars ps sigs = checkVars ps sigs
     where
         checkVars _ [] = Nothing
         checkVars [] (_ : t') = checkVars ps t'
-        checkVars (pty : t) sigs =
-            case foldl' (checkIfOk pty) Nothing sigs of
-                Nothing -> checkVars t sigs
+        checkVars (pty : t) sigs' =
+            case foldl' (checkIfOk pty) Nothing sigs' of
+                Nothing -> checkVars t sigs'
                 err -> err
 
         checkIfOk pty Nothing sig =
@@ -208,7 +208,7 @@ in the constraints table. -}
 addSpecConts
     :: TypesTable With.ProgState
     -> ConstraintsTable With.ProgState
-    -> Raw.AstOp With.ProgState ContGenErr (ConstraintsTable With.ProgState)
+    -> Raw.AstOpRes With.ProgState ContGenErr (ConstraintsTable With.ProgState)
 addSpecConts tt ct = Raw.lookupProp ct $ updateTyVars tt
 
 {- The property name as first component in the tuple is just the name which the key is the string
@@ -217,7 +217,7 @@ change the map. -}
 type CyclesMap = Map String (Raw.IntfName With.ProgState, [Raw.IntfName With.ProgState])
 
 {- It checks for the presence of cycles among constraints of properties. -}
-checkCycles :: Raw.AstOp With.ProgState ContGenErr CyclesMap
+checkCycles :: Raw.AstOpRes With.ProgState ContGenErr CyclesMap
 checkCycles = Raw.lookupProp empty propCycle
     where
         propCycle
@@ -254,7 +254,7 @@ checkCycles = Raw.lookupProp empty propCycle
                 then Just n
                 else Nothing) $ toList m
 
-build :: TypesTable With.ProgState -> Raw.AstOp With.ProgState ContGenErr (ConstraintsTable With.ProgState)
+build :: TypesTable With.ProgState -> Raw.AstOpRes With.ProgState ContGenErr (ConstraintsTable With.ProgState)
 build tt = do
     checkCycles
     ct <- Raw.lookupProp noElems $ buildCont tt

@@ -18,7 +18,6 @@ type Head = Raw.Constraint With.ProgState
 data ConstraintErr =
       NotSmaller Head (Raw.Constraint With.ProgState)
     | MoreOcc (Raw.ParamTypeName With.ProgState) Head (Raw.Constraint With.ProgState)
-    | InitState
 
 notSmaller :: Head -> Raw.Constraint With.ProgState -> String
 notSmaller head c = "Instance constraint " ++ Raw.showCont c ++ ", at " ++ show (stateOf c) ++ ", is not smaller than \
@@ -36,17 +35,14 @@ moreOccurrences pty head c = "In instance constraint " ++ Raw.showCont c ++ ", a
 instance InfoShow ConstraintErr where
     infoShow (NotSmaller head c) = notSmaller head c
     infoShow (MoreOcc pty head c) = moreOccurrences pty head c
-    infoShow InitState = unexpNoInfo
 
 instance DebugShow ConstraintErr where
     dbgShow (NotSmaller head c) = notSmaller head c
     dbgShow (MoreOcc pty head c) = moreOccurrences pty head c
-    dbgShow InitState = "Initial state of constraints check phase"
 
 instance UnreachableState ConstraintErr where
     isUnreachable NotSmaller {} = Nothing
     isUnreachable MoreOcc {} = Nothing
-    isUnreachable InitState = Just $ dbgShow InitState
 
 {- It does the check by comparing on how many type variables are nested in the head and the various constraints of
 an instance. -}
@@ -134,7 +130,7 @@ occurrencesCondition inst =
                     else countTyVars pty ts
                 )
 
-checkOp :: Raw.AstOp With.ProgState ConstraintErr ()
+checkOp :: Raw.AstOpRes With.ProgState ConstraintErr ()
 checkOp = Raw.lookupInst () verifyInstConditions
     where
         verifyInstConditions :: () -> Raw.Instance With.ProgState -> Either ConstraintErr ()
@@ -148,6 +144,6 @@ checkOp = Raw.lookupInst () verifyInstConditions
 
 perform :: Raw.Program With.ProgState -> Either ConstraintErr (Raw.Program With.ProgState)
 perform p =
-    case Raw.runAstOp p InitState checkOp of
+    case Raw.runAstOpRes p checkOp of
         Left err -> Left err
         Right (_, p') -> Right p'

@@ -8,12 +8,12 @@ import Lib.Utils
 import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
 import Compiler.State as With
-import Data.Map.Strict as Map
+import Data.Map.Strict as Map hiding (map)
 
 type HintMap = Map String (Type With.ProgState)
 
 splitSigs :: [Raw.Declaration With.ProgState] -> ([Raw.Signature With.ProgState], [Raw.Declaration With.ProgState])
-splitSigs l = doOnFst (Prelude.map unWrap) . splitDecls l $ AOFSome [AOFSig]
+splitSigs l = onFst (map unWrap) . splitDecls l $ AOFSome [AOFSig]
     where
         unWrap (Sig d) = d
 
@@ -26,10 +26,10 @@ fetchTypes sigs = __fetch sigs empty
             let sName = repOf $ Raw.symNameFromSig s in
                 __fetch t $ insert sName ty m
 
-updateHints :: HintMap -> Raw.AstOp With.ProgState () ()
+updateHints :: HintMap -> Raw.AstOp With.ProgState ()
 updateHints m = do
-    Raw.safeUpdateHintsInHeadSymDecl () update
-    Raw.safeUpdateHintsInHeadMultiSymDecl () update
+    Raw.safeUpdateHintsInHeadSymDecl update
+    Raw.safeUpdateHintsInHeadMultiSymDecl update
     where
         update n h =
             let sName = repOf n in
@@ -40,12 +40,10 @@ updateHints m = do
                     Nothing -> h
                     Just ty -> Raw.buildHint ty
 
-perform :: Raw.Program With.ProgState -> Either () (Raw.Program With.ProgState)
+perform :: Raw.Program With.ProgState -> Raw.Program With.ProgState
 perform p =
     let (sigs, ds) = splitSigs $ Raw.declarationsFrom p in
     let m = fetchTypes sigs in
     {- Discarding signatures. -}
     let p' = Raw.buildProgram ds in
-        case Raw.runAstOp p' () $ updateHints m of
-            Left () -> Left ()  --This is unreachable
-            Right (_, p'') -> Right p''
+        snd . Raw.runAstOp p' $ updateHints m
