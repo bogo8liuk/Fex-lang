@@ -7,8 +7,6 @@ module Compiler.Args.Check.Count
     , Map.lookup
 ) where
 
-import Lib.Utils((<|))
-import Data.List(foldl')
 import Data.Map.Strict as Map hiding (foldl')
 import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
@@ -23,30 +21,40 @@ data UnionTok =
 
 {- Int value represents the number of arguments of a token. Using `UnionRepTok` in a tuple as a key is
 necessary, because types and properties can have the same names. -}
-type ArgsMap = Map (String, UnionTok) (Int, With.ProgState)
+type ArgsMap = Map (TokenRep, UnionTok) (Int, With.ProgState)
 
-adtCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
-adtCountOp m = Raw.safeLookupAdt m (\argsMap adt ->
-    insert (repOf $ Raw.adtNameFrom adt, ItemAdt)
-           (length $ argsOf adt, stateOf adt)
-           argsMap
-    )
+count
+    :: (AtomRep (name With.ProgState), HasArgs (tok With.ProgState) args, HasState tok)
+    => UnionTok
+    -> ArgsMap
+    -> tok With.ProgState
+    -> name With.ProgState
+    -> ArgsMap
+count item argsMap token tokName =
+    insert
+        (repOf tokName, item)
+        (length $ argsOf token, stateOf token)
+        argsMap
 
-aliasCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
-aliasCountOp m = Raw.safeLookupAlias m (\argsMap alias ->
-    insert (repOf $ Raw.aliasNameFrom alias, ItemAlias)
-           (length $ argsOf alias, stateOf alias)
-           argsMap
-    )
+adtCountOp :: ArgsMap -> Raw.AstOp With.ProgState ArgsMap
+adtCountOp m = Raw.safeLookupAdt m adtCount
+    where
+        adtCount argsMap adt =
+            count ItemAdt argsMap adt $ Raw.adtNameFrom adt
 
-propCountOp :: ArgsMap -> Raw.AstOp With.ProgState e ArgsMap
-propCountOp m = Raw.safeLookupProp m (\argsMap intf ->
-    insert (repOf $ Raw.intfNameFrom intf, ItemProp)
-           (length $ argsOf intf, stateOf intf)
-           argsMap
-    )
+aliasCountOp :: ArgsMap -> Raw.AstOp With.ProgState ArgsMap
+aliasCountOp m = Raw.safeLookupAlias m aliasCount
+    where
+        aliasCount argsMap alias =
+            count ItemAlias argsMap alias $ Raw.aliasNameFrom alias
 
-countOp :: Raw.AstOp With.ProgState e ArgsMap
+propCountOp :: ArgsMap -> Raw.AstOp With.ProgState ArgsMap
+propCountOp m = Raw.safeLookupProp m propCount
+    where
+        propCount argsMap intf =
+            count ItemProp argsMap intf $ Raw.intfNameFrom intf
+
+countOp :: Raw.AstOp With.ProgState ArgsMap
 countOp = do
     m <- adtCountOp empty
     m' <- aliasCountOp m
