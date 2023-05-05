@@ -76,6 +76,7 @@ module Compiler.Ast.Tree
     , filterDecls
     , splitDecls
     , updateTypes
+    , safeUpdateTypes
     , updateUnCons
     , updateAllTypes
     , updateAllUnCons
@@ -1533,6 +1534,14 @@ updateTypes f =
         case f ty of
             Left err -> Left err
             Right ty' -> Right ((), ty')
+
+safeUpdateTypes :: (Type s -> Type s) -> AstOpFilters -> AstOp s ()
+safeUpdateTypes f =
+    visitTypes () builtF
+    where
+        builtF _ ty = do
+            let ty' = f ty
+            return ((), ty')
 
 {- Same of updateTypes, but it acts on UnConType. -}
 updateUnCons :: (UnConType s -> Either err (UnConType s)) -> AstOpFilters -> AstOpRes s err ()
