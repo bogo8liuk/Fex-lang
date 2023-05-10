@@ -17,8 +17,6 @@ data ArgsError =
     | PropErrInst (With.ProgState, Raw.Instance With.ProgState)
     {- A name which does not exist: this should not happen -}
     | NoName String
-    {- Fool constructor to pass to runAstOp as default starting error value: it has no meaning. -}
-    | DefaultInit
 
 argsNE :: String
 argsNE = " has a number of arguments not equal to the number of arguments in the property definition at "
@@ -37,8 +35,8 @@ instance Show ArgsError where
         show intfst
     show _ = "Unreachable state"
 
-argsCheckOnTypes :: Count.ArgsMap -> Raw.AstOp With.ProgState ArgsError ()
-argsCheckOnTypes m = Raw.lookupUnCons' () $ \_ ty ->
+argsCheckOnTypes :: Count.ArgsMap -> Raw.AstOpRes With.ProgState ArgsError ()
+argsCheckOnTypes m = Raw.lookupAllUnCons () $ \_ ty ->
     case Raw.baseNameFromUnCon ty of
         Right _ -> Right ()  --on parametric types, the check is not performed
         Left r -> let name = repOf r in
@@ -73,15 +71,15 @@ argsCheckOnTok f tok m errcon =
                 then Left $ errcon (st, tok)
                 else Right ()
 
-argsCheckOnConts :: Count.ArgsMap -> Raw.AstOp With.ProgState ArgsError ()
+argsCheckOnConts :: Count.ArgsMap -> Raw.AstOpRes With.ProgState ArgsError ()
 argsCheckOnConts m = Raw.lookupConts () $ \_ c -> argsCheckOnTok Raw.intfNameFromCont c m PropErrCont
 
-argsCheckOnInsts :: Count.ArgsMap -> Raw.AstOp With.ProgState ArgsError ()
+argsCheckOnInsts :: Count.ArgsMap -> Raw.AstOpRes With.ProgState ArgsError ()
 argsCheckOnInsts m = Raw.lookupInst () $ \_ i -> argsCheckOnTok Raw.intfNameFromInst i m PropErrInst
 
-argsCheck :: Raw.AstOp With.ProgState ArgsError ()
+argsCheck :: Raw.AstOpRes With.ProgState ArgsError ()
 argsCheck = do
-    m <- Count.countOp
+    m <- astOpRes Count.countOp
     argsCheckOnTypes m
     argsCheckOnConts m
     argsCheckOnInsts m
