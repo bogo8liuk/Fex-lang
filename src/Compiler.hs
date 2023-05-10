@@ -89,6 +89,13 @@ evalPhaseWith input eval doOn f doOnErr doErr =
                ; doErr
                }
 
+evalSuccessPhase
+    :: a
+    -> (a -> b)
+    -> (b -> IO ())
+    -> IO b
+evalSuccessPhase input eval doOn = evalSuccessPhaseWith input eval doOn id
+
 evalSuccessPhaseWith
     :: a
     -> (a -> b)
@@ -197,17 +204,13 @@ sigsReplace :: FilePath -> IO (Raw.Program With.ProgState)
 sigsReplace path = do
     p <- aliasReplace path
     print "Signatures replacing"
-    case Sigs.Replace.perform p of
-        Right p' -> return p'
-        Left _ -> do { print "Unreachable state: PANIC"
-                     ; exitFailure
-                     }
+    return $ Sigs.Replace.perform p
 
 rebindTyVars :: FilePath -> IO (MkTy.FV (), Raw.Program With.ProgState)
 rebindTyVars path = do
     p <- sigsReplace path
     print "Rebinding type variables"
-    evalDbgPhase p Rebind.updateTyVars prNone exitFailure
+    evalSuccessPhase p Rebind.updateTyVars prNone
 
 constraintsCheck :: FilePath -> IO (MkTy.FV (), Raw.Program With.ProgState)
 constraintsCheck path = do
