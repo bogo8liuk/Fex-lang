@@ -86,6 +86,7 @@ module Compiler.Ast.Tree
     , lookupAllUnCons
     , safeLookupTypes
     , safeLookupAllTypes
+    , getGenSymDecls
     , lookupAdt
     , safeLookupAdt
     , updateAdt
@@ -1637,6 +1638,15 @@ updateDecls f = do
     replaceProg decls'
     where
         doUpdate = updateDecl f
+
+getGenSymDecls :: Monad m => AstOpT s m [SDUnion s]
+getGenSymDecls = do
+    sds <- lookupDecls [] getGenSD
+    return $ reverse sds
+    where
+        getGenSD accum (Let sd) = return $ SD sd : accum
+        getGenSD accum (LetMulti msd) = return $ MSD msd : accum
+        getGenSD accum _ = return accum
 
 {- Operation to "read" all occurrences of declaration of adt. -}
 lookupAdt :: a -> (a -> AlgebraicDataType s -> Either err a) -> AstOpRes s err a
