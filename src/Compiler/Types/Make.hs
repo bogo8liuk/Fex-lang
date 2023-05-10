@@ -42,9 +42,7 @@ initState phase =
 inferKind
     :: Raw.Program With.ProgState
     -> Either KInfr.TypeGenErr (TypesTable With.ProgState, Raw.Program With.ProgState)
-inferKind p =
-    runAstOp p <| KInfr.UnreachableState (initState "kind-inference")
-               <| NewTypes.build
+inferKind p = runAstOpRes p NewTypes.build
 
 buildCons
     :: Raw.Program With.ProgState
@@ -52,9 +50,7 @@ buildCons
     -> TypesTable With.ProgState
     -> Either Cons.ConsBuildError (DataConsTable With.ProgState, FV (), Raw.Program With.ProgState)
 buildCons p fv tt =
-    case runAstOp p
-        <| Cons.Unexpected (initState "constructors building")
-        <| Cons.build tt fv of
+    case runAstOpRes p $ Cons.build tt fv of
         Left err -> Left err
         Right ((dct, fv'), p') -> Right (dct, fv', p')
 
@@ -62,10 +58,7 @@ inferConstraint
     :: Raw.Program With.ProgState
     -> TypesTable With.ProgState
     -> Either NewConts.ContGenErr (ConstraintsTable With.ProgState, Raw.Program With.ProgState)
-inferConstraint p tt =
-    runAstOp p
-        <| NewConts.UnreachableState (initState "constraint-inference")
-        <| NewConts.build tt
+inferConstraint p tt = runAstOpRes p $ NewConts.build tt
 
 mkInsts
     :: Raw.Program With.ProgState
@@ -80,18 +73,13 @@ mkInsts
         , Raw.Program With.ProgState
         )
 mkInsts p tt ct fv =
-    case runAstOp p
-        <| Inst.UnreachableState (initState "instances variables creation")
-        <| Inst.build tt ct fv of
+    case runAstOpRes p $ Inst.build tt ct fv of
         Left err -> Left err
         Right ((insts, mhts, it, fv'), p') -> Right (insts, mhts, it, fv', p')
 
 getBindings :: Raw.Program With.ProgState -> [Raw.SDUnion With.ProgState]
 getBindings p =
-    case Raw.runAstOp p () $
-        Raw.safeLookupGenSymDecl [] (\defs def -> Raw.SD def : defs) (\defs def -> Raw.MSD def : defs) of
-        Left () -> []    --This should never happen
-        Right (sds, _) -> sds
+    fst $ Raw.runAstOp p Raw.getGenSymDecls
 
 addInstsBindings :: InstsTable With.ProgState -> [Raw.SDUnion With.ProgState] -> [Raw.SDUnion With.ProgState]
 addInstsBindings insts bs =
