@@ -9,49 +9,56 @@ module Compiler.Config.Props
 ) where
 
 import qualified Compiler.Config.Lexer as Lexer
+import Compiler.Config.Rep
 import Compiler.Config.Types hiding (source)
+
+nameFunStr, nameIntStr, nameNumStr, nameFractStr :: String
+nameFunStr = tokenRepToStr nameFunctionApp
+nameIntStr = tokenRepToStr nameInt
+nameNumStr = tokenRepToStr nameNum
+nameFractStr = tokenRepToStr nameFract
 
 newtype Prop = BP String
 
 source :: Prop -> String
 source (BP s) = s
 
-nameNum :: String
-nameNum = "Num"
+nameNum :: TokenRep
+nameNum = tokenRepFromStr "Num"
 
 sourceNum :: String
 sourceNum =
-    Lexer.interfaceKeyword ++ " " ++ nameNum ++ " a " ++ Lexer.definitionKeyword ++ "\n\
-    \    " ++ Lexer.signatureKeyword ++ " (+) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
-    " a (" ++ nameFunctionApp ++ " a a)\n\
-    \    " ++ Lexer.signatureKeyword ++ " (-) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
-    " a (" ++ nameFunctionApp ++ " a a)\n\
-    \    " ++ Lexer.signatureKeyword ++ " (*) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
-    " a (" ++ nameFunctionApp ++ " a a)\n\
-    \    " ++ Lexer.signatureKeyword ++ " negate " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
+    Lexer.interfaceKeyword ++ " " ++ nameNumStr ++ " a " ++ Lexer.definitionKeyword ++ "\n\
+    \    " ++ Lexer.signatureKeyword ++ " (+) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
+    " a (" ++ nameFunStr ++ " a a)\n\
+    \    " ++ Lexer.signatureKeyword ++ " (-) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
+    " a (" ++ nameFunStr ++ " a a)\n\
+    \    " ++ Lexer.signatureKeyword ++ " (*) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
+    " a (" ++ nameFunStr ++ " a a)\n\
+    \    " ++ Lexer.signatureKeyword ++ " negate " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
     " a a\n\
-    \    " ++ Lexer.signatureKeyword ++ " abs " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
+    \    " ++ Lexer.signatureKeyword ++ " abs " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
     " a a\n\
-    \    " ++ Lexer.signatureKeyword ++ " sign " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
+    \    " ++ Lexer.signatureKeyword ++ " sign " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
     " a a\n\
-    \    " ++ Lexer.signatureKeyword ++ " fromInt " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++
-    " " ++ nameInt ++ " a\n" ++
+    \    " ++ Lexer.signatureKeyword ++ " fromInt " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++
+    " " ++ nameIntStr ++ " a\n" ++
     Lexer.endStatementKeyword ++ "\n"
 
 num :: Prop
 num = BP sourceNum
 
-nameFract :: String
-nameFract = "Fractional"
+nameFract :: TokenRep
+nameFract = tokenRepFromStr "Fractional"
 
 {- TODO: right now, Fractional misses `fromRational` function, look at GHC.Real of haskell std library. -}
 sourceFract :: String
 sourceFract =
-    Lexer.signatureKeyword ++ " " ++ nameNum ++ " a " ++ Lexer.constraintAppKeyword ++ " " ++ nameFract ++ " a " ++
+    Lexer.signatureKeyword ++ " " ++ nameNumStr ++ " a " ++ Lexer.constraintAppKeyword ++ " " ++ nameFractStr ++ " a " ++
     Lexer.definitionKeyword ++ "\n\
-    \    " ++ Lexer.signatureKeyword ++ " (/) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++ " a (" ++
-    nameFunctionApp ++ " a a)\
-    \    " ++ Lexer.signatureKeyword ++ " recip " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunctionApp ++ " a a " ++
+    \    " ++ Lexer.signatureKeyword ++ " (/) " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++ " a (" ++
+    nameFunStr ++ " a a)\
+    \    " ++ Lexer.signatureKeyword ++ " recip " ++ Lexer.stateDefinitionKeyword ++ " " ++ nameFunStr ++ " a a " ++
     Lexer.endStatementKeyword ++ "\n"
 
 fract :: Prop
