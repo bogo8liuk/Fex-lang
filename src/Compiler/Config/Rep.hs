@@ -1,5 +1,5 @@
 module Compiler.Config.Rep
-    ( TokenRep
+    ( TokenRep(..)
     , SymbolRep
     , TyConRep
     , TyVarRep
@@ -19,23 +19,38 @@ module Compiler.Config.Rep
     , kindRepToStr
     , propConRepToStr
     , dataConRepToStr
-    , tokenRepFromStr
     , symbolRepFromStr
+    , symbolRepFromStr'
     , tyConRepFromStr
+    , tyConRepFromStr'
     , tyVarRepFromStr
+    , tyVarRepFromStr'
     , typeRepFromStr
     , kindVarRepFromStr
+    , kindVarRepFromStr'
     , kindConRepFromStr
+    , kindConRepFromStr'
     , kindRepFromStr
     , propConRepFromStr
+    , propConRepFromStr'
     , dataConRepFromStr
+    , dataConRepFromStr'
 ) where
 
 {- Atomic representation of tokens: the rule is that an atomic representation has to be ALWAYS convertible to a string.
 It represents the minimal "non-ambigous" representation of a token. -}
 
 {- Atomic representation of whatever token -}
-type TokenRep = String
+data TokenRep =
+      SymRep SymbolRep
+    | TyConRep TyConRep
+    | TyVarRep TyVarRep
+    | KindVarRep KindVarRep
+    | KindConRep KindConRep
+    | PropConRep PropConRep
+    | DataConRep DataConRep
+    deriving (Eq, Ord)
+
 {- Atomic representation of a symbol (classic program variable) -}
 type SymbolRep = String
 {- Atomic representation of a concrete (not a variable) type, namely a type-constructor -}
@@ -56,7 +71,13 @@ type PropConRep = String
 type DataConRep = String
 
 tokenRepToStr :: TokenRep -> String
-tokenRepToStr = id
+tokenRepToStr (SymRep r) = r
+tokenRepToStr (TyConRep r) = r
+tokenRepToStr (TyVarRep r) = r
+tokenRepToStr (KindVarRep r) = r
+tokenRepToStr (KindConRep r) = r
+tokenRepToStr (PropConRep r) = r
+tokenRepToStr (DataConRep r) = r
 
 symbolRepToStr :: SymbolRep -> String
 symbolRepToStr = id
@@ -85,17 +106,23 @@ propConRepToStr = id
 dataConRepToStr :: String -> DataConRep
 dataConRepToStr = id
 
-tokenRepFromStr :: String -> TokenRep
-tokenRepFromStr = id
-
 symbolRepFromStr :: String -> SymbolRep
 symbolRepFromStr = id
+
+symbolRepFromStr' :: String -> TokenRep
+symbolRepFromStr' = SymRep
 
 tyConRepFromStr :: String -> TyConRep
 tyConRepFromStr = id
 
+tyConRepFromStr' :: String -> TokenRep
+tyConRepFromStr' = TyConRep
+
 tyVarRepFromStr :: String -> TyVarRep
 tyVarRepFromStr = id
+
+tyVarRepFromStr' :: String -> TokenRep
+tyVarRepFromStr' = TyVarRep
 
 typeRepFromStr :: String -> TypeRep
 typeRepFromStr = id
@@ -103,8 +130,14 @@ typeRepFromStr = id
 kindVarRepFromStr :: String -> KindVarRep
 kindVarRepFromStr = id
 
+kindVarRepFromStr' :: String -> TokenRep
+kindVarRepFromStr' = KindVarRep
+
 kindConRepFromStr :: String -> KindConRep
 kindConRepFromStr = id
+
+kindConRepFromStr' :: String -> TokenRep
+kindConRepFromStr' = KindConRep
 
 kindRepFromStr :: String -> KindRep
 kindRepFromStr = id
@@ -112,5 +145,11 @@ kindRepFromStr = id
 propConRepFromStr :: String -> PropConRep
 propConRepFromStr = id
 
+propConRepFromStr' :: String -> TokenRep
+propConRepFromStr' = PropConRep
+
 dataConRepFromStr :: String -> DataConRep
 dataConRepFromStr = id
+
+dataConRepFromStr' :: String -> TokenRep
+dataConRepFromStr' = DataConRep
