@@ -9,6 +9,7 @@ module Compiler.Config.Rep
     , KindRep
     , PropConRep
     , DataConRep
+    , CompTokenRep
     , tokenRepToStr
     , symbolRepToStr
     , tyConRepToStr
@@ -35,6 +36,8 @@ module Compiler.Config.Rep
     , propConRepFromStr'
     , dataConRepFromStr
     , dataConRepFromStr'
+    , compTokenRepFromStr
+    , compTokenRepFromStr'
 ) where
 
 {- Atomic representation of tokens: the rule is that an atomic representation has to be ALWAYS convertible to a string.
@@ -49,6 +52,7 @@ data TokenRep =
     | KindConRep KindConRep
     | PropConRep PropConRep
     | DataConRep DataConRep
+    | CompTokRep CompTokenRep
     deriving (Eq, Ord)
 
 {- Atomic representation of a symbol (classic program variable) -}
@@ -69,6 +73,8 @@ type KindRep = String
 type PropConRep = String
 {- Atomic representation of a data-constructor -}
 type DataConRep = String
+{- Atomic representation of something evaluated at compile-time. TODO: use a finer granularity -}
+type CompTokenRep = String
 
 tokenRepToStr :: TokenRep -> String
 tokenRepToStr (SymRep r) = r
@@ -78,6 +84,7 @@ tokenRepToStr (KindVarRep r) = r
 tokenRepToStr (KindConRep r) = r
 tokenRepToStr (PropConRep r) = r
 tokenRepToStr (DataConRep r) = r
+tokenRepToStr (CompTokRep r) = r
 
 symbolRepToStr :: SymbolRep -> String
 symbolRepToStr = id
@@ -153,3 +160,9 @@ dataConRepFromStr = id
 
 dataConRepFromStr' :: String -> TokenRep
 dataConRepFromStr' = DataConRep
+
+compTokenRepFromStr :: String -> CompTokenRep
+compTokenRepFromStr = id
+
+compTokenRepFromStr' :: String -> TokenRep
+compTokenRepFromStr' = CompTokRep
