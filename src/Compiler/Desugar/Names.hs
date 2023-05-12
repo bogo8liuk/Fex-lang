@@ -14,7 +14,7 @@ module Compiler.Desugar.Names
     , mkUniqueObj
 ) where
 
---import Lib.Utils
+import Lib.Utils
 import Data.List(foldl')
 import Data.Map.Strict as M hiding (foldl')
 import Compiler.Config.Lexer(reservedIdKeyword)
@@ -28,48 +28,62 @@ data NameEntity =
     | ProgSymbol
     deriving Show
 
+reservedIdSymRep, reservedIdTyConRep, reservedIdTyVarRep, reservedIdKindVarRep, reservedIdKindConRep, reservedIdPropConRep,
+ reservedIdDataConRep, reservedIdCompTokRep :: TokenRep
+reservedIdSymRep = symbolRepFromStr' reservedIdKeyword
+reservedIdTyConRep = tyConRepFromStr' reservedIdKeyword
+reservedIdTyVarRep = tyVarRepFromStr' reservedIdKeyword
+reservedIdKindVarRep = kindVarRepFromStr' reservedIdKeyword
+reservedIdKindConRep = kindConRepFromStr' reservedIdKeyword
+reservedIdPropConRep = propConRepFromStr' reservedIdKeyword
+reservedIdDataConRep = dataConRepFromStr' reservedIdKeyword
+reservedIdCompTokRep = compTokenRepFromStr' reservedIdKeyword
+
 {- NB: this is very UNSAFE if two or more concatenated values of the counter can give a possible future value of
 the counter. -}
-mkUniqueName :: NameEntity -> C.AlphabeticCounterObj -> (String, C.AlphabeticCounterObj)
+mkUniqueName :: NameEntity -> C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
 mkUniqueName ent counter =
     let (str, newCounter) = C.next counter in
         case ent of
             LambdaSymbol ->
-                (reservedIdKeyword ++ str, newCounter)
+                (symbolRepFromStr' (reservedIdKeyword ++ str), newCounter)
             ProgSymbol ->
-                (reservedIdKeyword ++ str, newCounter)
+                (symbolRepFromStr' (reservedIdKeyword ++ str), newCounter)
 
-mkLamUniqueName :: C.AlphabeticCounterObj -> (String, C.AlphabeticCounterObj)
+mkLamUniqueName :: C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
 mkLamUniqueName = mkUniqueName LambdaSymbol
 
-mkProgUniqueName :: C.AlphabeticCounterObj -> (String, C.AlphabeticCounterObj)
+mkProgUniqueName :: C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
 mkProgUniqueName = mkUniqueName ProgSymbol
 
-mkNestedUniqueName :: String -> C.CounterObj -> (String, C.CounterObj)
+mkNestedUniqueName :: TokenRep -> C.CounterObj -> (TokenRep, C.CounterObj)
 mkNestedUniqueName symRep counter =
     let (str, newCounter) = C.next counter in
-        (reservedIdKeyword ++ symRep ++ str ++ reservedIdKeyword, newCounter)
+        ( symbolRepFromStr' (reservedIdKeyword ++ tokenRepToStr symRep ++ str ++ reservedIdKeyword)
+        , newCounter
+        )
 
-mkDispatchName :: C.CounterObj -> (String, C.CounterObj)
+mkDispatchName :: C.CounterObj -> (TokenRep, C.CounterObj)
 mkDispatchName c =
     let (str, c') = C.next c in
-        (reservedIdKeyword ++ str, c')
+        (compTokenRepFromStr' (reservedIdKeyword ++ str), c')
 
-mkDispatchSuffix' :: String -> Ty.LangSpecConstraint a -> String
-mkDispatchSuffix' str c =
+mkDispatchSuffix' :: TokenRep -> Ty.LangSpecConstraint a -> TokenRep
+mkDispatchSuffix' h c =
     let lhts = argsOf c in
     let tyVars = Ty.occFirstTyVarsOfMany lhts in
     let m = mapTyVarIndex tyVars in
-    let headStr = str ++ reservedIdKeyword ++ reservedIdKeyword ++ repOf c in
-        foldl' (buildSuffix m) headStr (argsOf c)
+    let headTok = h <> reservedIdCompTokRep <> reservedIdCompTokRep <> repOf c in
+        forAll <| argsOf c <| buildSuffix m `startingFrom` headTok
     where
-        buildSuffix m headStr lhty =
-            headStr ++ reservedIdKeyword ++ Ty.showHeadsLHTyWith lhty (showTyVar m)
+        buildSuffix m headTok lhty =
+            {- NB: passing from the string of a LangHigherType. -}
+            headTok <> reservedIdCompTokRep <> compTokenRepFromStr' (Ty.showHeadsLHTyWith lhty $ showTyVar m)
 
         showTyVar m tyVar =
             let tyVarRep = repOf tyVar in
                 case M.lookup tyVarRep m of
-                    Nothing -> tyVarRep    --This is unreachable, filling with an arbitrary value
+                    Nothing -> tokenRepToStr tyVarRep    --This is unreachable, filling with an arbitrary value
                     Just ix -> ix
 
         mapTyVarIndex tyVars =
@@ -84,7 +98,7 @@ mkDispatchSuffix' str c =
                             (m', counter')
                     Just _ -> (m, counter)
 
-mkDispatchSuffix :: String -> [Ty.LangSpecConstraint a] -> String
+mkDispatchSuffix :: TokenRep -> [Ty.LangSpecConstraint a] -> TokenRep
 mkDispatchSuffix = foldl' mkDispatchSuffix'
 
 {-

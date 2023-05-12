@@ -1514,9 +1514,6 @@ visitTypes x f aof = do
     replaceProg $ reverse decls'    --Reversing is necessary since declarations have been accumulated from the head
     return x'
     where
-        {- Just for a better readability. -}
-        accumulatingIn = ($)
-
         visit (y, decls) decl = do
             (y', decl') <- astOpTypeVisit (`visitTypesInDecl` aof) decl y f
             return (y', decl' : decls)
@@ -2740,8 +2737,8 @@ addTypeHint (SD sd) ty = SD $ addTypeHintToSd sd ty
 addTypeHint (MSD msd) ty = MSD $ addTypeHintToMsd msd ty
 
 showNonRec :: NonRecType a -> String
-showNonRec (Real adtname) = repOf adtname
-showNonRec (Param ptyname) = repOf ptyname
+showNonRec (Real adtname) = tokenRepToStr $ repOf adtname
+showNonRec (Param ptyname) = tokenRepToStr $ repOf ptyname
 
 parensShow :: UnConType a -> String
 parensShow ty = "(" ++ showUnCon ty ++ ")"
@@ -2758,7 +2755,7 @@ showUnCons :: [UnConType a] -> String
 showUnCons ts = concat $ lastmap (\ty -> parensShow ty ++ " ") parensShow ts
 
 showCont :: Constraint a -> String
-showCont (Cont (pName, ts, _)) = repOf pName ++ " " ++ showUnCons ts
+showCont (Cont (pName, ts, _)) = tokenRepToStr (repOf pName) ++ " " ++ showUnCons ts
 
 {- Operations of string converting:
 This is semantically a different thing of Show instance. `show` just takes the token and gives
@@ -2766,24 +2763,24 @@ a string representation of that token, while the following functions extract the
 the token. -}
 
 instance AtomRep (ADTName a) where
-    repOf (ADTName (s, _)) = s
+    repOf (ADTName (s, _)) = tyConRepFromStr' s
 
 instance AtomRep (ADTConName a) where
-    repOf (ADTConName (s, _)) = s
+    repOf (ADTConName (s, _)) = dataConRepFromStr' s
 
 instance AtomRep (IntfName a) where
-    repOf (IntfName (s, _)) = s
+    repOf (IntfName (s, _)) = propConRepFromStr' s
 
 instance AtomRep (SymbolName a) where
-    repOf (SymName (s, _)) = s
+    repOf (SymName (s, _)) = symbolRepFromStr' s
 
 instance AtomRep (ParamTypeName a) where
-    repOf (PtyName (s, _)) = s
+    repOf (PtyName (s, _)) = tyVarRepFromStr' s
 
 instance AtomRep (CategoryName a) where
-    repOf (CatgName (s, _)) = s
+    repOf (CatgName (s, _)) = compTokenRepFromStr' s
 
-strOfGenName :: GenTypeName a -> String
+strOfGenName :: GenTypeName a -> TokenRep
 strOfGenName (Left rty) = repOf rty
 strOfGenName (Right pty) = repOf pty
 
