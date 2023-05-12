@@ -58,6 +58,9 @@ data TokenRep =
 and having something which is error-prone, but this would really break all and a new sort of abstraction would be
 necessary. -}
 
+instance Show TokenRep where
+    show = tokenRepToStr
+
 instance Semigroup TokenRep where
     (<>) (SymRep t) (SymRep t') = SymRep (t ++ t')
     (<>) (TyConRep t) (TyConRep t') = TyConRep (t ++ t')
@@ -118,6 +121,8 @@ kindVarRepToStr = id
 
 kindConRepToStr :: KindConRep -> String
 kindConRepToStr = id
+
+{- Construction from strings. NB: this can be change in the future. -}
 
 kindRepToStr :: String -> KindRep
 kindRepToStr = id
