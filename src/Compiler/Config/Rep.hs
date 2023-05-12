@@ -37,8 +37,11 @@ module Compiler.Config.Rep
     , dataConRepFromStr
     , dataConRepFromStr'
     , compTokenRepFromStr
-    , compTokenRepFromStr'
+    , parsingTokenRepFromStr
+    , dispatchTokenRepFromStr
 ) where
+
+import Compiler.Phase
 
 {- Atomic representation of tokens: the rule is that an atomic representation has to be ALWAYS convertible to a string.
 It represents the minimal "non-ambigous" representation of a token. -}
@@ -52,7 +55,7 @@ data TokenRep =
     | KindConRep KindConRep
     | PropConRep PropConRep
     | DataConRep DataConRep
-    | CompTokRep CompTokenRep
+    | CompTokRep CompPhase CompTokenRep
     deriving (Eq, Ord)
 {- TODO: an idea can be adding an additional case (something like `UndefinedRep`) in order to define the Monoid operations
 and having something which is error-prone, but this would really break all and a new sort of abstraction would be
@@ -69,7 +72,10 @@ instance Semigroup TokenRep where
     (<>) (KindConRep t) (KindConRep t') = KindConRep (t ++ t')
     (<>) (PropConRep t) (PropConRep t') = PropConRep (t ++ t')
     (<>) (DataConRep t) (DataConRep t') = DataConRep (t ++ t')
-    (<>) (CompTokRep t) (CompTokRep t') = CompTokRep (t ++ t')
+    (<>) rep @ (CompTokRep phase t) (CompTokRep phase' t') =
+        if phase == phase'
+        then CompTokRep phase (t ++ t')
+        else rep
     {- The choice is the first one. -}
     (<>) rep _ = rep
 
@@ -102,7 +108,7 @@ tokenRepToStr (KindVarRep r) = r
 tokenRepToStr (KindConRep r) = r
 tokenRepToStr (PropConRep r) = r
 tokenRepToStr (DataConRep r) = r
-tokenRepToStr (CompTokRep r) = r
+tokenRepToStr (CompTokRep _ r) = r
 
 symbolRepToStr :: SymbolRep -> String
 symbolRepToStr = id
@@ -184,5 +190,8 @@ dataConRepFromStr' = DataConRep
 compTokenRepFromStr :: String -> CompTokenRep
 compTokenRepFromStr = id
 
-compTokenRepFromStr' :: String -> TokenRep
-compTokenRepFromStr' = CompTokRep
+parsingTokenRepFromStr :: String -> TokenRep
+parsingTokenRepFromStr = CompTokRep Parsing
+
+dispatchTokenRepFromStr :: String -> TokenRep
+dispatchTokenRepFromStr = CompTokRep Dispatch
