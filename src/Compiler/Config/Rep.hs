@@ -1,5 +1,5 @@
 module Compiler.Config.Rep
-    ( TokenRep(..)
+    ( TokenRep
     , SymbolRep
     , TyConRep
     , TyVarRep
@@ -21,63 +21,31 @@ module Compiler.Config.Rep
     , propConRepToStr
     , dataConRepToStr
     , symbolRepFromStr
-    , symbolRepFromStr'
     , tyConRepFromStr
-    , tyConRepFromStr'
     , tyVarRepFromStr
-    , tyVarRepFromStr'
     , typeRepFromStr
     , kindVarRepFromStr
-    , kindVarRepFromStr'
     , kindConRepFromStr
-    , kindConRepFromStr'
     , kindRepFromStr
     , propConRepFromStr
-    , propConRepFromStr'
     , dataConRepFromStr
-    , dataConRepFromStr'
     , compTokenRepFromStr
-    , parsingTokenRepFromStr
-    , dispatchTokenRepFromStr
 ) where
-
-import Compiler.Phase
 
 {- Atomic representation of tokens: the rule is that an atomic representation has to be ALWAYS convertible to a string.
 It represents the minimal "non-ambigous" representation of a token. -}
 
 {- Atomic representation of whatever token -}
-data TokenRep =
-      SymRep SymbolRep
-    | TyConRep TyConRep
-    | TyVarRep TyVarRep
-    | KindVarRep KindVarRep
-    | KindConRep KindConRep
-    | PropConRep PropConRep
-    | DataConRep DataConRep
-    | CompTokRep CompPhase CompTokenRep
-    deriving (Eq, Ord)
-{- TODO: an idea can be adding an additional case (something like `UndefinedRep`) in order to define the Monoid operations
-and having something which is error-prone, but this would really break all and a new sort of abstraction would be
-necessary. -}
+newtype TokenRep = TR String deriving (Eq, Ord)
 
 instance Show TokenRep where
     show = tokenRepToStr
 
 instance Semigroup TokenRep where
-    (<>) (SymRep t) (SymRep t') = SymRep (t ++ t')
-    (<>) (TyConRep t) (TyConRep t') = TyConRep (t ++ t')
-    (<>) (TyVarRep t) (TyVarRep t') = TyVarRep (t ++ t')
-    (<>) (KindVarRep t) (KindVarRep t') = KindVarRep (t ++ t')
-    (<>) (KindConRep t) (KindConRep t') = KindConRep (t ++ t')
-    (<>) (PropConRep t) (PropConRep t') = PropConRep (t ++ t')
-    (<>) (DataConRep t) (DataConRep t') = DataConRep (t ++ t')
-    (<>) rep @ (CompTokRep phase t) (CompTokRep phase' t') =
-        if phase == phase'
-        then CompTokRep phase (t ++ t')
-        else rep
-    {- The choice is the first one. -}
-    (<>) rep _ = rep
+    (<>) (TR r) (TR r') = TR (r ++ r')
+
+instance Monoid TokenRep where
+    mempty = TR ""
 
 {- Atomic representation of a symbol (classic program variable) -}
 type SymbolRep = String
@@ -101,14 +69,7 @@ type DataConRep = String
 type CompTokenRep = String
 
 tokenRepToStr :: TokenRep -> String
-tokenRepToStr (SymRep r) = r
-tokenRepToStr (TyConRep r) = r
-tokenRepToStr (TyVarRep r) = r
-tokenRepToStr (KindVarRep r) = r
-tokenRepToStr (KindConRep r) = r
-tokenRepToStr (PropConRep r) = r
-tokenRepToStr (DataConRep r) = r
-tokenRepToStr (CompTokRep _ r) = r
+tokenRepToStr (TR r) = r
 
 symbolRepToStr :: SymbolRep -> String
 symbolRepToStr = id
@@ -128,34 +89,25 @@ kindVarRepToStr = id
 kindConRepToStr :: KindConRep -> String
 kindConRepToStr = id
 
-{- Construction from strings. NB: this can be change in the future. -}
-
-kindRepToStr :: String -> KindRep
+kindRepToStr :: KindRep -> String
 kindRepToStr = id
 
-propConRepToStr :: String -> PropConRep
+propConRepToStr :: PropConRep -> String
 propConRepToStr = id
 
-dataConRepToStr :: String -> DataConRep
+dataConRepToStr :: DataConRep -> String
 dataConRepToStr = id
+
+{- Construction from strings. NB: this can be change in the future. -}
 
 symbolRepFromStr :: String -> SymbolRep
 symbolRepFromStr = id
 
-symbolRepFromStr' :: String -> TokenRep
-symbolRepFromStr' = SymRep
-
 tyConRepFromStr :: String -> TyConRep
 tyConRepFromStr = id
 
-tyConRepFromStr' :: String -> TokenRep
-tyConRepFromStr' = TyConRep
-
 tyVarRepFromStr :: String -> TyVarRep
 tyVarRepFromStr = id
-
-tyVarRepFromStr' :: String -> TokenRep
-tyVarRepFromStr' = TyVarRep
 
 typeRepFromStr :: String -> TypeRep
 typeRepFromStr = id
@@ -163,14 +115,8 @@ typeRepFromStr = id
 kindVarRepFromStr :: String -> KindVarRep
 kindVarRepFromStr = id
 
-kindVarRepFromStr' :: String -> TokenRep
-kindVarRepFromStr' = KindVarRep
-
 kindConRepFromStr :: String -> KindConRep
 kindConRepFromStr = id
-
-kindConRepFromStr' :: String -> TokenRep
-kindConRepFromStr' = KindConRep
 
 kindRepFromStr :: String -> KindRep
 kindRepFromStr = id
@@ -178,20 +124,8 @@ kindRepFromStr = id
 propConRepFromStr :: String -> PropConRep
 propConRepFromStr = id
 
-propConRepFromStr' :: String -> TokenRep
-propConRepFromStr' = PropConRep
-
 dataConRepFromStr :: String -> DataConRep
 dataConRepFromStr = id
 
-dataConRepFromStr' :: String -> TokenRep
-dataConRepFromStr' = DataConRep
-
 compTokenRepFromStr :: String -> CompTokenRep
 compTokenRepFromStr = id
-
-parsingTokenRepFromStr :: String -> TokenRep
-parsingTokenRepFromStr = CompTokRep Parsing
-
-dispatchTokenRepFromStr :: String -> TokenRep
-dispatchTokenRepFromStr = CompTokRep Dispatch
