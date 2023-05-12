@@ -4,6 +4,8 @@ module Lib.Utils
     , if'
     , then'
     , else'
+    , startingFrom
+    , accumulatingIn
     , intOfStr
     , KnowledgeOf(..)
     , isYes
@@ -93,6 +95,20 @@ then' False _ = id
 
 else' :: (a -> a) -> a -> a
 else' = ($)
+
+{- More fancy versions of application. For example:
+
+    forAll ["hello", "world", "!!!"] fetchVowels `accumulatingIn` (x, [])
+
+-}
+
+infixl 0 `startingFrom`
+startingFrom :: (a -> b) -> a -> b
+startingFrom = ($)
+
+infixl 0 `accumulatingIn`
+accumulatingIn :: (a -> b) -> a -> b
+accumulatingIn = ($)
 
 intOfStr :: String -> Maybe Integer
 intOfStr = readMaybe :: String -> Maybe Integer
