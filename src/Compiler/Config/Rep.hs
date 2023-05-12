@@ -54,6 +54,21 @@ data TokenRep =
     | DataConRep DataConRep
     | CompTokRep CompTokenRep
     deriving (Eq, Ord)
+{- TODO: an idea can be adding an additional case (something like `UndefinedRep`) in order to define the Monoid operations
+and having something which is error-prone, but this would really break all and a new sort of abstraction would be
+necessary. -}
+
+instance Semigroup TokenRep where
+    (<>) (SymRep t) (SymRep t') = SymRep (t ++ t')
+    (<>) (TyConRep t) (TyConRep t') = TyConRep (t ++ t')
+    (<>) (TyVarRep t) (TyVarRep t') = TyVarRep (t ++ t')
+    (<>) (KindVarRep t) (KindVarRep t') = KindVarRep (t ++ t')
+    (<>) (KindConRep t) (KindConRep t') = KindConRep (t ++ t')
+    (<>) (PropConRep t) (PropConRep t') = PropConRep (t ++ t')
+    (<>) (DataConRep t) (DataConRep t') = DataConRep (t ++ t')
+    (<>) (CompTokRep t) (CompTokRep t') = CompTokRep (t ++ t')
+    {- The choice is the first one. -}
+    (<>) rep _ = rep
 
 {- Atomic representation of a symbol (classic program variable) -}
 type SymbolRep = String
