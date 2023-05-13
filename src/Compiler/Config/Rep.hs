@@ -49,55 +49,55 @@ instance Monoid TokenRep where
     mempty = TR ""
 
 {- Atomic representation of a symbol (classic program variable) -}
-type SymbolRep = String
+type SymbolRep = TokenRep
 {- Atomic representation of a concrete (not a variable) type, namely a type-constructor -}
-type TyConRep = String
+type TyConRep = TokenRep
 {- Atomic representation of a type variable (whatever kind it is) -}
-type TyVarRep = String
+type TyVarRep = TokenRep
 {- Atomic representation of whatever type -}
-type TypeRep = String
+type TypeRep = TokenRep
 {- Atomic representation of a kind variable -}
-type KindVarRep = String
+type KindVarRep = TokenRep
 {- Atomic representation of a concrete (not a variable) kind -}
-type KindConRep = String
+type KindConRep = TokenRep
 {- Atomic representation of whatever kind -}
-type KindRep = String
+type KindRep = TokenRep
 {- Atomic representation of a concrete property -}
-type PropConRep = String
+type PropConRep = TokenRep
 {- Atomic representation of a data-constructor -}
-type DataConRep = String
+type DataConRep = TokenRep
 {- Atomic representation of something evaluated at compile-time. TODO: use a finer granularity -}
-type CompTokenRep = String
+type CompTokenRep = TokenRep
 
 tokenRepToStr :: TokenRep -> String
 tokenRepToStr (TR r) = r
 
 symbolRepToStr :: SymbolRep -> String
-symbolRepToStr = id
+symbolRepToStr = tokenRepToStr
 
 tyConRepToStr :: TyConRep -> String
-tyConRepToStr = id
+tyConRepToStr = tokenRepToStr
 
 tyVarRepToStr :: TyVarRep -> String
-tyVarRepToStr = id
+tyVarRepToStr = tokenRepToStr
 
 typeRepToStr :: TypeRep -> String
-typeRepToStr = id
+typeRepToStr = tokenRepToStr
 
 kindVarRepToStr :: KindVarRep -> String
-kindVarRepToStr = id
+kindVarRepToStr = tokenRepToStr
 
 kindConRepToStr :: KindConRep -> String
-kindConRepToStr = id
+kindConRepToStr = tokenRepToStr
 
 kindRepToStr :: KindRep -> String
-kindRepToStr = id
+kindRepToStr = tokenRepToStr
 
 propConRepToStr :: PropConRep -> String
-propConRepToStr = id
+propConRepToStr = tokenRepToStr
 
 dataConRepToStr :: DataConRep -> String
-dataConRepToStr = id
+dataConRepToStr = tokenRepToStr
 
 {- Construction from strings. NB: this can be change in the future. -}
 
@@ -105,31 +105,31 @@ tokenRepFromStr :: String -> TokenRep
 tokenRepFromStr = TR
 
 symbolRepFromStr :: String -> SymbolRep
-symbolRepFromStr = id
+symbolRepFromStr = tokenRepFromStr
 
 tyConRepFromStr :: String -> TyConRep
-tyConRepFromStr = id
+tyConRepFromStr = tokenRepFromStr
 
 tyVarRepFromStr :: String -> TyVarRep
-tyVarRepFromStr = id
+tyVarRepFromStr = tokenRepFromStr
 
 typeRepFromStr :: String -> TypeRep
-typeRepFromStr = id
+typeRepFromStr = tokenRepFromStr
 
 kindVarRepFromStr :: String -> KindVarRep
-kindVarRepFromStr = id
+kindVarRepFromStr = tokenRepFromStr
 
 kindConRepFromStr :: String -> KindConRep
-kindConRepFromStr = id
+kindConRepFromStr = tokenRepFromStr
 
 kindRepFromStr :: String -> KindRep
-kindRepFromStr = id
+kindRepFromStr = tokenRepFromStr
 
 propConRepFromStr :: String -> PropConRep
-propConRepFromStr = id
+propConRepFromStr = tokenRepFromStr
 
 dataConRepFromStr :: String -> DataConRep
-dataConRepFromStr = id
+dataConRepFromStr = tokenRepFromStr
 
 compTokenRepFromStr :: String -> CompTokenRep
-compTokenRepFromStr = id
+compTokenRepFromStr = tokenRepFromStr
