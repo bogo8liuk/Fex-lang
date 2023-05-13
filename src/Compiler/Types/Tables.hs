@@ -30,25 +30,25 @@ import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Ast.Typed as Ty
 
 {- Table for type-constructors -}
-newtype TypesTable a = TyT (Map TokenRep (Ty.LangNewType a))
+newtype TypesTable a = TyT (Map TyConRep (Ty.LangNewType a))
 
 {- Table for data-constructors -}
-newtype DataConsTable a = ConT (Map TokenRep (Ty.NotedVal a))
+newtype DataConsTable a = ConT (Map DataConRep (Ty.NotedVal a))
 
 {- Table for constraints necessary to constraint-constructors (namely property names).
 In the implementation, the keys are the properties of a program while the values are the constraints which must exist
 for the associated property. -}
-newtype ConstraintsTable a = ContsT (Map TokenRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]))
+newtype ConstraintsTable a = ContsT (Map PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]))
 
 {- Table for instances methods. -}
-newtype InstsTable a = InstT (Map TokenRep [Raw.SDUnion a])
+newtype InstsTable a = InstT (Map SymbolRep [Raw.SDUnion a])
 
 {- Table for properties methods -}
-newtype PropMethodsTable a = MhtsT (Map TokenRep (Ty.NotedVar a))
+newtype PropMethodsTable a = MhtsT (Map SymbolRep (Ty.NotedVar a))
 
 {- Table for implementations (instances in the program) of properties. This is different from ConstraintsTable which
 collects the instances (constraints) which must exist for certain properties. -}
-newtype ImplTable a = ImplT (Map TokenRep [Ty.LangSpecConstraint a])
+newtype ImplTable a = ImplT (Map PropConRep [Ty.LangSpecConstraint a])
 
 type BindingSingleton a = (Ty.NotedVar a, [Ty.NotedVar a], Ty.NotedExpr a)
 data TypedBinding a =
@@ -66,8 +66,8 @@ instance Functor TypedBinding where
 
 {- A cache which is useful for recursive symbols detection. Only one symbol can be a key, but mutually recursive
 bindings should have many keys, so a sort of cache is kept to know all the possible keys. -}
-type RecSymsCache = Map TokenRep TokenRep
-data TypedProgram a = TyProg (Map TokenRep (TypedBinding a)) RecSymsCache
+type RecSymsCache = Map SymbolRep SymbolRep
+data TypedProgram a = TyProg (Map SymbolRep (TypedBinding a)) RecSymsCache
 
 instance Show a => Show (TypesTable a) where
     show (TyT m) = show m
@@ -158,7 +158,7 @@ instance Adder (TypesTable a) (Ty.LangNewType a) where
 instance Existence (TypesTable a) (Ty.LangNewType a) where
     existIn lnty (TyT t) = repOf lnty `member` t
 
-instance KeyFinding (TypesTable a) TokenRep (Ty.LangNewType a) where
+instance KeyFinding (TypesTable a) TyConRep (Ty.LangNewType a) where
     kFind tcRep (TyT t) = Map.lookup tcRep t
 
 instance KeyFinding (TypesTable a) (Ty.LangNewType a) (Ty.LangNewType a) where
@@ -176,7 +176,7 @@ instance Adder (DataConsTable a) (Ty.NotedVal a) where
 instance Existence (DataConsTable a) (Ty.NotedVal a) where
     existIn con (ConT t) = repOf con `member` t
 
-instance KeyFinding (DataConsTable a) TokenRep (Ty.NotedVal a) where
+instance KeyFinding (DataConsTable a) DataConRep (Ty.NotedVal a) where
     kFind conRep (ConT t) = Map.lookup conRep t
 
 instance KeyFinding (DataConsTable a) (Ty.NotedVal a) (Ty.NotedVal a) where
@@ -204,10 +204,10 @@ instance
         (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     kFind cont ct = kFind (repOf cont) ct
 
-instance KeyFinding (ConstraintsTable a) TokenRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
+instance KeyFinding (ConstraintsTable a) PropConRep (Ty.LangNewConstraint a, [Ty.LangSpecConstraint a]) where
     kFind contRep (ContsT t) = Map.lookup contRep t
 
-instance KeyValUpdate' (ConstraintsTable a) TokenRep [Ty.LangSpecConstraint a] where
+instance KeyValUpdate' (ConstraintsTable a) PropConRep [Ty.LangSpecConstraint a] where
     kValUpdate' contRep cs table @ (ContsT t) =
         case Map.lookup contRep t of
             Nothing -> table
@@ -222,7 +222,7 @@ instance AllGetter (ConstraintsTable a) (Ty.LangNewConstraint a, [Ty.LangSpecCon
 instance Emptiness (TypedProgram a) where
     noElems = TyProg empty empty
 
-updateCache :: RecSymsCache -> [BindingSingleton a] -> TokenRep -> RecSymsCache
+updateCache :: RecSymsCache -> [BindingSingleton a] -> SymbolRep -> RecSymsCache
 updateCache cache bs nVarRep =
     let symReps = map (repOf . fst') bs in
         forAll symReps insertIn cache
@@ -239,7 +239,7 @@ updateCache cache bs nVarRep =
             then cache'
             else Map.insert otherSym nVarRep cache'
 
-findNotInCache :: [BindingSingleton a] -> RecSymsCache -> Maybe TokenRep
+findNotInCache :: [BindingSingleton a] -> RecSymsCache -> Maybe SymbolRep
 findNotInCache [] _ = Nothing
 findNotInCache ((v, _, _) : t) cache =
     let nVarRep = repOf v in
@@ -263,7 +263,7 @@ instance Adder (TypedProgram a) (TypedBinding a) where
             then tp
             else TyProg (insert nVarRep (TyNonRec b) m) cache
 
-instance Existence (TypedProgram a) TokenRep where
+instance Existence (TypedProgram a) SymbolRep where
     existIn vRep (TyProg m cache) = vRep `member` m || vRep `member` cache
 
 instance Existence (TypedProgram a) (Ty.NotedVar a) where
@@ -272,7 +272,7 @@ instance Existence (TypedProgram a) (Ty.NotedVar a) where
 instance KeyFinding (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
     kFind nVar tp = kFind (repOf nVar) tp
 
-instance KeyFinding (TypedProgram a) TokenRep (TypedBinding a) where
+instance KeyFinding (TypedProgram a) SymbolRep (TypedBinding a) where
     kFind vRep (TyProg m cache) =
         case Map.lookup vRep m of
             res @ (Just _) -> res
@@ -282,7 +282,7 @@ instance KeyFinding (TypedProgram a) TokenRep (TypedBinding a) where
                     Nothing -> Nothing
                     Just vRep' -> Map.lookup vRep' m
 
-instance KeyValUpdate (TypedProgram a) TokenRep (TypedBinding a) where
+instance KeyValUpdate (TypedProgram a) SymbolRep (TypedBinding a) where
     kValUpdate vRep f tp @ (TyProg m cache) =
         if vRep `Map.member` m
         then TyProg (Map.adjust f vRep m) cache
@@ -293,7 +293,7 @@ instance KeyValUpdate (TypedProgram a) TokenRep (TypedBinding a) where
 instance KeyValUpdate (TypedProgram a) (Ty.NotedVar a) (TypedBinding a) where
     kValUpdate nVar f tp = kValUpdate (repOf nVar) f tp
 
-instance KeyValUpdate (TypedProgram a) TokenRep (BindingSingleton a) where
+instance KeyValUpdate (TypedProgram a) SymbolRep (BindingSingleton a) where
     kValUpdate vRep f = kValUpdate vRep builtF
         where
             builtF (TyNonRec bSing) = TyNonRec $ f bSing
@@ -386,10 +386,10 @@ instance Emptiness (PropMethodsTable a) where
 instance Existence (PropMethodsTable a) (Ty.NotedVar a) where
     existIn nVar mths = repOf nVar `existIn` mths
 
-instance Existence (PropMethodsTable a) TokenRep where
+instance Existence (PropMethodsTable a) SymbolRep where
     existIn vRep (MhtsT m) = vRep `member` m
 
-instance KeyFinding (PropMethodsTable a) TokenRep (Ty.NotedVar a) where
+instance KeyFinding (PropMethodsTable a) SymbolRep (Ty.NotedVar a) where
     kFind symRep (MhtsT m) = Map.lookup symRep m
 
 instance KeyFinding (PropMethodsTable a) (Ty.NotedVar a) (Ty.NotedVar a) where
@@ -428,7 +428,7 @@ instance Existence (ImplTable a) (Property, Ty.LangSpecConstraint a) where
             Just cs -> any (c `Ty.satisfy`) cs
                         -}
 
-instance KeyFinding (ImplTable a) TokenRep [Ty.LangSpecConstraint a] where
+instance KeyFinding (ImplTable a) PropConRep [Ty.LangSpecConstraint a] where
     kFind contRep (ImplT m) = Map.lookup contRep m
 
 instance KeyFinding (ImplTable a) (Ty.LangNewConstraint a) [Ty.LangSpecConstraint a] where

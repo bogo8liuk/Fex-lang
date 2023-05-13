@@ -32,12 +32,12 @@ instance UnreachableState RebindErr where
 
 {- This is useful to discover the variable another variable has been replaced with. The values in
 the map should correspond to bound variables in a container. -}
-type BoundData = Map TokenRep TokenRep
+type BoundData = Map TyVarRep TyVarRep
 
-addToBound :: Raw.ParamTypeName a -> TokenRep -> BoundData -> BoundData
+addToBound :: Raw.ParamTypeName a -> TyVarRep -> BoundData -> BoundData
 addToBound pty = insert (repOf pty)
 
-getBind :: Raw.ParamTypeName a -> BoundData -> Maybe TokenRep
+getBind :: Raw.ParamTypeName a -> BoundData -> Maybe TyVarRep
 getBind pty = M.lookup (repOf pty)
 
 bindTyVar

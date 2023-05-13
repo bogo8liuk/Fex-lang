@@ -849,7 +849,7 @@ data UnificationError a =
 `m a a`, there two are occurrences of `a` and this has to be tracked in specialization test because, for instance,
 we can think `f x y` is more specialized than `m a a`, but this is an error, because `x` in general is not
 the same variable of `y`. -}
-type VisitedVars a = Map TokenRep (LangVarType a, LangHigherType a)
+type VisitedVars a = Map TyVarRep (LangVarType a, LangHigherType a)
 
 {- Just a flag to make unification stricter, namely to make it a specialization test (type t0 is more specialized -
 or less general - than type t1?) -}
@@ -2526,7 +2526,7 @@ instance UpdateType NotedLam where
 newVarLKTy :: String -> LangKind
 newVarLKTy = LKVar
 
-newLNTy :: TokenRep -> LangKind -> [(TokenRep, Role, a)] -> a -> Maybe (LangNewType a)
+newLNTy :: TyConRep -> LangKind -> [(TyVarRep, Role, a)] -> a -> Maybe (LangNewType a)
 newLNTy rep LKConst [] st =
     Just $ LNTy
         { base = tokenRepToStr rep
@@ -2555,7 +2555,7 @@ newLNTy rep k @ (SubLK lks) ps st =
 the type. -}
 newLNTy _ _ _ _ = Nothing
 
-newLVTy :: TokenRep -> LangKind -> Role -> a -> LangVarType a
+newLVTy :: TyVarRep -> LangKind -> Role -> a -> LangVarType a
 newLVTy rep lk role st =
     LVTy
         { var = tokenRepToStr rep
@@ -2635,7 +2635,7 @@ newLVcTy lvty lts @ (lhty : t) st =
                 then Just $ lhty' : lts'
                 else Nothing
 
-newLNCont :: TokenRep -> [LangVarType a] -> a -> LangNewConstraint a
+newLNCont :: PropConRep -> [LangVarType a] -> a -> LangNewConstraint a
 newLNCont rep vars st =
     LNCont
         { prop = tokenRepToStr rep
@@ -2921,7 +2921,7 @@ newNaiveLSpCont lnc st =
         , lscontState = st
         }
 
-newNotedVar :: TokenRep -> LangTypeScheme a -> a -> NotedVar a
+newNotedVar :: SymbolRep -> LangTypeScheme a -> a -> NotedVar a
 newNotedVar rep ty st =
     NotedVar
         { nVarName = tokenRepToStr rep
@@ -3029,7 +3029,7 @@ newNotedLams' :: (NotedVar a, a) -> [(NotedVar a, a)] -> NotedExpr a -> NotedExp
 newNotedLams' h l = newNotedLams (h :| l)
 -}
 
-kindOfArg :: TokenRep -> LangNewType a -> Maybe LangKind
+kindOfArg :: TyVarRep -> LangNewType a -> Maybe LangKind
 kindOfArg arg lnty =
     case firstThat (\lvty -> repOf lvty == arg) $ argsOf lnty of
         Nothing -> Nothing
@@ -3081,7 +3081,7 @@ baseOfFunTy _ = False
 
 {- Low-level head equality test between a String value and a LangHigherType value. Usually, a client should
 prefer sameBaseOf. -}
-rawSameBaseOf :: TokenRep -> LangHigherType a -> Bool
+rawSameBaseOf :: TypeRep -> LangHigherType a -> Bool
 rawSameBaseOf tyRep (HApp _ _) = tyRep == BI.nameFunctionApp
 rawSameBaseOf tyRep (LTy (LATyComp lspty)) = repOf (headOf lspty) == tyRep
 rawSameBaseOf tyRep (LTy (LATyParam lvcty)) = repOf (headOf lvcty) == tyRep

@@ -2780,7 +2780,7 @@ instance AtomRep (ParamTypeName a) where
 instance AtomRep (CategoryName a) where
     repOf (CatgName (s, _)) = tokenRepFromStr s
 
-strOfGenName :: GenTypeName a -> TokenRep
+strOfGenName :: GenTypeName a -> TypeRep
 strOfGenName (Left rty) = repOf rty
 strOfGenName (Right pty) = repOf pty
 
