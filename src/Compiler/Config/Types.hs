@@ -49,7 +49,7 @@ data Type =
         }
 
 nameInt :: TokenRep
-nameInt = tyConRepFromStr' "Int"
+nameInt = tokenRepFromStr "Int"
 
 sourceInt :: String
 sourceInt = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameInt ++ "\n"
@@ -62,7 +62,7 @@ int =
         }
 
 nameNat :: TokenRep
-nameNat = tyConRepFromStr' "Nat"
+nameNat = tokenRepFromStr "Nat"
 
 sourceNat :: String
 sourceNat = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameNat ++ "\n"
@@ -75,7 +75,7 @@ nat =
         }
 
 nameDouble :: TokenRep
-nameDouble = tyConRepFromStr' "Double"
+nameDouble = tokenRepFromStr "Double"
 
 sourceDouble :: String
 sourceDouble = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameDouble ++ "\n"
@@ -88,13 +88,13 @@ double =
         }
 
 nameBool :: TokenRep
-nameBool = tyConRepFromStr' "Bool"
+nameBool = tokenRepFromStr "Bool"
 
 trueConBool :: TokenRep
-trueConBool = dataConRepFromStr' Lexer.trueCon
+trueConBool = tokenRepFromStr Lexer.trueCon
 
 falseConBool :: TokenRep
-falseConBool = dataConRepFromStr' Lexer.falseCon
+falseConBool = tokenRepFromStr Lexer.falseCon
 
 boolCons :: [TokenRep]
 boolCons = [trueConBool, falseConBool]
@@ -112,7 +112,7 @@ bool =
         }
 
 nameChar :: TokenRep
-nameChar = tyConRepFromStr' "Char"
+nameChar = tokenRepFromStr "Char"
 
 sourceChar :: String
 sourceChar = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameChar ++ "\n"
@@ -125,7 +125,7 @@ char =
         }
 
 nameByteString :: TokenRep
-nameByteString = tyConRepFromStr' "String"
+nameByteString = tokenRepFromStr "String"
 
 sourceByteString :: String
 sourceByteString = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameByteString ++ "\n"
@@ -138,7 +138,7 @@ byteString =
         }
 
 nameFunctionApp :: TokenRep
-nameFunctionApp = tyConRepFromStr' "App"
+nameFunctionApp = tokenRepFromStr "App"
 
 sourceFunctionApp :: String
 sourceFunctionApp = Lexer.adtKeyword ++ " " ++ tokenRepToStr nameFunctionApp ++ " a b\n"
@@ -151,13 +151,13 @@ functionApp =
         }
 
 nameList :: TokenRep
-nameList = tyConRepFromStr' "List"
+nameList = tokenRepFromStr "List"
 
 emptyConList :: TokenRep
-emptyConList = dataConRepFromStr' Lexer.listEmptyCon
+emptyConList = tokenRepFromStr Lexer.listEmptyCon
 
 consConList :: TokenRep
-consConList = dataConRepFromStr' Lexer.listConsCon
+consConList = tokenRepFromStr Lexer.listConsCon
 
 listCons :: [TokenRep]
 listCons = [emptyConList, consConList]
@@ -174,11 +174,11 @@ list =
         }
 
 nameTuple :: TokenRep
-nameTuple = tyConRepFromStr' "Tuple"
+nameTuple = tokenRepFromStr "Tuple"
 
 namesTuple :: Array Int TokenRep
 namesTuple =
-    array (2, maxTupleSize) [ (i, tyConRepFromStr' (tokenRepToStr nameTuple ++ show i)) | i <- [2..maxTupleSize] ]
+    array (2, maxTupleSize) [ (i, tokenRepFromStr (tokenRepToStr nameTuple ++ show i)) | i <- [2..maxTupleSize] ]
 
 {- A 2-maxTupleSize array of tuple constructors. -}
 conTuples :: Array Int TokenRep
@@ -189,7 +189,7 @@ conTuplesList = assocs conTuples
 
 mkTupleCon :: Int -> TokenRep
 mkTupleCon i =
-    dataConRepFromStr' $
+    tokenRepFromStr $
         Lexer.tupleConSugarStart ++
         concat [ Lexer.tupleConSugarSep | _ <- [1..(i - 1)] ] ++
         Lexer.tupleConSugarEnd
@@ -202,7 +202,7 @@ getTupleCon i =
         else Just $ namesTuple ! i
 
 mkTupleParams :: Int -> [TokenRep]
-mkTupleParams i = [ tyVarRepFromStr' ("e" ++ show j) | j <- [1..i] ]
+mkTupleParams i = [ tokenRepFromStr ("e" ++ show j) | j <- [1..i] ]
 
 mkTupleSource :: Int -> String
 mkTupleSource i =

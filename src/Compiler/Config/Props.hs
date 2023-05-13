@@ -24,7 +24,7 @@ source :: Prop -> String
 source (BP s) = s
 
 nameNum :: TokenRep
-nameNum = propConRepFromStr' "Num"
+nameNum = tokenRepFromStr "Num"
 
 sourceNum :: String
 sourceNum =
@@ -49,7 +49,7 @@ num :: Prop
 num = BP sourceNum
 
 nameFract :: TokenRep
-nameFract = propConRepFromStr' "Fractional"
+nameFract = tokenRepFromStr "Fractional"
 
 {- TODO: right now, Fractional misses `fromRational` function, look at GHC.Real of haskell std library. -}
 sourceFract :: String
