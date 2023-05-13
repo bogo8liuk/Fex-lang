@@ -18,6 +18,8 @@ module Lib.Utils
     , onFst
     , onSnd
     , insertAt
+    , replaceAt
+    , replaceAndGetAt
     , diffList
     , diffListTail
     , getIfAll
@@ -160,11 +162,28 @@ onSnd f (x, y) = (x, f y)
 
 ----------------------- Operations on lists and foldables -----------------------
 
-insertAt :: a -> Int -> [a] -> [a]
-insertAt x _ [] = [x]
-insertAt x n l @ (h : t)
+insertAt :: Int -> a -> [a] -> [a]
+insertAt 0 x [] = [x]
+insertAt _ _ [] = []
+insertAt n x l @ (h : t)
+    | n <= 0 = x : h : l
+    | otherwise = h : insertAt (n - 1) x t
+
+{- It replace an element at a given position (negative numbers are treated as zero). Complexity: O(pos), where pos is
+the position where to replacing is performed, with 0 <= pos <= length l. -}
+replaceAt :: Int -> a -> [a] -> [a]
+replaceAt _ _ [] = []
+replaceAt n x l @ (h : t)
     | n <= 0 = x : l
-    | otherwise = h : insertAt x (n - 1) t
+    | otherwise = h : replaceAt (n - 1) x t
+
+{- Same of `replaceAt`, but it returns also the eventually removed element. NB: It is less efficient than `replaceAt`,
+complexity: O(2 * pos). -}
+replaceAndGetAt :: Int -> a -> [a] -> (Maybe a, [a])
+replaceAndGetAt n x l =
+    case splitAt n l of
+        (l1, []) -> (Nothing, l1)
+        (l1, h : t) -> (Just h, l1 ++ x : t)
 
 {- From the second list, it removes (from the head) the number of elements of the first list. -}
 diffList :: [a] -> [b] -> [b]
