@@ -120,7 +120,6 @@ module Compiler.Ast.Typed
     , newVarLKTy
     , newLNTy
     , newLVTy
-    , newContLVTy
     , newLSpTy
     , newLSpTy'
     , newLVcTy
@@ -992,15 +991,15 @@ rawUnify monoTy monoTy' isSpecTest =
                 flow of the algorithm, this case can happen only if both `ty` and `ty1` have a non-type-variable
                 in the head. -}
                 Nothing -> Just vvars
-                Just var ->
-                    let varRep = repOf var in
+                Just v ->
+                    let varRep = repOf v in
                         {- `ty` is a singleton type variable, because:
                             1) `ty` is supposed to have no arguments, look at the call of insertVar in unifyOnArgs;
                             2) `varOf'` returned a type variable. -}
                         if ty == ty1
                         then Just vvars
                         else case M.lookup varRep vvars of
-                            Nothing -> Just $ M.insert varRep (var, ty1) vvars
+                            Nothing -> Just $ M.insert varRep (v, ty1) vvars
                             Just (_, ty2) ->
                                 if unsafeToLHTy' ty2 == unsafeToLHTy' ty1
                                 then Just vvars
@@ -1539,7 +1538,7 @@ roleOf :: LangVarType a -> Role
 roleOf = convertRole_ . lvtyRole
 
 instance AtomRep (LangVarType a) where
-    repOf = tyVarRepFromStr' . var
+    repOf = tokenRepFromStr . var
 
 instance HasState LangVarType where
     stateOf = lvtyState
@@ -1774,20 +1773,17 @@ instance Functor LangVarCompType where
 instance HasKind (LangVarCompType a) where
     kindOf = kindOf . specVar
 
-{- It calculates the actual kind of a composite token (already split). -}
+{- It calculates the actual kind of a composite token (already split). NB: given the expression `kindOfComp tok args`,
+it is supposed that `tok` and `args` were a unique token. -}
 kindOfComp :: HasKind ty => ty -> [LangHigherType a] -> Maybe LangKind
 kindOfComp tok args =
-    case (kindOf tok, args) of
-        (lk, []) -> Just lk
-        (lk, lhty : t) ->
-            case infrdKindOf lhty of
-                Nothing -> Nothing
-                Just infrdlk -> foldl' diff <| diffKinds lk infrdlk <| t
+    forAll args tryInferKind `startingFrom` Just (kindOf tok)
         where
-            diff mayK lhty =
-                case (mayK, infrdKindOf lhty) of
-                    (Just lk, Just infrdlk) -> diffKinds lk infrdlk
-                    (_, _) -> Nothing
+            tryInferKind Nothing _ = Nothing
+            tryInferKind (Just lk) lhty =
+                case infrdKindOf lhty of
+                    Nothing -> Nothing
+                    Just infrdlk -> diffKinds lk infrdlk
 
 instance ActualKind (LangVarCompType a) where
     infrdKindOf
@@ -1819,7 +1815,7 @@ instance HasState LangNewConstraint where
     stateOf = lcontState
 
 instance AtomRep (LangNewConstraint a) where
-    repOf = propConRepFromStr' . prop
+    repOf = tokenRepFromStr . prop
 
 instance Eq (LangNewConstraint a) where
     (==) lnc lnc' = prop lnc == prop lnc'
@@ -1912,7 +1908,7 @@ data LangNewType a =
         } deriving Show
 
 instance AtomRep (LangNewType a) where
-    repOf = tyConRepFromStr' . base
+    repOf = tokenRepFromStr . base
 
 instance HasState LangNewType where
     stateOf = lntyState
@@ -2029,7 +2025,7 @@ data NotedVar a =
         } deriving Show
 
 instance AtomRep (NotedVar a) where
-    repOf = symbolRepFromStr' . nVarName
+    repOf = tokenRepFromStr . nVarName
 
 instance Eq (NotedVar a) where
     (==) nVar nVar' = nVarName nVar == nVarName nVar'
@@ -2083,10 +2079,10 @@ instance Eq NotedLiteral where
     (==) _ _ = False
 
 instance AtomRep NotedLiteral where
-    repOf (LitInt i) = dataConRepFromStr' $ show i
-    repOf (LitDouble f) = dataConRepFromStr' $ show f
-    repOf (LitChar c) = dataConRepFromStr' $ show c
-    repOf (LitString s) = dataConRepFromStr' $ show s
+    repOf (LitInt i) = tokenRepFromStr $ show i
+    repOf (LitDouble f) = tokenRepFromStr $ show f
+    repOf (LitChar c) = tokenRepFromStr $ show c
+    repOf (LitString s) = tokenRepFromStr $ show s
 
 data OnlyConstraintScheme a = ContsOnlyTy [LangVarType a] (LangSpecConstraint a) a deriving Show
 
@@ -2125,7 +2121,7 @@ instance Eq (NotedVal a) where
 
 instance Functor NotedVal where
     fmap f (NotedLit lit lhty st) = NotedLit lit (fmap f lhty) $ f st
-    fmap f (NotedVal name lhty st) = NotedVal name (fmap f lhty) $ f st
+    fmap f (NotedVal strName lhty st) = NotedVal strName (fmap f lhty) $ f st
 
 instance HasState NotedVal where
     stateOf (NotedLit _ _ st) = st
@@ -2133,7 +2129,7 @@ instance HasState NotedVal where
 
 instance AtomRep (NotedVal a) where
     repOf (NotedLit lit _ _) = repOf lit
-    repOf (NotedVal name _ _) = dataConRepFromStr' name
+    repOf (NotedVal strName _ _) = tokenRepFromStr strName
 
 instance HasType NotedVal where
     typeOf (NotedLit _ lpty _) = lpty
@@ -2159,7 +2155,7 @@ instance ActualType NotedVal where
 
 instance UpdateType NotedVal where
     updateType (NotedLit lit _ st) lpty = NotedLit lit lpty st
-    updateType (NotedVal name _ st) lpty = NotedVal name lpty st
+    updateType (NotedVal strName _ st) lpty = NotedVal strName lpty st
 
 data DispatchTok a =
       DispatchVar (NotedVar a) a
@@ -2184,9 +2180,9 @@ instance HasState DispatchTok where
 
 instance AtomRep (DispatchTok a) where
     repOf (DispatchVar nVar _) =
-        compTokenRepFromStr' $ nVarName nVar
+        tokenRepFromStr $ nVarName nVar
     repOf (DispatchVal (ContsOnlyTy _ c _) _) =
-        compTokenRepFromStr' . prop $ headOf c    --TODO: check correctness
+        tokenRepFromStr . prop $ headOf c    --TODO: check correctness
 
 instance HasType DispatchTok where
     typeOf (DispatchVar nVar _) = typeOf nVar
@@ -2530,16 +2526,16 @@ instance UpdateType NotedLam where
 newVarLKTy :: String -> LangKind
 newVarLKTy = LKVar
 
-newLNTy :: String -> LangKind -> [(String, Role, a)] -> a -> Maybe (LangNewType a)
-newLNTy n LKConst [] st =
+newLNTy :: TokenRep -> LangKind -> [(TokenRep, Role, a)] -> a -> Maybe (LangNewType a)
+newLNTy rep LKConst [] st =
     Just $ LNTy
-        { base = n
+        { base = tokenRepToStr rep
         , kind' = LKConst
         , params = []
         , infinite = False
         , lntyState = st
         }
-newLNTy n k @ (SubLK lks) ps st =
+newLNTy rep k @ (SubLK lks) ps st =
     {- The number of arguments must match exactly the number of sub-kinds - 1 because the arguments represent data
     for type variables and the sub-kinds are associated one by one to the arguments, but the last one has to "survive"
     because it is return kind. -}
@@ -2549,7 +2545,7 @@ newLNTy n k @ (SubLK lks) ps st =
         let kps = zip ps lks in
         let tyVars = map (\((varRep, role, varSt), lk) -> newLVTy varRep lk role varSt) kps in
             Just $ LNTy
-                { base = n
+                { base = tokenRepToStr rep
                 , kind' = k
                 , params = tyVars
                 , infinite = False
@@ -2559,14 +2555,10 @@ newLNTy n k @ (SubLK lks) ps st =
 the type. -}
 newLNTy _ _ _ _ = Nothing
 
-newLVTy :: String -> LangKind -> Role -> a -> LangVarType a
-newLVTy name lk = newContLVTy name lk []
-
---FIXME
-newContLVTy :: String -> LangKind -> [LangSpecConstraint a] -> Role -> a -> LangVarType a
-newContLVTy name lk cs role st =
+newLVTy :: TokenRep -> LangKind -> Role -> a -> LangVarType a
+newLVTy rep lk role st =
     LVTy
-        { var = name
+        { var = tokenRepToStr rep
         , kind = lk
         , lvtyRole = Role_ role
         , lvtyState = st
@@ -2635,18 +2627,18 @@ newLVcTy lvty lts @ (lhty : t) st =
         _ -> Nothing
         where
             rightKind Nothing _ = Nothing
-            rightKind (Just lts) (lhty, lk) =
+            rightKind (Just lts') (lhty', lk) =
                 {- As said above, the kind of each LangHigherType value must be consistent. The notion of
                 `ActualKind` is used instead of the one of `HasKind`, because the latter just calculates
                 the kind of a "primitive" token (not a composite one). -}
-                if infrdKindOf lhty == Just lk
-                then Just $ lhty : lts
+                if infrdKindOf lhty' == Just lk
+                then Just $ lhty' : lts'
                 else Nothing
 
-newLNCont :: String -> [LangVarType a] -> a -> LangNewConstraint a
-newLNCont name vars st =
+newLNCont :: TokenRep -> [LangVarType a] -> a -> LangNewConstraint a
+newLNCont rep vars st =
     LNCont
-        { prop = name
+        { prop = tokenRepToStr rep
         , contVars = vars
         , lcontState = st
         }
@@ -2735,9 +2727,9 @@ visitVarsInLNTy lnty x trans =
         , x'
         )
     where
-        mkArg (args, x) v =
-            let (v', x') = trans v x in
-                (v' : args, x')
+        mkArg (args, y) v =
+            let (v', y') = trans v y in
+                (v' : args, y')
 
 {- Same of visitVarsInLNTy, but with LangNewConstraint tokens. Moreover, it acts directly on LangVarType tokens,
 differently from what visitVarsInLNTy does. -}
@@ -2759,9 +2751,9 @@ visitVarsInLNCont lnc x trans =
         , x'
         )
     where
-        mkArg (args, x) lvty =
-            let (lvty', x') = trans lvty x in
-                (lvty' : args, x')
+        mkArg (args, y) lvty =
+            let (lvty', y') = trans lvty y in
+                (lvty' : args, y')
 
 visitErr :: StateT x Maybe res
 visitErr = lift Nothing
@@ -2854,35 +2846,32 @@ newConcatLHTy (lhty :| (lhty' : t)) = HApp [lhty, newConcatLHTy (lhty' :| t)] $ 
 something which is not a variable or it tries to access arguments which do not exist, namely overflow).
 NB: this function makes a promotion, but the old type variables are lost forever. -}
 newLSpTyFromLSpTy :: LangSpecType a -> [(Int, LangHigherType a)] -> a -> Maybe (LangSpecType a)
-newLSpTyFromLSpTy lspty prom st = newSp lspty prom $ Just st
+newLSpTyFromLSpTy lspty prom st =
+    case updateLspty of
+        Nothing -> Nothing
+        {- Updating the state before returning -}
+        Just lspty' ->
+            Just $ lspty'
+                { lstyState = st
+                }
     where
-        newSp lspty [] Nothing = Just lspty
-        newSp lspty [] (Just st) = newLSpTy <| specBase lspty <| actualArgs lspty <| st
-        newSp LSpTy
-            { specBase = lnty
-            , actualArgs = actargs
-            , lstyState = st
-            } ((pos, lhty) : t) maybeSt =
-            case elemAt pos actargs of
-                Just lpty @ (LTy (LATyParam _)) ->
-                    if infrdKindOf lhty == infrdKindOf lpty
+        updateLspty = forAll prom tryReplace `startingFrom` Just lspty
+
+        tryReplace Nothing _ = Nothing
+        tryReplace (Just lspty') (pos, lhty) =
+            case replaceAndGetAt pos lhty $ actualArgs lspty' of
+                {- Only type variables can be replaced (namely `LATyParam` constructor). -}
+                (Just replLhty @ (LTy (LATyParam _)), args) ->
+                    {- To really perform the replacement, it is necessary that kinds of types are the same. -}
+                    if infrdKindOf replLhty == infrdKindOf lhty
                     then
-                        let args = imap (\pos' oldty -> if pos == pos' then lhty else oldty) actargs in
-                            case maybeSt of
-                                Just st' -> newSp LSpTy
-                                    { specBase = lnty
-                                    , actualArgs = args
-                                    , lstyState = st'
-                                    } t Nothing
-                                Nothing -> newSp LSpTy
-                                    { specBase = lnty
-                                    , actualArgs = args
-                                    , lstyState = st
-                                    } t Nothing
-                    else
-                        Nothing
-                Just _ -> Nothing
-                Nothing -> Nothing
+                        Just $ lspty'
+                            { actualArgs = args
+                            }
+                    else Nothing
+                {- All other cases are when the replaced type wasn't a type variable or when the replacement hasn't been
+                performed because of an out-of-bound index. -}
+                (_, _) -> Nothing
 
 data ContBuildError a =
       ArgsNoErr (LangNewConstraint a) [LangHigherType a]
@@ -2897,7 +2886,7 @@ newLSpCont
     -> Either (ContBuildError a) (LangSpecConstraint a, Substitution a)
 newLSpCont lnc lhts st =
     let tyVars = argsOf lnc in
-    let ks = map (\var -> (var, kindOf var)) tyVars in
+    let ks = map (\v -> (v, kindOf v)) tyVars in
         case argsFit ks lhts of
             None ->
                 Right
@@ -2915,12 +2904,12 @@ newLSpCont lnc lhts st =
         argsFit [] [] = None
         argsFit [] _ = This ()
         argsFit _ [] = This ()
-        argsFit ((var, lk) : kt) (ty : t) =
+        argsFit ((v, lk) : kt) (ty : t) =
             case infrdKindOf ty of
                 Nothing -> That $ TypeBuildErr ty
                 Just lk' ->
                     if lk /= lk'
-                    then That $ KindErr (var, lk) (ty, lk')
+                    then That $ KindErr (v, lk) (ty, lk')
                     else argsFit kt t
 
 {- NB: this is unsafe, because it does not track eventual bound variables in the LangNewConstraint token. -}
