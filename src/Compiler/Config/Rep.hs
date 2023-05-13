@@ -20,6 +20,7 @@ module Compiler.Config.Rep
     , kindRepToStr
     , propConRepToStr
     , dataConRepToStr
+    , tokenRepFromStr
     , symbolRepFromStr
     , tyConRepFromStr
     , tyVarRepFromStr
@@ -99,6 +100,9 @@ dataConRepToStr :: DataConRep -> String
 dataConRepToStr = id
 
 {- Construction from strings. NB: this can be change in the future. -}
+
+tokenRepFromStr :: String -> TokenRep
+tokenRepFromStr = TR
 
 symbolRepFromStr :: String -> SymbolRep
 symbolRepFromStr = id
