@@ -10,6 +10,7 @@ module Compiler.Desugar.TyVars
     , getBind
 ) where
 
+import Lib.Utils
 import Data.Tuple(swap)
 import Data.Map.Strict as M hiding (map)
 import Compiler.Ast.Common
@@ -31,12 +32,12 @@ instance UnreachableState RebindErr where
 
 {- This is useful to discover the variable another variable has been replaced with. The values in
 the map should correspond to bound variables in a container. -}
-type BoundData = Map String String
+type BoundData = Map TokenRep TokenRep
 
-addToBound :: Raw.ParamTypeName a -> String -> BoundData -> BoundData
+addToBound :: Raw.ParamTypeName a -> TokenRep -> BoundData -> BoundData
 addToBound pty = insert (repOf pty)
 
-getBind :: Raw.ParamTypeName a -> BoundData -> Maybe String
+getBind :: Raw.ParamTypeName a -> BoundData -> Maybe TokenRep
 getBind pty = M.lookup (repOf pty)
 
 bindTyVar
@@ -45,16 +46,18 @@ bindTyVar
     -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData))
 bindTyVar pty (fv, bd) =
     let pRep = repOf pty in
+    let pStr = tokenRepToStr pRep in
         {- Checking if pty is already bound. -}
         case getBind pty bd of
-            Just var -> (Raw.buildPtyName var $ stateOf pty, (fv, bd))
+            Just var -> (Raw.buildPtyName <| tokenRepToStr var <| stateOf pty, (fv, bd))
             Nothing ->
-                case Fresh.tryAllocFreeVar pRep () fv of
+                case Fresh.tryAllocFreeVar pStr () fv of
                     Just fv' -> (pty, (fv', addToBound pty pRep bd))
                     Nothing ->
                         let (var, fv') = Fresh.allocFreeVar () fv in
+                        let varRep = tokenRepFromStr var in
                             ( Raw.buildPtyName var $ stateOf pty
-                            , (fv', addToBound pty var bd)
+                            , (fv', addToBound pty varRep bd)
                             )
 
 replaceTyVar
@@ -63,7 +66,7 @@ replaceTyVar
     -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData))
 replaceTyVar pty vars @ (_, bd) =
     case getBind pty bd of
-        Just var -> (Raw.buildPtyName var $ stateOf pty, vars)
+        Just var -> (Raw.buildPtyName <| tokenRepToStr var <| stateOf pty, vars)
         {- In this case, the variable is not bound yet, so it is a binding! -}
         Nothing -> bindTyVar pty vars
 
