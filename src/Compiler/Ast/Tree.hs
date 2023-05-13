@@ -2763,22 +2763,22 @@ a string representation of that token, while the following functions extract the
 the token. -}
 
 instance AtomRep (ADTName a) where
-    repOf (ADTName (s, _)) = tyConRepFromStr' s
+    repOf (ADTName (s, _)) = tokenRepFromStr s
 
 instance AtomRep (ADTConName a) where
-    repOf (ADTConName (s, _)) = dataConRepFromStr' s
+    repOf (ADTConName (s, _)) = tokenRepFromStr s
 
 instance AtomRep (IntfName a) where
-    repOf (IntfName (s, _)) = propConRepFromStr' s
+    repOf (IntfName (s, _)) = tokenRepFromStr s
 
 instance AtomRep (SymbolName a) where
-    repOf (SymName (s, _)) = symbolRepFromStr' s
+    repOf (SymName (s, _)) = tokenRepFromStr s
 
 instance AtomRep (ParamTypeName a) where
-    repOf (PtyName (s, _)) = tyVarRepFromStr' s
+    repOf (PtyName (s, _)) = tokenRepFromStr s
 
 instance AtomRep (CategoryName a) where
-    repOf (CatgName (s, _)) = compTokenRepFromStr' s
+    repOf (CatgName (s, _)) = tokenRepFromStr s
 
 strOfGenName :: GenTypeName a -> TokenRep
 strOfGenName (Left rty) = repOf rty

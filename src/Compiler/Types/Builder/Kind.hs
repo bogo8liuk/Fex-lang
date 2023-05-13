@@ -26,7 +26,7 @@ import Compiler.State as With
 import Compiler.Types.Lib.FreeVars as Fresh
 
 type UnexpectedKindError =
-    ( String                           --name
+    ( TokenRep                           --name
     , (Ty.LangKind, With.ProgState)    --expected
     , (Ty.LangKind, With.ProgState)    --actual
     )
@@ -61,18 +61,18 @@ inconsistentKind = "The kind of a type has been inferred in a bad way"
 
 unexpKindErr :: UnexpectedKindError -> String
 unexpKindErr (name, (expK, expSt), (curK, curSt)) =
-    "Kind inconsistency for symbol " ++ name ++ ": at " ++ show expSt ++ " it has kind " ++ show expK ++
+    "Kind inconsistency for symbol " ++ tokenRepToStr name ++ ": at " ++ show expSt ++ " it has kind " ++ show expK ++
     " but at " ++ show curSt ++ " it has kind " ++ show curK
 
 tooManyArgsErr :: TooManyArgsError -> String
 tooManyArgsErr (gName, (lk, st)) =
-    "Type " ++ Raw.strOfGenName gName ++ " at " ++ show (Raw.stateOfGenName gName) ++ " is expected to have kind " ++
-    show lk ++ " as inferred at " ++ show st ++ ", but it has too many arguments"
+    "Type " ++ tokenRepToStr (Raw.strOfGenName gName) ++ " at " ++ show (Raw.stateOfGenName gName) ++
+    " is expected to have kind " ++ show lk ++ " as inferred at " ++ show st ++ ", but it has too many arguments"
 
 infKindErr :: BuildInfKindError -> String
 infKindErr (pty, pty') =
-    "Cannot build infinite kind between: " ++ repOf pty ++ " at " ++
-    show (stateOf pty) ++ " and " ++ repOf pty' ++ " at " ++ show (stateOf pty')
+    "Cannot build infinite kind between: " ++ tokenRepToStr (repOf pty) ++ " at " ++
+    show (stateOf pty) ++ " and " ++ tokenRepToStr (repOf pty') ++ " at " ++ show (stateOf pty')
 
 instance DebugShow TypeGenErr where
     dbgShow (UeKErr err) = unexpKindErr err
@@ -90,7 +90,7 @@ instance UnreachableState TypeGenErr where
     isUnreachable (UnreachableState s) = Just s
     isUnreachable _ = Nothing
 
-type KindsTable = Map String (Ty.LangKind, With.ProgState)
+type KindsTable = Map TokenRep (Ty.LangKind, With.ProgState)
 
 {- It promotes each occurrence of a variable in the kinds table with a new LangKind. -}
 updateVar
@@ -325,7 +325,7 @@ compReal m cont rty ts @ (ty : t) =
 
 {- It gets the first param type name in a list of types that makes true the (string-)equality with
 a string. -}
-immediately :: String -> [Raw.UnConType With.ProgState] -> Maybe (Raw.ParamTypeName With.ProgState)
+immediately :: TokenRep -> [Raw.UnConType With.ProgState] -> Maybe (Raw.ParamTypeName With.ProgState)
 immediately pName ts =
     case firstThat (\ty -> doOnUnCon ty <| sr pName <| sp pName <| cr pName <| cp pName) ts of
         Nothing -> Nothing
@@ -400,7 +400,7 @@ kindFromCon kt cont con = case Raw.unConsFromCon con of
 -}
 kindOfType
     :: KindsTable
-    -> String
+    -> TokenRep
     -> With.ProgState
     -> Fresh.FV ()
     -> [Raw.ParamTypeName With.ProgState]
@@ -430,7 +430,7 @@ kindOfType kt cur st cont (pty : t) ks =
 
 deleteWhen
     :: KindsTable
-    -> (String -> Bool)
+    -> (TokenRep -> Bool)
     -> KindsTable
 deleteWhen kt toDel = removeFrom kt . filter toDel . map fst $ toList kt
     where
@@ -447,7 +447,7 @@ deleteLocals kt ps = deleteWhen kt (\s -> s `elem` map repOf ps)
 
 kindFrom
     :: KindsTable
-    -> String                              --current name of adt declaration
+    -> TokenRep                              --current name of adt declaration
     -> With.ProgState                      --state of the declaration (the current one)
     -> Fresh.FV ()
     -> [Raw.ParamTypeName With.ProgState]

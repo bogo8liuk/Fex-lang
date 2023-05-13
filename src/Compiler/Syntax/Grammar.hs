@@ -11,6 +11,7 @@ module Compiler.Syntax.Grammar
 
 import Lib.Utils
 import Data.Array(bounds, (!))
+import Compiler.Config.Rep
 import qualified Compiler.Config.Types as BITy
 import Text.Parsec
 import Text.Parsec.Expr
@@ -182,7 +183,7 @@ getTupleConIdentifier n tst = do
     if n < lb || n > ub
     then parserZero <?> "Illegal size (" ++ show n ++ ") for tuple constructor, the maximum is " ++ show ub
     else do
-        return $ Tree.ADTConName (BITy.conTuples ! n, tst)
+        return $ Tree.ADTConName (tokenRepToStr (BITy.conTuples ! n), tst)
 
 {- It parses every kind of data constructor, even built-in ones. -}
 richDataConIdentifier :: CustomParsec (Tree.ADTConName With.ProgState)
@@ -580,7 +581,11 @@ functionUnConTypeToken = do
             resUnCon <- createFunType t
             {- Creating the function type -}
             return . Tree.Composite $
-                Tree.TyComp (Tree.Real (Tree.ADTName (BITy.nameFunctionApp, tst)), [unCon, resUnCon], tst)
+                Tree.TyComp
+                    ( Tree.Real $ Tree.ADTName (tokenRepToStr BITy.nameFunctionApp, tst)
+                    , [unCon, resUnCon]
+                    , tst
+                    )
 
 typeToken :: CustomParsec (Tree.Type With.ProgState)
 typeToken = do

@@ -26,8 +26,8 @@ ifExistingScrutinee npm withNVar cont = do
 
 changeNVarsInExpr
     :: Ty.NotedExpr With.ProgState
-    -> String
-    -> String
+    -> TokenRep
+    -> TokenRep
     -> UnifyScrutineeHandle (Ty.NotedExpr With.ProgState)
 changeNVarsInExpr ne newVarRep oldVarRep =
     return $ changeExpr ne

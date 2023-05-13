@@ -21,7 +21,8 @@ newApplication
     -> Either (Ty.UnificationError a) (Ty.NotedExpr a, Fresh.FV ())
 newApplication ne [] fv = Right (ne, fv)
 newApplication ne (arg : t) fv =
-    let (varRep, fv') = Fresh.allocFreeVar () fv in
+    let (v, fv') = Fresh.allocFreeVar () fv in
+    let varRep = tokenRepFromStr v in
     let argSt = stateOf arg in
     let exprSt = stateOf ne in
     let monoTy = Ty.newLHTyFromLVTy $ Ty.newLVTy varRep Ty.LKConst Ty.Representational argSt in

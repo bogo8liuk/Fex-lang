@@ -172,30 +172,30 @@ data Err =
     | NoSym (SymbolName With.ProgState)
     | NoSymSig (SymbolName With.ProgState)
     | NoProp (IntfName With.ProgState)
-    | NoImpl SymbolNameRep (Instance With.ProgState)
+    | NoImpl TokenRep (Instance With.ProgState)
     | UnreachableState String
 
 instance InfoShow Err where
-    infoShow (DupAdt adt) = "Type " ++ repOf adt ++ " at " ++ show (stateOf adt) ++ " already exists"
-    infoShow (DupSym sym) = "Symbol " ++ repOf sym ++ " at "++ show (stateOf sym) ++ " already exists"
+    infoShow (DupAdt adt) = "Type " ++ strOf adt ++ " at " ++ show (stateOf adt) ++ " already exists"
+    infoShow (DupSym sym) = "Symbol " ++ strOf sym ++ " at "++ show (stateOf sym) ++ " already exists"
     infoShow (DupSymProp sym) =
-        "Symbol " ++ repOf sym ++ " at " ++ show (stateOf sym) ++ " already exists as property method"
+        "Symbol " ++ strOf sym ++ " at " ++ show (stateOf sym) ++ " already exists as property method"
     infoShow (DupSymArgs sym) =
-        "Multiple occurrences in arguments of symbol " ++ repOf sym ++ " at " ++ show (stateOf sym)
+        "Multiple occurrences in arguments of symbol " ++ strOf sym ++ " at " ++ show (stateOf sym)
     infoShow (DupSymMatchExpr sym) =
-        "Multiple occurrences in case expressions of symbol " ++ repOf sym ++ " at " ++ show (stateOf sym)
-    infoShow (DupCon con) = "Type constructor " ++ repOf con ++ show (stateOf con) ++ " already exists"
-    infoShow (DupIntf prop) = "Property " ++ repOf prop ++ " at " ++ show (stateOf prop) ++ " already exists"
+        "Multiple occurrences in case expressions of symbol " ++ strOf sym ++ " at " ++ show (stateOf sym)
+    infoShow (DupCon con) = "Type constructor " ++ strOf con ++ show (stateOf con) ++ " already exists"
+    infoShow (DupIntf prop) = "Property " ++ strOf prop ++ " at " ++ show (stateOf prop) ++ " already exists"
     infoShow (DupSig sym) =
-        "Signature for symbol " ++ repOf sym ++ " at " ++ show (stateOf sym) ++ " already exists"
-    infoShow (NoAdt adt) = "Unknown type " ++ repOf adt ++ " at " ++ show (stateOf adt)
-    infoShow (NoCon con) = "Unknown data constructor " ++ repOf con ++ " at " ++ show (stateOf con)
-    infoShow (UnboundParamType pty) = "Unbound type variable " ++ repOf pty ++ " at " ++ show (stateOf pty)
-    infoShow (NoSym sym) = "Unknown symbol " ++ repOf sym ++ " at " ++ show (stateOf sym)
-    infoShow (NoSymSig sym) = "No implementation for " ++ repOf sym ++ " at " ++ show (stateOf sym)
-    infoShow (NoProp prop) = "No property with name " ++ repOf prop ++ " at " ++ show (stateOf prop)
+        "Signature for symbol " ++ strOf sym ++ " at " ++ show (stateOf sym) ++ " already exists"
+    infoShow (NoAdt adt) = "Unknown type " ++ strOf adt ++ " at " ++ show (stateOf adt)
+    infoShow (NoCon con) = "Unknown data constructor " ++ strOf con ++ " at " ++ show (stateOf con)
+    infoShow (UnboundParamType pty) = "Unbound type variable " ++ strOf pty ++ " at " ++ show (stateOf pty)
+    infoShow (NoSym sym) = "Unknown symbol " ++ strOf sym ++ " at " ++ show (stateOf sym)
+    infoShow (NoSymSig sym) = "No implementation for " ++ strOf sym ++ " at " ++ show (stateOf sym)
+    infoShow (NoProp prop) = "No property with name " ++ strOf prop ++ " at " ++ show (stateOf prop)
     infoShow (NoImpl symRep inst) =
-        "No implementation for method " ++ symRep ++ " in instance at " ++ show (stateOf inst)
+        "No implementation for method " ++ tokenRepToStr symRep ++ " in instance at " ++ show (stateOf inst)
     infoShow (UnreachableState _) = unexpNoInfo
 
 instance DebugShow Err where

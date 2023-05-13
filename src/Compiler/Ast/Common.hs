@@ -7,6 +7,7 @@ module Compiler.Ast.Common
     , HasHead(..)
     , HasState(..)
     , AtomRep(..)
+    , strOf
     , Binder(..)
     , Diff(..)
     , CxtDiff(..)
@@ -37,6 +38,9 @@ class HasState t where
 {- It returns the atomic representation of a token. -}
 class AtomRep t where
     repOf :: t -> TokenRep
+
+strOf :: AtomRep t => t -> String
+strOf = tokenRepToStr . repOf
 
 {- `Binder` defines operations which have to be executed on the "bindings" of a token (`tok`), namely the tokens
 (`bindtok`) which should give a scope to other tokens (the "scoped" ones, always `bindtok`) in a token (`tok`).

@@ -30,14 +30,14 @@ data NameEntity =
 
 reservedIdSymRep, reservedIdTyConRep, reservedIdTyVarRep, reservedIdKindVarRep, reservedIdKindConRep, reservedIdPropConRep,
  reservedIdDataConRep, reservedIdCompTokRep :: TokenRep
-reservedIdSymRep = symbolRepFromStr' reservedIdKeyword
-reservedIdTyConRep = tyConRepFromStr' reservedIdKeyword
-reservedIdTyVarRep = tyVarRepFromStr' reservedIdKeyword
-reservedIdKindVarRep = kindVarRepFromStr' reservedIdKeyword
-reservedIdKindConRep = kindConRepFromStr' reservedIdKeyword
-reservedIdPropConRep = propConRepFromStr' reservedIdKeyword
-reservedIdDataConRep = dataConRepFromStr' reservedIdKeyword
-reservedIdCompTokRep = compTokenRepFromStr' reservedIdKeyword
+reservedIdSymRep = tokenRepFromStr reservedIdKeyword
+reservedIdTyConRep = tokenRepFromStr reservedIdKeyword
+reservedIdTyVarRep = tokenRepFromStr reservedIdKeyword
+reservedIdKindVarRep = tokenRepFromStr reservedIdKeyword
+reservedIdKindConRep = tokenRepFromStr reservedIdKeyword
+reservedIdPropConRep = tokenRepFromStr reservedIdKeyword
+reservedIdDataConRep = tokenRepFromStr reservedIdKeyword
+reservedIdCompTokRep = tokenRepFromStr reservedIdKeyword
 
 {- NB: this is very UNSAFE if two or more concatenated values of the counter can give a possible future value of
 the counter. -}
@@ -46,9 +46,9 @@ mkUniqueName ent counter =
     let (str, newCounter) = C.next counter in
         case ent of
             LambdaSymbol ->
-                (symbolRepFromStr' (reservedIdKeyword ++ str), newCounter)
+                (tokenRepFromStr (reservedIdKeyword ++ str), newCounter)
             ProgSymbol ->
-                (symbolRepFromStr' (reservedIdKeyword ++ str), newCounter)
+                (tokenRepFromStr (reservedIdKeyword ++ str), newCounter)
 
 mkLamUniqueName :: C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
 mkLamUniqueName = mkUniqueName LambdaSymbol
@@ -59,14 +59,14 @@ mkProgUniqueName = mkUniqueName ProgSymbol
 mkNestedUniqueName :: TokenRep -> C.CounterObj -> (TokenRep, C.CounterObj)
 mkNestedUniqueName symRep counter =
     let (str, newCounter) = C.next counter in
-        ( symbolRepFromStr' (reservedIdKeyword ++ tokenRepToStr symRep ++ str ++ reservedIdKeyword)
+        ( tokenRepFromStr (reservedIdKeyword ++ tokenRepToStr symRep ++ str ++ reservedIdKeyword)
         , newCounter
         )
 
 mkDispatchName :: C.CounterObj -> (TokenRep, C.CounterObj)
 mkDispatchName c =
     let (str, c') = C.next c in
-        (compTokenRepFromStr' (reservedIdKeyword ++ str), c')
+        (tokenRepFromStr (reservedIdKeyword ++ str), c')
 
 mkDispatchSuffix' :: TokenRep -> Ty.LangSpecConstraint a -> TokenRep
 mkDispatchSuffix' h c =
@@ -78,7 +78,7 @@ mkDispatchSuffix' h c =
     where
         buildSuffix m headTok lhty =
             {- NB: passing from the string of a LangHigherType. -}
-            headTok <> reservedIdCompTokRep <> compTokenRepFromStr' (Ty.showHeadsLHTyWith lhty $ showTyVar m)
+            headTok <> reservedIdCompTokRep <> tokenRepFromStr (Ty.showHeadsLHTyWith lhty $ showTyVar m)
 
         showTyVar m tyVar =
             let tyVarRep = repOf tyVar in

@@ -2921,10 +2921,10 @@ newNaiveLSpCont lnc st =
         , lscontState = st
         }
 
-newNotedVar :: String -> LangTypeScheme a -> a -> NotedVar a
-newNotedVar v ty st =
+newNotedVar :: TokenRep -> LangTypeScheme a -> a -> NotedVar a
+newNotedVar rep ty st =
     NotedVar
-        { nVarName = v
+        { nVarName = tokenRepToStr rep
         , nVarType = ty
         , nVarState = st
         }
