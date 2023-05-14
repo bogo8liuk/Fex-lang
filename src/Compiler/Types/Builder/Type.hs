@@ -461,10 +461,13 @@ unificationErr err = lift . Left $ UnificationError err
 noMatchingCases :: TyInf a
 noMatchingCases = tyInfErr $ GenTokCreationErr "No matching cases"
 
+{- NB: uncomment if you need it
 showAtomTypedToken :: (AtomRep (tok With.ProgState), Ty.HasType tok) => tok With.ProgState -> TyInf String
 showAtomTypedToken token = do
     return (strOf token ++ " : " ++ Ty.showLPTy (Ty.typeOf token))
+-}
 
+{- NB: uncomment if you need it
 showCurTyEnv :: TyInf String
 showCurTyEnv = do
     te <- getCurTyEnv
@@ -472,6 +475,7 @@ showCurTyEnv = do
     where
         showBinding ((symRep, sc), (nVar, _, _, _, _)) =
             "\n  " ++ tokenRepToStr symRep ++ " : sc=" ++ show sc ++ " : " ++ Ty.showLPTy (Ty.typeOf nVar)
+-}
 
 getTT :: TyInf (TypesTable With.ProgState)
 getTT = S.getTypes
@@ -485,8 +489,10 @@ getFV = S.getFV
 getProg :: TyInf (TypedProgram With.ProgState)
 getProg = S.getProg
 
+{- NB: uncomment if you need it
 getInsts :: TyInf (InstsTable With.ProgState)
 getInsts = S.getInsts
+-}
 
 getMethods :: TyInf (PropMethodsTable With.ProgState)
 getMethods = S.getMethods
@@ -527,6 +533,7 @@ getToRefine = gets stGetToRefine
 put' :: s -> (TyInfSt -> s -> TyInfSt) -> TyInf ()
 put' newObj update = S.putWith update newObj
 
+{- NB: uncomment if you need it
 local :: TyInf res -> s -> TyInf s -> (s -> TyInf ()) -> TyInf res
 local op newobj getObj putObj = do
     obj <- getObj
@@ -534,6 +541,7 @@ local op newobj getObj putObj = do
     res <- op
     putObj obj
     return res
+-}
 
 {- There are three type of functions here:
 1) put* functions: they just update the state, in particular, they update just what they tell to update.
@@ -542,27 +550,39 @@ and then doing a computation. The updated state keeps holding even after the com
 3) withLocal* functions: they do the same of with* functions, but after the computation, the state is resumed
 to what it was before the computation. -}
 
+{- NB: uncomment if you need it
 putTT :: TypesTable With.ProgState -> TyInf ()
 putTT = S.putTypes
+-}
 
+{- NB: uncomment if you need it
 withTT :: TyInf res -> TypesTable With.ProgState -> TyInf res
 withTT op newtt = do
     putTT newtt
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalTT :: TyInf res -> TypesTable With.ProgState -> TyInf res
 withLocalTT op newtt = local op newtt getTT putTT
+-}
 
+{- NB: uncomment if you need it
 putCT :: ConstraintsTable With.ProgState -> TyInf ()
 putCT = S.putConts
+-}
 
+{- NB: uncomment if you need it
 withCT :: TyInf res -> ConstraintsTable With.ProgState -> TyInf res
 withCT op newct = do
     putCT newct
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalCT :: TyInf res -> ConstraintsTable With.ProgState -> TyInf res
 withLocalCT op newct = local op newct getCT putCT
+-}
 
 putFV :: Fresh.FV () -> TyInf ()
 putFV = S.putFV
@@ -572,74 +592,108 @@ withFV op newfv = do
     putFV newfv
     op
 
+{- NB: uncomment if you need it
 withLocalFV :: TyInf res -> Fresh.FV () -> TyInf res
 withLocalFV op newfv = local op newfv getFV putFV
+-}
 
 putProg :: TypedProgram With.ProgState -> TyInf ()
 putProg = S.putProg
 
+{- NB: uncomment if you need it
 withProg :: TyInf res -> TypedProgram With.ProgState -> TyInf res
 withProg op newtp = do
     putProg newtp
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalProg :: TyInf res -> TypedProgram With.ProgState -> TyInf res
 withLocalProg op newtp = local op newtp getProg putProg
+-}
 
+{- NB: uncomment if you need it
 putIT :: ImplTable With.ProgState -> TyInf ()
 putIT = S.putImpls
+-}
 
+{- NB: uncomment if you need it
 withIT :: TyInf res -> ImplTable With.ProgState -> TyInf res
 withIT op newit = do
     putIT newit
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalIT :: TyInf res -> ImplTable With.ProgState -> TyInf res
 withLocalIT op newit = local op newit getIT putIT
+-}
 
+{- NB: uncomment if you need it
 putInsts :: InstsTable With.ProgState -> TyInf ()
 putInsts = S.putInsts
+-}
 
+{- NB: uncomment if you need it
 withInsts :: TyInf res -> InstsTable With.ProgState -> TyInf res
 withInsts op newinsts = do
     putInsts newinsts
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalInsts :: TyInf res -> InstsTable With.ProgState -> TyInf res
 withLocalInsts op newinsts = local op newinsts getInsts putInsts
+-}
 
+{- NB: uncomment if you need it
 putMethods :: PropMethodsTable With.ProgState -> TyInf ()
 putMethods = S.putMethods
+-}
 
+{- NB: uncomment if you need it
 withMethods :: TyInf res -> PropMethodsTable With.ProgState -> TyInf res
 withMethods op newmhts = do
     putMethods newmhts
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalMethods :: TyInf res -> PropMethodsTable With.ProgState -> TyInf res
 withLocalMethods op newmhts = local op newmhts getMethods putMethods
+-}
 
+{- NB: uncomment if you need it
 putCons :: DataConsTable With.ProgState -> TyInf ()
 putCons = S.putDataCons
+-}
 
+{- NB: uncomment if you need it
 withCons :: TyInf res -> DataConsTable With.ProgState -> TyInf res
 withCons op newcons = do
     putCons newcons
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalCons :: TyInf res -> DataConsTable With.ProgState -> TyInf res
 withLocalCons op newcons = local op newcons getCons putCons
+-}
 
 putCurTyEnv :: CurrentTyEnv -> TyInf ()
 putCurTyEnv newcurTe = put' newcurTe stPutCurTyEnv
 
+{- NB: uncomment if you need it
 withCurTyEnv :: TyInf res -> CurrentTyEnv -> TyInf res
 withCurTyEnv op newcurTe = do
     putCurTyEnv newcurTe
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalCurTyEnv :: TyInf res -> CurrentTyEnv -> TyInf res
 withLocalCurTyEnv op newcurTe = local op newcurTe getCurTyEnv putCurTyEnv
+-}
 
 doWithCurTyEnvBindings :: ([ScopedContextBinding] -> TyInf a) -> TyInf a
 doWithCurTyEnvBindings bsop = do
@@ -652,13 +706,17 @@ doWithCurTyEnvBindings bsop = do
 putCurConts :: [ConstraintProblem] -> TyInf ()
 putCurConts newcurCs = put' newcurCs stPutCurConts
 
+{- NB: uncomment if you need it
 withCurConts :: TyInf res -> [ConstraintProblem] -> TyInf res
 withCurConts op newcurCs = do
     putCurConts newcurCs
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalCurConts :: TyInf res -> [ConstraintProblem] -> TyInf res
 withLocalCurConts op newcurCs = local op newcurCs getCurConts putCurConts
+-}
 
 addCurConts :: [ConstraintProblem] -> TyInf ()
 addCurConts newcurCs = do
@@ -675,24 +733,32 @@ resetCurConts = putCurConts []
 putMutRec :: [MutRecSymbol] -> TyInf ()
 putMutRec mrSyms = put' mrSyms stPutMutRec
 
+{- NB: uncomment if you need it
 withMutRec :: TyInf res -> [MutRecSymbol] -> TyInf res
 withMutRec op newmrSyms = do
     putMutRec newmrSyms
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalMutRec :: TyInf res -> [MutRecSymbol] -> TyInf res
 withLocalMutRec op newmrSyms = local op newmrSyms getMutRec putMutRec
+-}
 
 putInnerRec :: InnerRec -> TyInf ()
 putInnerRec ir = put' ir stPutInnerRec
 
+{- NB: uncomment if you need it
 withInnerRec :: TyInf res -> InnerRec -> TyInf res
 withInnerRec op newir = do
     putInnerRec newir
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalInnerRec :: TyInf res -> InnerRec -> TyInf res
 withLocalInnerRec op newir = local op newir getInnerRec putInnerRec
+-}
 
 {- NB: using this is quite unsafe. After having used this function, the client should handle local symbols,
 because this function does not touch them. Functions like withDecScope handles the scope in a better way. -}
@@ -704,8 +770,10 @@ withScope op newsc = do
     putScope newsc
     op
 
+{- NB: uncomment if you need it
 withLocalScope :: TyInf res -> NS.Scope -> TyInf res
 withLocalScope op newsc = local op newsc getScope putScope
+-}
 
 withIncScope :: TyInf res -> TyInf res
 withIncScope op = do
@@ -742,10 +810,12 @@ decScope = withDecScope doNothing'
 putPhC :: PlaceholderCounter -> TyInf ()
 putPhC newpc = put' newpc stPutPhC
 
+{- NB: uncomment if you need it
 withPhC :: TyInf res -> PlaceholderCounter -> TyInf res
 withPhC op newpc = do
     putPhC newpc
     op
+-}
 
 putVC :: UniqueVarCounter -> TyInf ()
 putVC newvc = put' newvc stPutVC
@@ -758,13 +828,17 @@ withVC op newvc = do
 putNested :: [NestedSymbol] -> TyInf ()
 putNested newns = put' newns stPutNested
 
+{- NB: uncomment if you need it
 withNested :: TyInf res -> [NestedSymbol] -> TyInf res
 withNested op newns = do
     putNested newns
     op
+-}
 
+{- NB: uncomment if you need it
 withLocalNested :: TyInf res -> [NestedSymbol] -> TyInf res
 withLocalNested op newns = local op newns getNested putNested
+-}
 
 pushNested :: NestedSymbol -> TyInf ()
 pushNested sym = do
@@ -784,10 +858,12 @@ popNested = do
 putToRefine :: [BindingToRefine] -> TyInf ()
 putToRefine newbtr = put' newbtr stPutToRefine
 
+{- NB: uncomment if you need it
 withToRefine :: TyInf res -> [BindingToRefine] -> TyInf res
 withToRefine op newbtr = do
     putToRefine newbtr
     op
+-}
 
 addBindingToRefine :: BindingToRefine -> TyInf ()
 addBindingToRefine b = do
@@ -800,6 +876,7 @@ getSuffix = do
     let (suf, newvc) = Desugar.mkProgUniqueName vc
     return suf `withVC` newvc
 
+{- NB: uncomment if you need it
 {- It performs an operation and it returns its result and the final scope of the operation. This is useful
 if the operation has to be performed with a local scope ("local" here means that the scope is resumed to a
 previous value after the operation has been performed). -}
@@ -808,6 +885,7 @@ scopeAlong op = do
     res <- op
     sc <- getScope
     return (res, sc)
+-}
 
 clearCurTyEnv :: TyInf ()
 clearCurTyEnv = putCurTyEnv empty
@@ -845,6 +923,7 @@ querySymbols symRep = do
                                 , []
                                 )]
 
+{- NB: uncomment if you need it
 queryInScopeSymbols :: SymbolRep -> TyInf [ScopedContextBinding]
 queryInScopeSymbols symRep = do
     symbols <- querySymbols symRep
@@ -853,6 +932,7 @@ queryInScopeSymbols symRep = do
         filterOutOfScope tokens = do
             sc <- getScope
             return $ L.filter (\(_, sc', _, _, _, _) -> sc' <= sc) tokens
+-}
 
 defineOrder :: (a, NS.Scope, b, c, d, e) -> (a, NS.Scope, b, c, d, e) -> Ordering
 defineOrder (_, sc, _, _, _, _) (_, sc', _, _, _, _) = sc `compare` sc'
@@ -872,6 +952,7 @@ getSymbol' symRep = do
         Nothing -> tyInfErr $ SymNotFound symRep
         Just binding -> return binding
 
+{- NB: uncomment if you need it
 getGlobalSymbol :: SymbolRep -> TyInf (Maybe ScopedContextBinding)
 getGlobalSymbol symRep = do
     symbols <- querySymbols symRep
@@ -881,13 +962,16 @@ getGlobalSymbol symRep = do
             if sc /= NS.globalScope
             then return Nothing
             else return justB
+-}
 
+{- NB: uncomment if you need it
 getGlobalSymbol' :: SymbolRep -> TyInf ScopedContextBinding
 getGlobalSymbol' symRep = do
     res <- getGlobalSymbol symRep
     case res of
         Nothing -> tyInfErr $ SymNotFound symRep
         Just binding -> return binding
+-}
 
 putSymbol
     :: Ty.NotedVar With.ProgState
@@ -963,10 +1047,12 @@ putProgSymbol tyb = do
     let tp' = addElem tyb tp
     putProg tp'
 
+{- NB: uncomment if you need it
 isMutRec :: TyInf Bool
 isMutRec = do
     mrSyms <- getMutRec
     return . not $ L.null mrSyms
+-}
 
 isMutRecSym :: SymbolRep -> TyInf Bool
 isMutRecSym symRep = do
@@ -990,12 +1076,14 @@ isRecInner symRep = do
         Nothing -> return False
         Just symRep' -> return $ symRep == symRep'
 
+{- NB: uncomment if you need it
 ifRecInner :: SymbolRep -> TyInf a -> TyInf a -> TyInf a
 ifRecInner symRep whenIt'sRec cont = do
     isRec <- isRecInner symRep
     if isRec
     then whenIt'sRec
     else cont
+-}
 
 ifMutRecSym :: SymbolRep -> TyInf a -> TyInf a -> TyInf a
 ifMutRecSym symRep whenIt'sRec cont = do
@@ -1100,6 +1188,7 @@ ifExistingSymRep symRep withNVar cont = do
 ifExistingSym :: Raw.SymbolName With.ProgState -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
 ifExistingSym sn = ifExistingSymRep $ repOf sn
 
+{- NB: uncomment if you need it
 {- If searches for a global symbol in the typing environment. If it is found, then its type is instantiated. -}
 ifExistingGlobalSym :: Raw.SymbolName With.ProgState -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
 ifExistingGlobalSym sn withNVar op = do
@@ -1111,6 +1200,7 @@ ifExistingGlobalSym sn withNVar op = do
             withNVar nVar' sc mayNVars mayExpr mRecSyms mRecHints
     where
         isGlobalVar (_, sc, _, _, _, _) = sc == NS.globalScope
+-}
 
 {- If searches for a property symbol. If it is found, then its type is instantiated. -}
 ifExistingSymPropMethod
@@ -1212,6 +1302,7 @@ getMonoTypeOf token = do
     qualTy <- getInstTypeOf token
     unqualify qualTy
 
+{- NB: uncomment if you need it
 getUnqualTypeOf
     :: Ty.HasType tok
     => tok With.ProgState
@@ -1220,6 +1311,7 @@ getUnqualTypeOf token = do
     qualTy <- getInstTypeOf token
     monoTy <- unqualify qualTy
     return (monoTy, Ty.contsOf qualTy)
+-}
 
 {- NB: the final type scheme is just lifted, it has no binder. -}
 getUnqualTypeOf'
@@ -1240,8 +1332,10 @@ newIndex = do
     putPhC phc'
     return index
 
+{- NB: uncomment if you need it
 getIndex :: ConstraintProblem -> TyInf SymbolRep
 getIndex (_, i) = return i
+-}
 
 divideContsFrom
     :: (Ty.HasType tok, Ty.UpdateType tok)
@@ -1294,10 +1388,12 @@ newMonoTypeFreeVar' st = do
     monoTy <- newMonoTypeFreeVar st
     liftMonoType monoTy
 
+{- NB: uncomment if you need it
 newMonoTypeFreeVar'' :: ProgState -> TyInf (Ty.LangQualType With.ProgState)
 newMonoTypeFreeVar'' st = do
     monoTy <- newMonoTypeFreeVar st
     return $ Ty.newQualType [] monoTy
+-}
 
 mostGenNVar :: SymbolRep -> ProgState -> TyInf (Ty.NotedVar With.ProgState)
 mostGenNVar symRep st = do
@@ -1331,6 +1427,7 @@ unsafeGeneralizeAndImply ty = do
     cs <- getCurConts
     return $ Ty.generalizeAndTryImply cs ty []
 
+{- NB: uncomment if you need it
 unsafeGeneralizeToken
     :: (Ty.HasType tok, Ty.UpdateType tok)
     => tok With.ProgState
@@ -1339,6 +1436,7 @@ unsafeGeneralizeToken token = do
     ty <- getTypeOf token
     let polyTy = Ty.generalize'' ty
     return $ Ty.updateType token polyTy
+-}
 
 {- It performs unsafe generalization and it tries to "inject" the implication with current predicates in the final
 type scheme, excluding ones which have to be normalized. The returned constraints have to be normalized. -}
@@ -1381,6 +1479,7 @@ getFreeVars symRep = do
             fVars' <- getFreeVarsFrom bt
             return $ L.union fVars fVars'
 
+{- NB: uncomment if you need it
 {- Safe (but very less efficient) version of generalization. -}
 generalize :: Ty.NotedVar With.ProgState -> TyInf (Ty.NotedVar With.ProgState)
 generalize nVar = do
@@ -1391,6 +1490,7 @@ generalize nVar = do
     polyTy <- getTypeOf nVar
     let polyTy' = polyTy `Ty.generalizeExcluding''` teFreeVars
     return $ Ty.updateType nVar polyTy'
+-}
 
 {- It performs safe generalization and it tries to "inject" the implication with current predicates in the final
 type scheme, excluding ones which have to be normalized. The returned constraints have to be normalized. -}
@@ -1424,6 +1524,7 @@ instantiate polyTy = do
     replVars <- mapM replaceVar boundVars
     return $ Ty.instantiate polyTy replVars
 
+{- NB: uncomment if you need it
 instantiateUnqualifying :: Ty.LangTypeScheme With.ProgState -> TyInf (Ty.LangHigherType With.ProgState)
 instantiateUnqualifying polyTy = do
     let boundVars = Ty.bVarsOf polyTy
@@ -1431,6 +1532,7 @@ instantiateUnqualifying polyTy = do
     case Ty.instantiateUnqualifying polyTy replVars of
         Nothing -> tyInfErr . TypeNotInfrd $ stateOf polyTy
         Just lhty -> return lhty
+-}
 
 {- The same of `instantiate`, but returning a LangTypeScheme value. The latter has the same form (namely with no bound
 variables) of the LangQualType value returned by `instantiate`. -}
@@ -1552,12 +1654,14 @@ ifExistTypeHinting :: Maybe QualTypeHinting -> (Ty.LangQualType With.ProgState -
 ifExistTypeHinting Nothing = ifTypeHinting []
 ifExistTypeHinting (Just qualTy) = ifTypeHinting [qualTy]
 
+{- NB: uncomment if you need it
 ifExistTypeHintingUnqual
     :: Maybe QualTypeHinting
     -> (Ty.LangHigherType With.ProgState -> [Ty.LangSpecConstraint With.ProgState] -> TyInf a)
     -> (TyInf a -> TyInf a)
 ifExistTypeHintingUnqual Nothing = ifTypeHintingUnqual []
 ifExistTypeHintingUnqual (Just qualTy) = ifTypeHintingUnqual [qualTy]
+-}
 
 thenInfer :: (a -> b) -> a -> b
 thenInfer = ($)
@@ -1566,9 +1670,11 @@ thenInfer = ($)
 elseInfer :: (TyInf a -> TyInf a) -> TyInf a -> TyInf a
 elseInfer = ($)
 
+{- NB: uncomment if you need it
 expecting :: Maybe ExpectedType -> [ExpectedType]
 expecting Nothing = []
 expecting (Just ty) = [ty]
+-}
 
 {- The combination between getInstTypeOf and typeLessSpecCheck. -}
 tokenLessSpecCheck
@@ -1603,6 +1709,7 @@ typeMoreSpec monoTy monoTy1 =
         unificationErr
         return
 
+{- NB: uncomment if you need it
 typeLessSpec
     :: Ty.LangHigherType With.ProgState
     -> Ty.LangHigherType With.ProgState
@@ -1611,6 +1718,7 @@ typeLessSpec monoTy monoTy1 =
     typeLessSpecCheck monoTy monoTy1
         unificationErr
         return
+-}
 
 tokenMoreSpec
     :: Ty.HasType tok
@@ -2585,10 +2693,6 @@ inferMultiLambda hts (Raw.MultiLambda mpm mlst) st = do
             ne <- mkNestedLams nVars npmNe st
             return (ne, [])
 
-        genNVarTy nVarSt = do
-            monoTy <- newMonoTypeFreeVar' nVarSt
-            return (monoTy, nVarSt)
-
 inferUAExpr
     :: [QualTypeHinting]
     -> Raw.UnAltExpression With.ProgState
@@ -2765,12 +2869,14 @@ name tells, can be used for arguments of functions (lambda abstraction). -}
 mkDispatchArgs :: [DispatchConstraint] -> TyInf [Ty.NotedVar With.ProgState]
 mkDispatchArgs = mapM mkDispatchArg
 
+{- NB: uncomment if you need it
 mkDispatchArgs' :: [Ty.LangSpecConstraint With.ProgState] -> TyInf [Ty.NotedVar With.ProgState]
 mkDispatchArgs' = mapM mkArg
     where
         mkArg c = do
             ix <- newIndex
             mkDispatchArg (c, ix)
+-}
 
 {- It handles constraints problems after generalization. Then, it adds the generalized variable in the current
 typing environment. -}
