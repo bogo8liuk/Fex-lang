@@ -22,18 +22,18 @@ import qualified Compiler.Types.Lib.FreeVars as Fresh
 import qualified Compiler.Types.Lib.InferKind as KInfr
 
 data InstanceErr =
-      NoProp String
+      NoProp PropConRep
     | NoProp' (Raw.IntfName With.ProgState)
     | NoInst [Raw.Constraint With.ProgState]
-    | NoMethod String (Raw.IntfName With.ProgState)
+    | NoMethod SymbolRep (Raw.IntfName With.ProgState)
     | CreationErr (Create.Err KInfr.TypeGenErr)
     | UnreachableState String
 
-noProp :: String -> String
-noProp name = "Property name " ++ name ++ " not found in the constraints table"
+noProp :: PropConRep -> String
+noProp name = "Property name " ++ tokenRepToStr name ++ " not found in the constraints table"
 
 noProp' :: Raw.IntfName With.ProgState -> String
-noProp' name = "Property name " ++ repOf name ++ " not found in the constraints data"
+noProp' name = "Property name " ++ strOf name ++ " not found in the constraints data"
 
 noInstFor :: [Raw.Constraint With.ProgState] -> String
 noInstFor cs = "No instance for:\n" ++ concat (lastmap (\c -> showContInfo c ++ ", \n") showContInfo cs)
@@ -41,9 +41,10 @@ noInstFor cs = "No instance for:\n" ++ concat (lastmap (\c -> showContInfo c ++ 
         showContInfo :: Raw.Constraint With.ProgState -> String
         showContInfo c = Raw.showCont c ++ " at " ++ show (stateOf c)
 
-noMethod :: String -> Raw.IntfName With.ProgState -> String
+noMethod :: SymbolRep -> Raw.IntfName With.ProgState -> String
 noMethod name propName =
-    "Method " ++ name ++ " not implemented for property " ++ repOf propName ++ " at " ++ show (stateOf propName)
+    "Method " ++ tokenRepToStr name ++ " not implemented for property " ++ strOf propName ++ " at " ++
+    show (stateOf propName)
 
 instance InfoShow InstanceErr where
     infoShow (NoProp _) = unexpNoInfo
@@ -88,7 +89,7 @@ type PurePropSignature = Raw.Signature With.ProgState
 type NecessaryInsts = [Raw.Constraint With.ProgState]
 type PropConstraint = Raw.Constraint With.ProgState
 type PropArgs = [Raw.ParamTypeName With.ProgState]
-type PropsData = Map String (NecessaryInsts, PropConstraint, PropArgs, [ContPropSignature], [PurePropSignature])
+type PropsData = Map PropConRep (NecessaryInsts, PropConstraint, PropArgs, [ContPropSignature], [PurePropSignature])
 
 type InstHandle res = S.EitherHandle PropsData InstanceErr res
 

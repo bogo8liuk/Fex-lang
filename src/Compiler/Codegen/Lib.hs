@@ -9,6 +9,7 @@ module Compiler.Codegen.Lib
 
 import qualified ModuleSys.HsModl as HsModl
 import Compiler.State as With
+import Compiler.Ast.Common
 import qualified Compiler.Desugar.Names as Desugar
 import Compiler.Codegen.Env
 import Unique hiding (getUnique)
@@ -22,7 +23,7 @@ newUniqueVal = do
     putCounter newC
     return unq
 
-getOrMkUniqueVal :: String -> NameSpace -> CodegenEnv Unique
+getOrMkUniqueVal :: TokenRep -> NameSpace -> CodegenEnv Unique
 getOrMkUniqueVal rep sp = do
     mayuq <- getUnique rep sp
     case mayuq of
@@ -39,23 +40,23 @@ getSrcSpan st = do
     let endLoc = endSrcLocFromState st
     return $ mkSrcSpan startLoc endLoc
 
-mkName :: NameSpace -> String -> ProgState -> CodegenEnv Name
+mkName :: NameSpace -> TokenRep -> ProgState -> CodegenEnv Name
 mkName nameSpace nameRep st = do
     srcSpan <- getSrcSpan st
-    let name = mkOccName nameSpace nameRep
+    let name = mkOccName nameSpace $ tokenRepToStr nameRep
     unq <- getOrMkUniqueVal nameRep nameSpace
     return $ mkExternalName unq HsModl.topLevelModl name srcSpan
 
-mkTypeName :: String -> ProgState -> CodegenEnv Name
+mkTypeName :: TypeRep -> ProgState -> CodegenEnv Name
 mkTypeName = mkName tcName
 
-mkDataConName :: String -> ProgState -> CodegenEnv Name
+mkDataConName :: DataConRep -> ProgState -> CodegenEnv Name
 mkDataConName = mkName srcDataName    --TODO: should I use `dataName` instead of `srcDataName`???
 
-mkBindingName :: String -> ProgState -> CodegenEnv Name
+mkBindingName :: SymbolRep -> ProgState -> CodegenEnv Name
 mkBindingName = mkName varName
 
-mkSystemIOName :: String -> ProgState -> NameSpace -> CodegenEnv Name
+mkSystemIOName :: TokenRep -> ProgState -> NameSpace -> CodegenEnv Name
 mkSystemIOName nameRep st nameSpace = undefined
 
 {- It creates a new name which should be useless in the program. -}

@@ -50,25 +50,25 @@ mkUniqueName ent counter =
             ProgSymbol ->
                 (tokenRepFromStr (reservedIdKeyword ++ str), newCounter)
 
-mkLamUniqueName :: C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
+mkLamUniqueName :: C.AlphabeticCounterObj -> (SymbolRep, C.AlphabeticCounterObj)
 mkLamUniqueName = mkUniqueName LambdaSymbol
 
-mkProgUniqueName :: C.AlphabeticCounterObj -> (TokenRep, C.AlphabeticCounterObj)
+mkProgUniqueName :: C.AlphabeticCounterObj -> (SymbolRep, C.AlphabeticCounterObj)
 mkProgUniqueName = mkUniqueName ProgSymbol
 
-mkNestedUniqueName :: TokenRep -> C.CounterObj -> (TokenRep, C.CounterObj)
+mkNestedUniqueName :: SymbolRep -> C.CounterObj -> (SymbolRep, C.CounterObj)
 mkNestedUniqueName symRep counter =
     let (str, newCounter) = C.next counter in
         ( tokenRepFromStr (reservedIdKeyword ++ tokenRepToStr symRep ++ str ++ reservedIdKeyword)
         , newCounter
         )
 
-mkDispatchName :: C.CounterObj -> (TokenRep, C.CounterObj)
+mkDispatchName :: C.CounterObj -> (SymbolRep, C.CounterObj)
 mkDispatchName c =
     let (str, c') = C.next c in
         (tokenRepFromStr (reservedIdKeyword ++ str), c')
 
-mkDispatchSuffix' :: TokenRep -> Ty.LangSpecConstraint a -> TokenRep
+mkDispatchSuffix' :: SymbolRep -> Ty.LangSpecConstraint a -> SymbolRep
 mkDispatchSuffix' h c =
     let lhts = argsOf c in
     let tyVars = Ty.occFirstTyVarsOfMany lhts in
@@ -98,7 +98,7 @@ mkDispatchSuffix' h c =
                             (m', counter')
                     Just _ -> (m, counter)
 
-mkDispatchSuffix :: TokenRep -> [Ty.LangSpecConstraint a] -> TokenRep
+mkDispatchSuffix :: SymbolRep -> [Ty.LangSpecConstraint a] -> SymbolRep
 mkDispatchSuffix = foldl' mkDispatchSuffix'
 
 {-

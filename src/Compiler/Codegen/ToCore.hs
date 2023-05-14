@@ -26,6 +26,9 @@ data Visibility =
       Local
     | Global
 
+mainSymbol' :: SymbolRep
+mainSymbol' = tokenRepFromStr mainSymbol
+
 isSelfRecursive :: Ty.NotedVar With.ProgState -> Ty.NotedExpr With.ProgState -> Bool
 isSelfRecursive nVar ne =
     snd $ Ty.widthVisitExprsInExpr' False ne findSelf
@@ -152,7 +155,7 @@ anyHasConstraints = any hasCont
                 not . null $ Ty.contsOf ty
 
 isMain :: [BindingSingleton With.ProgState] -> Bool
-isMain = any (\(nVar, _, _) -> repOf nVar == mainSymbol)
+isMain = any (\(nVar, _, _) -> repOf nVar == mainSymbol')
 
 ifMainUpdate :: [BindingSingleton With.ProgState] -> CoreBind -> CodegenEnv ()
 ifMainUpdate bs binding =

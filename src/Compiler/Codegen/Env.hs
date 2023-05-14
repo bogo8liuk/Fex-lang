@@ -184,7 +184,7 @@ getMatchNVals tyRep = do
 getUniques :: CodegenEnv UniquesTable
 getUniques = gets stGetUniques
 
-getUnique :: SymbolRep -> NameSpace -> CodegenEnv (Maybe Unique)
+getUnique :: Ast.TokenRep -> NameSpace -> CodegenEnv (Maybe Unique)
 getUnique rep sp = M.lookup (rep, sp) <$> getUniques
 
 getMaybeMain :: CodegenEnv (Maybe MainBndr)

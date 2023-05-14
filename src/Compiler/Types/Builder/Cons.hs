@@ -132,7 +132,7 @@ rewindCon con lnty fv =
         updatePty _ _ pty err @ (Left _) = (pty, err)
         updatePty old new pty (Right _) =
             if old == repOf pty
-            then (Raw.buildPtyName <| tokenRepToStr new <| stateOf pty, Right ())
+            then (Raw.buildPtyName new $ stateOf pty, Right ())
             else (pty, Right ())
 
 {- LangNewType value update. -}

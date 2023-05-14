@@ -2137,13 +2137,13 @@ instance HasType NotedVal where
 
 doOnVal
     :: NotedVal a
-    -> (String -> LangTypeScheme a -> a -> res)
+    -> (DataConRep -> LangTypeScheme a -> a -> res)
     -> (NotedLiteral -> LangTypeScheme a -> a -> res)
     -> res
 doOnVal nVal withNonLit withLit =
     case nVal of
         (NotedLit lit lpty st) -> withLit lit lpty st
-        (NotedVal valRep lpty st) -> withNonLit valRep lpty st
+        (NotedVal valStr lpty st) -> withNonLit (tokenRepFromStr valStr) lpty st
 
 nValArgsNumber :: NotedVal a -> Int
 nValArgsNumber nVal =
@@ -2929,11 +2929,11 @@ newNotedVar rep ty st =
         , nVarState = st
         }
 
-newDispatchNotedVar :: String -> OnlyConstraintScheme a -> a -> NotedVar a
-newDispatchNotedVar v scheme st =
+newDispatchNotedVar :: SymbolRep -> OnlyConstraintScheme a -> a -> NotedVar a
+newDispatchNotedVar rep scheme st =
     let lpty = onlyConstraintToScheme scheme in
         NotedVar
-            { nVarName = v
+            { nVarName = tokenRepToStr rep
             , nVarType = lpty
             , nVarState = st
             }

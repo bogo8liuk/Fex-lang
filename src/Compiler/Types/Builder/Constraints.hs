@@ -30,17 +30,17 @@ infiniteContErr names = "Trying to build an infinite constraint among properties
     where
         showNames = concat . lastmap (\n -> showN n ++ ", ") showN
 
-        showN name = repOf name ++ " at " ++ show (stateOf name)
+        showN name = tokenRepToStr (repOf name) ++ " at " ++ show (stateOf name)
 
 ambigousVarErr :: Raw.IntfName With.ProgState
                -> Raw.ParamTypeName With.ProgState
                -> Raw.Signature With.ProgState
                -> String
-ambigousVarErr name pty sig = "Bound type variable ambiguity in property " ++ repOf name ++ ": "
-    ++ repOf pty ++ " type variable " ++ "does not appear in signature at " ++ show (stateOf sig)
+ambigousVarErr name pty sig = "Bound type variable ambiguity in property " ++ tokenRepToStr (repOf name) ++ ": "
+    ++ tokenRepToStr (repOf pty) ++ " type variable " ++ "does not appear in signature at " ++ show (stateOf sig)
 
 noName :: Raw.IntfName With.ProgState -> String
-noName iName = "No constraint with name " ++ repOf iName ++ " found"
+noName iName = "No constraint with name " ++ tokenRepToStr (repOf iName) ++ " found"
 
 unavailKindVar :: String
 unavailKindVar = "Unavailable kind variable during population of constraints table"
@@ -87,7 +87,7 @@ populateInitTable ps =
 
 mkConstraint
     :: [(Raw.ParamTypeName With.ProgState, Ty.LangKind)]
-    -> String
+    -> PropConRep
     -> With.ProgState
     -> Ty.LangNewConstraint With.ProgState
 mkConstraint ps name =
@@ -170,7 +170,7 @@ updateTyVars tt ct prop =
                     Right cs -> Right $ kValUpdate' pNameRep cs ct
         where
             findCont
-                :: String
+                :: PropConRep
                 -> ConstraintsTable With.ProgState
                 -> Maybe (Ty.LangNewConstraint With.ProgState, [Ty.LangSpecConstraint With.ProgState])
             findCont = kFind
@@ -214,7 +214,7 @@ addSpecConts tt ct = Raw.lookupProp ct $ updateTyVars tt
 {- The property name as first component in the tuple is just the name which the key is the string
 representation of. This is just useful for backtracking. TODO: implement Ord for names tokens and
 change the map. -}
-type CyclesMap = Map String (Raw.IntfName With.ProgState, [Raw.IntfName With.ProgState])
+type CyclesMap = Map PropConRep (Raw.IntfName With.ProgState, [Raw.IntfName With.ProgState])
 
 {- It checks for the presence of cycles among constraints of properties. -}
 checkCycles :: Raw.AstOpRes With.ProgState ContGenErr CyclesMap

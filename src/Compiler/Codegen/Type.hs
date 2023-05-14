@@ -16,13 +16,13 @@ import Data.String(fromString)
 import Compiler.Codegen.Lib
 import Compiler.Codegen.Env
 import Compiler.State as With
-import Compiler.Ast.Common hiding (DataConRep)
+import Compiler.Ast.Common as Ast
 import qualified Compiler.Config.Types as BITy
 import qualified Compiler.Ast.Typed as Ty
 import Type
 import TysWiredIn
 import TyCon
-import DataCon
+import DataCon as DC
 import Literal
 import MkId(mkDataConWorkId)
 import Var
@@ -62,7 +62,7 @@ getTyConRepName tc =
 
 {- It searches for a type constructor in the cache (of the state), if it can finds it, it returns it directly; if
 it cannot find it, it builds a new TyCon value and it stores it in the cache. -}
-cacheTyCon :: Ty.LangNewType With.ProgState -> String -> CodegenEnv TyCon
+cacheTyCon :: Ty.LangNewType With.ProgState -> TyConRep -> CodegenEnv TyCon
 cacheTyCon lnty tyConRep = do
     mayTyCon <- getTyCon tyConRep
     case mayTyCon of
@@ -75,7 +75,7 @@ cacheTyCon lnty tyConRep = do
             return tyCon
 
 {- NB: It does not check the NotedVal value is not a literal. -}
-cacheDataCon :: DataConStrRep -> Ty.LangNewType With.ProgState -> CodegenEnv DataCon
+cacheDataCon :: Ast.DataConRep -> Ty.LangNewType With.ProgState -> CodegenEnv DataCon
 cacheDataCon dataConRep lnty = do
     let tyConRep = repOf lnty
     mayDataCon <- getDataCon tyConRep dataConRep
@@ -85,7 +85,7 @@ cacheDataCon dataConRep lnty = do
             putDataCons tyConRep dataConsInfo
             case firstThat (\(nValRep, _) -> nValRep == dataConRep) dataConsInfo of
                 Nothing -> cgErr . TypePanicErr $
-                    "No data constructor found with name " ++ dataConRep
+                    "No data constructor found with name " ++ tokenRepToStr dataConRep
                 Just (_, dataCon) -> return dataCon
         Just dataCon ->
             return dataCon
@@ -106,7 +106,7 @@ data TyConBuildParams =
 {- Instead of a tuple, return this -}
 data DataConBuildParams =
     DataConParams
-        { dataconStrRep :: DataConStrRep
+        { dataconStrRep :: Ast.DataConRep
         , dataconName :: Name
         , dataconIsInfix :: Bool
         , dataconBang :: [HsSrcBang]
@@ -122,7 +122,7 @@ data DataConBuildParams =
         , dataconTag :: ConTag
         , dataconPreds :: ThetaType
         , dataconWorkerName :: Name
-        , dataconRep :: DataConRep
+        , dataconRep :: DC.DataConRep
         }
 
 mkTyConParams :: Ty.LangNewType With.ProgState -> CodegenEnv TyConBuildParams
@@ -191,7 +191,7 @@ mkDataConParams nVal tag = do
         { dataconStrRep = repOf nVal
         , dataconName = name
         , dataconIsInfix = False
-        , dataconBang = replicate n $ HsSrcBang (SourceText valRep) NoSrcUnpack NoSrcStrict
+        , dataconBang = replicate n $ HsSrcBang (SourceText $ tokenRepToStr valRep) NoSrcUnpack NoSrcStrict
          --TODO: this must not be empty anymore when records will be added to the language
         , dataconFields = []
         , dataconUniv = univTyVars
@@ -220,7 +220,7 @@ mkDataConsParams = mapM $ uncurry mkDataConParams
 
 algTyConInfoGenFrom
     :: Ty.LangNewType With.ProgState
-    -> CodegenEnv (TyCon, [(DataConStrRep, DataCon)])
+    -> CodegenEnv (TyCon, [(Ast.DataConRep, DataCon)])
 algTyConInfoGenFrom lnty = do
     let nameRep = repOf lnty
     nVals <- getMatchNVals nameRep
@@ -277,7 +277,7 @@ algTyConGen lnty = do
     (tyCon, _) <- algTyConInfoGenFrom lnty
     return tyCon
 
-algDataConsGen :: Ty.LangNewType With.ProgState -> CodegenEnv [(DataConStrRep, DataCon)]
+algDataConsGen :: Ty.LangNewType With.ProgState -> CodegenEnv [(Ast.DataConRep, DataCon)]
 algDataConsGen lnty = do
     (_, dataConsInfo) <- algTyConInfoGenFrom lnty
     return dataConsInfo
@@ -354,7 +354,7 @@ polyTyGen (Ty.Forall bs (Ty.Qual _ lhty)) = do
     --TODO: really not sure on `mkInvForAllTys`
     return $ mkInvForAllTys binders monoTy
 
-dataConGen :: String -> Ty.LangHigherType With.ProgState -> ProgState -> CodegenEnv DataCon
+dataConGen :: Ast.DataConRep -> Ty.LangHigherType With.ProgState -> ProgState -> CodegenEnv DataCon
 dataConGen conRep lhty _
     | conRep == BITy.trueConBool = return trueDataCon
     | conRep == BITy.falseConBool = return falseDataCon

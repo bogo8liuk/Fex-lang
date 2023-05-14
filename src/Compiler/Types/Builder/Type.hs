@@ -13,7 +13,6 @@ module Compiler.Types.Builder.Type
     , BindingToRefine
 ) where
 
-import Debug.Trace(trace)
 import Lib.Utils
 import Lib.Result
 import Data.List as L
@@ -48,11 +47,13 @@ type ActualQualType = Ty.LangQualType With.ProgState
 type TypeHinting = Ty.LangHigherType With.ProgState
 type QualTypeHinting = Ty.LangQualType With.ProgState
 
+type TokenDescription = String
+
 data TyInfErr =
       UnexpType ExpectedQualType ActualQualType With.ProgState
     | UnificationError (Ty.UnificationError With.ProgState)
     | SatisfiabilityError (Ty.SatisfiabilityError With.ProgState)
-    | TooManyArgs String With.ProgState (Maybe ExpectedType)
+    | TooManyArgs TokenDescription With.ProgState (Maybe ExpectedType)
     | NoMatchingInst (Ty.LangSpecConstraint With.ProgState)
     | GenSpecTestErr
     -- | DispatchErr DispatchErr
@@ -67,35 +68,35 @@ data TyInfErr =
     {- For all those situations in which it is not possible creating new typed tokens, without any
     additional information. -}
     | GenTokCreationErr String
-    | SymNotFound String
-    | BindingNotFound String
-    | ValNotFound String
-    | PropNotFound String
-    | TypeNotFound String
+    | SymNotFound SymbolRep
+    | BindingNotFound SymbolRep
+    | ValNotFound DataConRep
+    | PropNotFound PropConRep
+    | TypeNotFound TyConRep
     | SpecStackErr String
     | GenUnreachableState String
 
 cannotMkNewVar :: String
 cannotMkNewVar = "Cannot get a type variable during type inference"
 
-propNotFound :: String -> String
-propNotFound name = "Cannot find " ++ name ++ " property in constraints table"
+propNotFound :: PropConRep -> String
+propNotFound name = "Cannot find " ++ tokenRepToStr name ++ " property in constraints table"
 
-typeNotFound :: String -> String
-typeNotFound name = "Cannot find " ++ name ++ " type in types table"
+typeNotFound :: TyConRep -> String
+typeNotFound name = "Cannot find " ++ tokenRepToStr name ++ " type in types table"
 
-symNotFound :: String -> String
-symNotFound name = "Cannot find " ++ name ++ " symbol in the program"
+symNotFound :: SymbolRep -> String
+symNotFound name = "Cannot find " ++ tokenRepToStr name ++ " symbol in the program"
 
-bindingNotFound :: String -> String
-bindingNotFound name = "Symbol " ++ name ++ " has not bound arguments and/or expression in typing environment"
+bindingNotFound :: SymbolRep -> String
+bindingNotFound name = "Symbol " ++ tokenRepToStr name ++ " has not bound arguments and/or expression in typing environment"
 
-valNotFound :: String -> String
-valNotFound name = "Cannot find " ++ name ++ " value in occurred tokens table"
+valNotFound :: DataConRep -> String
+valNotFound name = "Cannot find " ++ tokenRepToStr name ++ " value in occurred tokens table"
 
 rawUnexpType :: String -> String -> ProgState -> String
-rawUnexpType tyRep tyRep' st =
-    "Could not match expected type " ++ tyRep ++ " with actual type " ++ tyRep' ++ " at " ++ show st
+rawUnexpType tyStr tyStr' st =
+    "Could not match expected type " ++ tyStr ++ " with actual type " ++ tyStr' ++ " at " ++ show st
 
 unexpType :: ExpectedType -> ActualType -> ProgState -> String
 unexpType ty ty' =
@@ -120,11 +121,11 @@ undecidableInst lspc cs =
     concatMap ((++ "\n") . Ty.showCont) cs
 
 conNotFound :: Raw.ADTConName With.ProgState -> String
-conNotFound con = repOf con ++ " constructor not found in constructors table"
+conNotFound con = strOf con ++ " constructor not found in constructors table"
 
 argsConErr :: Raw.ADTConName With.ProgState -> String
 argsConErr con =
-    "Inconsistent use of constructor " ++ repOf con ++ " at " ++ show (stateOf con) ++ "; it should have a " ++
+    "Inconsistent use of constructor " ++ strOf con ++ " at " ++ show (stateOf con) ++ "; it should have a " ++
     "different number of applied arguments"
 
 typeNotInferred :: With.ProgState -> String
@@ -137,9 +138,9 @@ genSpecTestErr :: String
 genSpecTestErr = "Something goes wrong during specialization test computation"
 
 zeroaryProp :: Ty.LangNewConstraint With.ProgState -> String
-zeroaryProp lnc = "Property " ++ repOf lnc ++ " should not be zero-ary"
+zeroaryProp lnc = "Property " ++ strOf lnc ++ " should not be zero-ary"
 
-tooManyArgs :: String -> With.ProgState -> Maybe ExpectedType -> String
+tooManyArgs :: TokenDescription -> With.ProgState -> Maybe ExpectedType -> String
 tooManyArgs tokDesc st mayty =
     tokDesc ++ " at " ++ show st ++ " has too many applied arguments" ++
     case mayty of
@@ -253,7 +254,7 @@ instance UnreachableState TyInfErr where
     isUnreachable err @ (SpecStackErr _) = Just $ dbgShow err
     isUnreachable err @ (GenUnreachableState _) = Just $ dbgShow err
 
-type MutRecSymbol = String
+type MutRecSymbol = SymbolRep
 type MutRecHint = Ty.LangHigherType With.ProgState
 
 {- The CurrentTyEnv type is a something like a synonym for the typing environement, but it keeps also scope
@@ -269,7 +270,7 @@ type ContextualBinding =
     , [MutRecSymbol]
     , [MutRecHint]
     )
-type CurrentTyEnv = Map (String, NS.Scope) ContextualBinding
+type CurrentTyEnv = Map (SymbolRep, NS.Scope) ContextualBinding
 
 type ScopedContextBinding =
     ( Ty.NotedVar With.ProgState
@@ -288,18 +289,20 @@ type ScopedContextOp a =
     -> [MutRecHint]
     -> a
 
-type ConstraintProblem = (Ty.LangSpecConstraint With.ProgState, String)
+{- A constraint problem is a pair where: a component is the constraint found in the context and the other component is
+a variable name (precisely a symbol name) which is associated to the constraint. -}
+type ConstraintProblem = (Ty.LangSpecConstraint With.ProgState, SymbolRep)
 
 {- Is the current local (so, non-global) binding recursive? -}
-type InnerRec = Maybe String
+type InnerRec = Maybe SymbolRep
 
 {- Counter to use in order to disambiguate names in the code. -}
 type UniqueVarCounter = C.AlphabeticCounterObj
 {- Counter to create new placeholders, look at instance dispatch algorithm. -}
 type PlaceholderCounter = C.CounterObj
 
-type BindingToRefine = NonEmpty String
-type NestedSymbol = String
+type BindingToRefine = NonEmpty SymbolRep
+type NestedSymbol = SymbolRep
 
 data TyInfInfo =
     TIInfo
@@ -460,7 +463,7 @@ noMatchingCases = tyInfErr $ GenTokCreationErr "No matching cases"
 
 showAtomTypedToken :: (AtomRep (tok With.ProgState), Ty.HasType tok) => tok With.ProgState -> TyInf String
 showAtomTypedToken token = do
-    return (repOf token ++ " : " ++ Ty.showLPTy (Ty.typeOf token))
+    return (strOf token ++ " : " ++ Ty.showLPTy (Ty.typeOf token))
 
 showCurTyEnv :: TyInf String
 showCurTyEnv = do
@@ -468,7 +471,7 @@ showCurTyEnv = do
     return $ "CURRENT TYPING ENVIRONMENT:" ++ concatMap showBinding (toList te)
     where
         showBinding ((symRep, sc), (nVar, _, _, _, _)) =
-            "\n  " ++ symRep ++ " : sc=" ++ show sc ++ " : " ++ Ty.showLPTy (Ty.typeOf nVar)
+            "\n  " ++ tokenRepToStr symRep ++ " : sc=" ++ show sc ++ " : " ++ Ty.showLPTy (Ty.typeOf nVar)
 
 getTT :: TyInf (TypesTable With.ProgState)
 getTT = S.getTypes
@@ -791,7 +794,7 @@ addBindingToRefine b = do
     bs <- getToRefine
     putToRefine $ b : bs
 
-getSuffix :: TyInf String
+getSuffix :: TyInf SymbolRep
 getSuffix = do
     vc <- getVC
     let (suf, newvc) = Desugar.mkProgUniqueName vc
@@ -809,7 +812,7 @@ scopeAlong op = do
 clearCurTyEnv :: TyInf ()
 clearCurTyEnv = putCurTyEnv empty
 
-querySymbols :: String -> TyInf [ScopedContextBinding]
+querySymbols :: SymbolRep -> TyInf [ScopedContextBinding]
 querySymbols symRep = do
     curTe <- getCurTyEnv
     {- This is just a query to have just variables which match the input variable. -}
@@ -831,7 +834,7 @@ querySymbols symRep = do
                 Just (TyRec bs) ->
                     case firstThat (\(nVar, _, _) -> repOf nVar == symRep) bs of
                         Nothing ->
-                            tyInfErr $ GenUnreachableState ("No recursive binding with symbol " ++ symRep)
+                            tyInfErr $ GenUnreachableState ("No recursive binding with symbol " ++ tokenRepToStr symRep)
                         Just (nVar, nVars, ne) ->
                             return
                                 [(nVar
@@ -842,7 +845,7 @@ querySymbols symRep = do
                                 , []
                                 )]
 
-queryInScopeSymbols :: String -> TyInf [ScopedContextBinding]
+queryInScopeSymbols :: SymbolRep -> TyInf [ScopedContextBinding]
 queryInScopeSymbols symRep = do
     symbols <- querySymbols symRep
     filterOutOfScope symbols
@@ -854,7 +857,7 @@ queryInScopeSymbols symRep = do
 defineOrder :: (a, NS.Scope, b, c, d, e) -> (a, NS.Scope, b, c, d, e) -> Ordering
 defineOrder (_, sc, _, _, _, _) (_, sc', _, _, _, _) = sc `compare` sc'
 
-getSymbol :: String -> TyInf (Maybe ScopedContextBinding)
+getSymbol :: SymbolRep -> TyInf (Maybe ScopedContextBinding)
 getSymbol symRep = do
     symbols <- querySymbols symRep
     case maximumBy' defineOrder symbols of
@@ -862,14 +865,14 @@ getSymbol symRep = do
         Just res -> return $ Just res
 
 {- Same of getSymbol, but it returns an error if it cannot find the symbol. -}
-getSymbol' :: String -> TyInf ScopedContextBinding
+getSymbol' :: SymbolRep -> TyInf ScopedContextBinding
 getSymbol' symRep = do
     res <- getSymbol symRep
     case res of
         Nothing -> tyInfErr $ SymNotFound symRep
         Just binding -> return binding
 
-getGlobalSymbol :: String -> TyInf (Maybe ScopedContextBinding)
+getGlobalSymbol :: SymbolRep -> TyInf (Maybe ScopedContextBinding)
 getGlobalSymbol symRep = do
     symbols <- querySymbols symRep
     case minimumBy' defineOrder symbols of
@@ -879,7 +882,7 @@ getGlobalSymbol symRep = do
             then return Nothing
             else return justB
 
-getGlobalSymbol' :: String -> TyInf ScopedContextBinding
+getGlobalSymbol' :: SymbolRep -> TyInf ScopedContextBinding
 getGlobalSymbol' symRep = do
     res <- getGlobalSymbol symRep
     case res of
@@ -931,7 +934,7 @@ addMostGenNVar sd mutRecSymbols = do
     putSymbolNoExpr nVar mutRecSymbols
 
 {- NB: do not use this to update bindings in the typing environment. This allows arbitrary changes. -}
-updateSymbol :: String -> NS.Scope -> (ContextualBinding -> ContextualBinding) -> TyInf ()
+updateSymbol :: SymbolRep -> NS.Scope -> (ContextualBinding -> ContextualBinding) -> TyInf ()
 updateSymbol symRep sc f = do
     te <- getCurTyEnv
     let newcurTe = M.adjust f (symRep, sc) te
@@ -948,7 +951,7 @@ updateSymbolWithArgsAndExpr nVar sc nVars nExpr =
         \(_, _, _, mRecSyms, mRecHints) ->
             (nVar, Just nVars, Just nExpr, mRecSyms, mRecHints)
 
-addTypeHintToRecSym :: String -> NS.Scope -> Ty.LangHigherType With.ProgState -> TyInf ()
+addTypeHintToRecSym :: SymbolRep -> NS.Scope -> Ty.LangHigherType With.ProgState -> TyInf ()
 addTypeHintToRecSym symRep sc ty = do
     updateSymbol symRep sc $
         \(nVar, mayNVars, mayNExpr, mRecSyms, mRecHints) ->
@@ -965,7 +968,7 @@ isMutRec = do
     mrSyms <- getMutRec
     return . not $ L.null mrSyms
 
-isMutRecSym :: String -> TyInf Bool
+isMutRecSym :: SymbolRep -> TyInf Bool
 isMutRecSym symRep = do
     mrSyms <- getMutRec
     isRec <- isRecInner symRep
@@ -980,28 +983,28 @@ isRecInnerBinding sd = do
     of the current global binding. -}
     return $ symRep `elem` Prep.depsOf sd mhts
 
-isRecInner :: String -> TyInf Bool
+isRecInner :: SymbolRep -> TyInf Bool
 isRecInner symRep = do
     ir <- getInnerRec
     case ir of
         Nothing -> return False
         Just symRep' -> return $ symRep == symRep'
 
-ifRecInner :: String -> TyInf a -> TyInf a -> TyInf a
+ifRecInner :: SymbolRep -> TyInf a -> TyInf a -> TyInf a
 ifRecInner symRep whenIt'sRec cont = do
     isRec <- isRecInner symRep
     if isRec
     then whenIt'sRec
     else cont
 
-ifMutRecSym :: String -> TyInf a -> TyInf a -> TyInf a
+ifMutRecSym :: SymbolRep -> TyInf a -> TyInf a -> TyInf a
 ifMutRecSym symRep whenIt'sRec cont = do
     isRec <- isMutRecSym symRep
     if isRec
     then whenIt'sRec
     else cont
 
-ifMutRecGlobalSym :: String -> TyInf a -> TyInf a -> TyInf a
+ifMutRecGlobalSym :: SymbolRep -> TyInf a -> TyInf a -> TyInf a
 ifMutRecGlobalSym symRep whenIt'sRec cont = do
     mrSyms <- getMutRec
     isRecIn <- isRecInner symRep
@@ -1083,7 +1086,7 @@ specCurContext substs = do
 
 {- If searches for a symbol in the typing environment with a certain string representation. If it is found, then its
 type is instantiated. -}
-ifExistingSymRep :: String -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
+ifExistingSymRep :: SymbolRep -> ScopedContextOp (TyInf a) -> (TyInf a -> TyInf a)
 ifExistingSymRep symRep withNVar cont = do
     maybeVar <- getSymbol symRep
     case maybeVar of
@@ -1230,14 +1233,14 @@ getUnqualTypeOf' token = do
     newPolyTy <- liftMonoType monoTy
     return (newPolyTy, cs)
 
-newIndex :: TyInf String
+newIndex :: TyInf SymbolRep
 newIndex = do
     phc <- getPhC
     let (index, phc') = Desugar.mkDispatchName phc
     putPhC phc'
     return index
 
-getIndex :: ConstraintProblem -> TyInf String
+getIndex :: ConstraintProblem -> TyInf SymbolRep
 getIndex (_, i) = return i
 
 divideContsFrom
@@ -1260,10 +1263,11 @@ createConstrainedType ty = do
         Left err -> tyInfErr $ TypeBuildErr err
         Right qualTy -> return qualTy
 
-newFreeVar :: TyInf String
+newFreeVar :: TyInf TyVarRep
 newFreeVar = do
     fv <- getFV
-    let (varRep, fv') = Fresh.allocFreeVar () fv
+    let (varStr, fv') = Fresh.allocFreeVar () fv
+    let varRep = tokenRepFromStr varStr
     return varRep `withFV` fv'
 
 newFreeVar' :: Ty.LangKind -> Ty.Role -> ProgState -> TyInf (Ty.LangVarType With.ProgState)
@@ -1295,7 +1299,7 @@ newMonoTypeFreeVar'' st = do
     monoTy <- newMonoTypeFreeVar st
     return $ Ty.newQualType [] monoTy
 
-mostGenNVar :: String -> ProgState -> TyInf (Ty.NotedVar With.ProgState)
+mostGenNVar :: SymbolRep -> ProgState -> TyInf (Ty.NotedVar With.ProgState)
 mostGenNVar symRep st = do
     monoTy <- newMonoTypeFreeVar' st
     return $ Ty.newNotedVar symRep monoTy st
@@ -1351,7 +1355,7 @@ unsafeGeneralizeTokenAndImply token = do
 ones which are out of the input scope `sc` and ones of symbols matching both string representation `symRep` and
 scope `sc`.
 NB: as the docs tells, the check on out-of-scope symbols is done on `sc`, not on the current scope. -}
-getFreeVars :: String -> TyInf [Ty.LangVarType With.ProgState]
+getFreeVars :: SymbolRep -> TyInf [Ty.LangVarType With.ProgState]
 getFreeVars symRep = do
     maysym <- getSymbol symRep
     case maysym of
@@ -1693,7 +1697,7 @@ mkConstraints lnc cs lhts st =
         Left err -> tyInfErr $ ContMakingErr err
 
 {- It creates a new type which should represent the type of a literal. The type is a constrained type variable. -}
-mkLitTyVar :: String -> ProgState -> TyInf (Ty.LangQualType With.ProgState)
+mkLitTyVar :: PropConRep -> ProgState -> TyInf (Ty.LangQualType With.ProgState)
 mkLitTyVar propName st = do
     ct <- getCT
     case kFind propName ct of
@@ -1726,7 +1730,7 @@ mkTypeFromLNTy lnty = do
 
 {- It creates a new type which should represent the type of a literal. The type is a concrete type (not a type
 variable, like the one of mkLitTyVar). -}
-mkLitConcrete :: String -> TyInf (Ty.LangQualType With.ProgState)
+mkLitConcrete :: TyConRep -> TyInf (Ty.LangQualType With.ProgState)
 mkLitConcrete tyName = do
     tt <- getTT
     case kFind tyName tt of
@@ -1933,7 +1937,7 @@ it returns a list of generic tokens with an associated type and the rest of type
 tokens. -}
 diffTokensType
     {- The first two parameters are just for error handling -}
-    :: String
+    :: TokenDescription
     -> ProgState
     -> [tok]
     -> Ty.LangHigherType With.ProgState
@@ -1959,7 +1963,7 @@ diffTokensType tokDesc tokSt tokens ty = do
 
 diffTokensQualType
     {- The first two parameters are just for error handling -}
-    :: String
+    :: TokenDescription
     -> ProgState
     -> [tok]
     -> Ty.LangQualType With.ProgState

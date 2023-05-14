@@ -91,7 +91,7 @@ contsCheckInInstance inst = do
     let binders = paramTNamesFromInst inst
     mapM_ (contCheck binders) cs
 
-getMethods :: IntfName With.ProgState -> Names.Op [SymbolNameRep]
+getMethods :: IntfName With.ProgState -> Names.Op [SymbolRep]
 getMethods propName = do
     tables <- get
     case Names.getPropMethodsRep (repOf propName) tables of

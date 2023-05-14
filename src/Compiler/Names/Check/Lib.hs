@@ -29,11 +29,11 @@ import Compiler.Ast.Tree
 
 data Keeper =
     Tables
-        { symbolTable :: Map SymbolNameRep ()
-        , adtTable :: Map ADTNameRep ()
-        , adtConTable :: Map ADTConNameRep ()
-        , sigsTable :: Map SymbolNameRep ()
-        , sigsIntfTable :: Map PropNameRep (Map SymbolNameRep ())
+        { symbolTable :: Map SymbolRep ()
+        , adtTable :: Map TyConRep ()
+        , adtConTable :: Map DataConRep ()
+        , sigsTable :: Map SymbolRep ()
+        , sigsIntfTable :: Map PropConRep (Map SymbolRep ())
         }
 
 instance Show Keeper where
@@ -63,7 +63,7 @@ new =
         , sigsIntfTable = empty
         }
 
-insertSymbol :: SymbolNameRep -> Keeper -> Maybe Keeper
+insertSymbol :: SymbolRep -> Keeper -> Maybe Keeper
 insertSymbol s tables =
     case insertNonExistent s () $ symbolTable tables of
         Just m ->
@@ -72,7 +72,7 @@ insertSymbol s tables =
                 }
         Nothing -> Nothing
 
-insertAdt :: ADTNameRep -> Keeper -> Maybe Keeper
+insertAdt :: TyConRep -> Keeper -> Maybe Keeper
 insertAdt t tables =
     case insertNonExistent t () $ adtTable tables of
         Just m ->
@@ -81,7 +81,7 @@ insertAdt t tables =
                 }
         Nothing -> Nothing
 
-insertInterface :: PropNameRep -> Keeper -> Maybe Keeper
+insertInterface :: PropConRep -> Keeper -> Maybe Keeper
 insertInterface i tables =
     case insertNonExistent i empty $ sigsIntfTable tables of
         Just m ->
@@ -90,7 +90,7 @@ insertInterface i tables =
                 }
         Nothing -> Nothing
 
-insertConstructor :: ADTConNameRep -> Keeper -> Maybe Keeper
+insertConstructor :: DataConRep -> Keeper -> Maybe Keeper
 insertConstructor c tables =
     case insertNonExistent c () $ adtConTable tables of
         Just m ->
@@ -99,7 +99,7 @@ insertConstructor c tables =
                 }
         Nothing -> Nothing
 
-insertSignature :: SymbolNameRep -> Keeper -> Maybe Keeper
+insertSignature :: SymbolRep -> Keeper -> Maybe Keeper
 insertSignature s tables =
     case insertNonExistent s () $ sigsTable tables of
         Just m ->
@@ -108,7 +108,7 @@ insertSignature s tables =
                 }
         Nothing -> Nothing
 
-insertPropSignature :: PropNameRep -> SymbolNameRep -> Keeper -> Maybe Keeper
+insertPropSignature :: PropConRep -> SymbolRep -> Keeper -> Maybe Keeper
 insertPropSignature i s tables =
     let sigsIntf = sigsIntfTable tables in
         case Map.lookup i sigsIntf of
@@ -123,34 +123,34 @@ insertPropSignature i s tables =
                             insertSignature s tables'
                     Nothing -> Nothing
 
-isSymbolMember :: SymbolNameRep -> Keeper -> Bool
+isSymbolMember :: SymbolRep -> Keeper -> Bool
 isSymbolMember s ts = member s $ symbolTable ts
 
-isAdtMember :: ADTNameRep -> Keeper -> Bool
+isAdtMember :: TyConRep -> Keeper -> Bool
 isAdtMember t ts = member t $ adtTable ts
 
-isInterfaceMember :: PropNameRep -> Keeper -> Bool
+isInterfaceMember :: PropConRep -> Keeper -> Bool
 isInterfaceMember i ts = member i $ sigsIntfTable ts
 
-isConstructorMember :: ADTConNameRep -> Keeper -> Bool
+isConstructorMember :: DataConRep -> Keeper -> Bool
 isConstructorMember c ts = member c $ adtConTable ts
 
-isSignatureMember :: SymbolNameRep -> Keeper -> Bool
+isSignatureMember :: SymbolRep -> Keeper -> Bool
 isSignatureMember s ts = member s $ sigsTable ts
 
-isSignaturePropMember :: PropNameRep -> SymbolNameRep -> Keeper -> Bool
+isSignaturePropMember :: PropConRep -> SymbolRep -> Keeper -> Bool
 isSignaturePropMember i s ts =
     case Map.lookup i $ sigsIntfTable ts of
         Nothing -> False
         Just propSigsTable -> member s propSigsTable
 
-getPropMethodsRep :: PropNameRep -> Keeper -> Maybe [SymbolNameRep]
+getPropMethodsRep :: PropConRep -> Keeper -> Maybe [SymbolRep]
 getPropMethodsRep p ts =
     case Map.lookup p $ sigsIntfTable ts of
         Nothing -> Nothing
         Just m -> Just $ keys m
 
-isAnyPropMethod :: SymbolNameRep -> Keeper -> Bool
+isAnyPropMethod :: SymbolRep -> Keeper -> Bool
 isAnyPropMethod s ts =
     let ms = toList $ sigsIntfTable ts in
         any (\(_, t) -> s `member` t) ms
@@ -172,7 +172,7 @@ data Err =
     | NoSym (SymbolName With.ProgState)
     | NoSymSig (SymbolName With.ProgState)
     | NoProp (IntfName With.ProgState)
-    | NoImpl TokenRep (Instance With.ProgState)
+    | NoImpl SymbolRep (Instance With.ProgState)
     | UnreachableState String
 
 instance InfoShow Err where

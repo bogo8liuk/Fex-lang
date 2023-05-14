@@ -55,9 +55,9 @@ makeCategory (Tree.Catg (Tree.CatgName (name, _), ops, gt, lt, Tree.Fxty (fixity
         baseCategory =
             Op.Category
                 { Op.name = name
-                , Op.operators = ops'
-                , Op.gt = gt'
-                , Op.lt = lt'
+                , Op.operators = map tokenRepToStr ops'
+                , Op.gt = map tokenRepToStr gt'
+                , Op.lt = map tokenRepToStr lt'
                 }
 
         keys = Keys.opsCategoryKeywords

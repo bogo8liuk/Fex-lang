@@ -10,7 +10,6 @@ module Compiler.Desugar.TyVars
     , getBind
 ) where
 
-import Lib.Utils
 import Data.Tuple(swap)
 import Data.Map.Strict as M hiding (map)
 import Compiler.Ast.Common
@@ -49,14 +48,14 @@ bindTyVar pty (fv, bd) =
     let pStr = tokenRepToStr pRep in
         {- Checking if pty is already bound. -}
         case getBind pty bd of
-            Just var -> (Raw.buildPtyName <| tokenRepToStr var <| stateOf pty, (fv, bd))
+            Just var -> (Raw.buildPtyName var $ stateOf pty, (fv, bd))
             Nothing ->
                 case Fresh.tryAllocFreeVar pStr () fv of
                     Just fv' -> (pty, (fv', addToBound pty pRep bd))
                     Nothing ->
                         let (var, fv') = Fresh.allocFreeVar () fv in
                         let varRep = tokenRepFromStr var in
-                            ( Raw.buildPtyName var $ stateOf pty
+                            ( Raw.buildPtyName varRep $ stateOf pty
                             , (fv', addToBound pty varRep bd)
                             )
 
@@ -66,7 +65,7 @@ replaceTyVar
     -> (Raw.ParamTypeName a, (Fresh.FV (), BoundData))
 replaceTyVar pty vars @ (_, bd) =
     case getBind pty bd of
-        Just var -> (Raw.buildPtyName <| tokenRepToStr var <| stateOf pty, vars)
+        Just var -> (Raw.buildPtyName var $ stateOf pty, vars)
         {- In this case, the variable is not bound yet, so it is a binding! -}
         Nothing -> bindTyVar pty vars
 
