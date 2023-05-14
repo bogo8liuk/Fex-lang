@@ -29,7 +29,7 @@ moreOccurrences
     -> Raw.Constraint With.ProgState
     -> String
 moreOccurrences pty head c = "In instance constraint " ++ Raw.showCont c ++ ", at " ++ show (stateOf c) ++ ", type \
-    \variable " ++ repOf pty ++ " has more occurrences than inside the head of the instance " ++ Raw.showCont head ++
+    \variable " ++ strOf pty ++ " has more occurrences than inside the head of the instance " ++ Raw.showCont head ++
     ", at " ++ show (stateOf head)
 
 instance InfoShow ConstraintErr where

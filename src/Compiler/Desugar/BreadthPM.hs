@@ -60,7 +60,8 @@ getTypeOf = return . Ty.typeOf
 newTyVarFrom :: Ty.LangVarType With.ProgState -> RmBreadthPmHandle (Ty.LangVarType With.ProgState)
 newTyVarFrom v = do
     fv <- S.getFV
-    let (varRep, fv') = Fresh.allocFreeVar () fv
+    let (varStr, fv') = Fresh.allocFreeVar () fv
+    let varRep = tokenRepFromStr varStr
     S.putFV fv'
     return $ Ty.newLVTy varRep (Ty.kindOf v) (Ty.roleOf v) (stateOf v)
 

@@ -2938,8 +2938,8 @@ newDispatchNotedVar v scheme st =
             , nVarState = st
             }
 
-newNotedVal :: String -> LangTypeScheme a -> a -> NotedVal a
-newNotedVal = NotedVal
+newNotedVal :: DataConRep -> LangTypeScheme a -> a -> NotedVal a
+newNotedVal conRep lpty st = NotedVal (tokenRepToStr conRep) lpty st
 
 newNotedIntLit :: Int -> LangTypeScheme a -> a -> NotedVal a
 newNotedIntLit i = NotedLit (LitInt i)

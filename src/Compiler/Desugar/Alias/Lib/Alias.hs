@@ -13,7 +13,7 @@ import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
 import qualified Compiler.State as With
 
-type AliasMap = Map String ([Raw.ParamTypeName With.ProgState], Raw.UnConType With.ProgState)
+type AliasMap = Map TyConRep ([Raw.ParamTypeName With.ProgState], Raw.UnConType With.ProgState)
 
 type CycleAliasesErrorInfo = [Raw.AliasAlgebraicDataType With.ProgState]
 
@@ -63,7 +63,7 @@ B T1 K1 T2 K2 T3 K3 ...
 
 -}
 replace :: [Raw.ParamTypeName With.ProgState]
-        -> String
+        -> TyConRep
         -> Raw.UnConType With.ProgState
         -> Raw.UnConType With.ProgState
         -> Raw.UnConType With.ProgState

@@ -10,7 +10,7 @@ import Compiler.Ast.Tree as Raw
 import Compiler.State as With
 import Data.Map.Strict as Map hiding (map)
 
-type HintMap = Map String (Type With.ProgState)
+type HintMap = Map SymbolRep (Type With.ProgState)
 
 splitSigs :: [Raw.Declaration With.ProgState] -> ([Raw.Signature With.ProgState], [Raw.Declaration With.ProgState])
 splitSigs l = onFst (map unWrap) . splitDecls l $ AOFSome [AOFSig]

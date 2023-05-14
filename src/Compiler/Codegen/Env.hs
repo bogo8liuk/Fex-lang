@@ -1,7 +1,5 @@
 module Compiler.Codegen.Env
-    ( TyConStrRep
-    , DataConStrRep
-    , MainBndr
+    ( MainBndr
     , CodegenErr(..)
     , CodegenEnv
     , initState
@@ -30,7 +28,7 @@ import Control.Monad.State.Lazy
 import qualified Lib.Counter as C
 import Data.Map.Lazy as M hiding (filter)
 import Compiler.State as With
-import Compiler.Ast.Common
+import Compiler.Ast.Common as Ast
 import qualified Compiler.Ast.Typed as Ty
 import Compiler.Types.Tables
 import CoreSyn(CoreBndr)
@@ -59,14 +57,11 @@ instance UnreachableState CodegenErr where
     isUnreachable err @ (PanicErr _) = Just $ dbgShow err
     isUnreachable NoMain = Nothing
 
-type TyConStrRep = String
-type DataConStrRep = String
+type CoreDataConsTable = Map Ast.TyConRep (Map Ast.DataConRep DataCon)
 
-type CoreDataConsTable = Map TyConStrRep (Map DataConStrRep DataCon)
+type CoreTyConsTable = Map Ast.TyConRep TyCon
 
-type CoreTyConsTable = Map TyConStrRep TyCon
-
-type UniquesTable = Map (String, NameSpace) Unique
+type UniquesTable = Map (Ast.SymbolRep, NameSpace) Unique
 
 type MainBndr = CoreBndr
 
@@ -147,14 +142,14 @@ withCounterOnly op c = do
 getCounter :: CodegenEnv C.AlphabeticCounterObj
 getCounter = gets stGetCounter
 
-getDataCon :: TyConStrRep -> DataConStrRep -> CodegenEnv (Maybe DataCon)
+getDataCon :: Ast.TyConRep -> Ast.DataConRep -> CodegenEnv (Maybe DataCon)
 getDataCon tyConRep dataConRep = do
     dct <- gets stGetDataConsTable
     case M.lookup tyConRep dct of
         Nothing -> return Nothing
         Just subm -> return $ M.lookup dataConRep subm
 
-getTyCon :: TyConStrRep -> CodegenEnv (Maybe TyCon)
+getTyCon :: Ast.TyConRep -> CodegenEnv (Maybe TyCon)
 getTyCon tyConRep = do
     tct <- gets stGetTyConsTable
     return $ M.lookup tyConRep tct
@@ -164,7 +159,7 @@ getAllTyCons = do
     tct <- gets stGetTyConsTable
     return $ elems tct
 
-getMatchNVals :: String -> CodegenEnv [Ty.NotedVal With.ProgState]
+getMatchNVals :: Ast.TypeRep -> CodegenEnv [Ty.NotedVal With.ProgState]
 getMatchNVals tyRep = do
     nVals <- gets stGetNotedValues
     filterM matchTyRep nVals
@@ -176,7 +171,7 @@ getMatchNVals tyRep = do
                 (const $ return False)
                 (const $ return False)
 
-        noResTyFor nVal = cgErr $ TypePanicErr ("No result type for noted value " ++ repOf nVal)
+        noResTyFor nVal = cgErr $ TypePanicErr ("No result type for noted value " ++ tokenRepToStr (repOf nVal))
 
         resTypeOf nVal =
             case Ty.instantiateUnqualifying (Ty.typeOf nVal) [] of
@@ -189,7 +184,7 @@ getMatchNVals tyRep = do
 getUniques :: CodegenEnv UniquesTable
 getUniques = gets stGetUniques
 
-getUnique :: String -> NameSpace -> CodegenEnv (Maybe Unique)
+getUnique :: SymbolRep -> NameSpace -> CodegenEnv (Maybe Unique)
 getUnique rep sp = M.lookup (rep, sp) <$> getUniques
 
 getMaybeMain :: CodegenEnv (Maybe MainBndr)
@@ -207,7 +202,7 @@ putCounter c = do
     st <- get
     put $ stUpdateCounter st c 
 
-putDataCon :: TyConStrRep -> DataConStrRep -> DataCon -> CodegenEnv ()
+putDataCon :: Ast.TyConRep -> Ast.DataConRep -> DataCon -> CodegenEnv ()
 putDataCon tyConRep dataConRep dataCon = do
     st <- get
     let dct = stGetDataConsTable st
@@ -217,19 +212,19 @@ putDataCon tyConRep dataConRep dataCon = do
         Just m ->
             put . stUpdateDataConsTable st $ M.insert tyConRep (M.insert dataConRep dataCon m) dct
 
-putDataCons :: TyConStrRep -> [(DataConStrRep, DataCon)] -> CodegenEnv ()
+putDataCons :: Ast.TyConRep -> [(Ast.DataConRep, DataCon)] -> CodegenEnv ()
 putDataCons tyConRep dataCons = do
     st <- get
     let dct = stGetDataConsTable st
     put . stUpdateDataConsTable st $ M.insert tyConRep (fromList dataCons) dct
 
-putTyCon :: TyConStrRep -> TyCon -> CodegenEnv ()
+putTyCon :: Ast.TyConRep -> TyCon -> CodegenEnv ()
 putTyCon tyConRep tyCon = do
     st <- get
     let tct = stGetTyConsTable st
     put . stUpdateTyConsTable st $ M.insert tyConRep tyCon tct
 
-putUnique :: String -> NameSpace -> Unique -> CodegenEnv ()
+putUnique :: Ast.SymbolRep -> NameSpace -> Unique -> CodegenEnv ()
 putUnique rep sp uq = do
     st <- get
     let uqs = stGetUniques st

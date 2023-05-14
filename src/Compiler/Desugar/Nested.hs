@@ -12,7 +12,7 @@ import Compiler.Ast.Common
 import qualified Compiler.Ast.Tree as Raw
 import Compiler.Desugar.Names
 
-type OccurredLocally = Map String String
+type OccurredLocally = Map SymbolRep SymbolRep
 type NestedEnv = (OccurredLocally, C.CounterObj)
 
 deleteSyms :: OccurredLocally -> [Raw.SymbolName With.ProgState] -> OccurredLocally

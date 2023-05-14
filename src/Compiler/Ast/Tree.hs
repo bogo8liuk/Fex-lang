@@ -2195,11 +2195,11 @@ buildParamCompUnCon par tys st = Composite $ TyComp (Param par, tys, st)
 buildType :: [Constraint a] -> UnConType a -> a -> Type a
 buildType cs ty st = Type (cs, ty, st)
 
-buildPtyName :: String -> a -> ParamTypeName a
-buildPtyName s st = PtyName (s, st)
+buildPtyName :: TyVarRep -> a -> ParamTypeName a
+buildPtyName s st = PtyName (tokenRepToStr s, st)
 
-buildSymbolName :: String -> a -> SymbolName a
-buildSymbolName s st = SymName (s, st)
+buildSymbolName :: SymbolRep -> a -> SymbolName a
+buildSymbolName s st = SymName (tokenRepToStr s, st)
 
 buildGenTypeName :: ADTName a -> GenTypeName a
 buildGenTypeName = Left
@@ -2282,15 +2282,15 @@ buildMultiPattMatch = MultiPattMatch
 
 -- Update operations (usually unsafe)
 
-updateSymbolNameInSd :: SymbolDeclaration a -> String -> SymbolDeclaration a
+updateSymbolNameInSd :: SymbolDeclaration a -> SymbolRep -> SymbolDeclaration a
 updateSymbolNameInSd (SymTok (SymDecl (SymName (_, snst), h, args, dst), e, st)) symRep =
-    SymTok (SymDecl (SymName (symRep, snst), h, args, dst), e, st)
+    SymTok (SymDecl (SymName (tokenRepToStr symRep, snst), h, args, dst), e, st)
 
-updateSymbolNameInMsd :: MultiSymbolDeclaration a -> String -> MultiSymbolDeclaration a
+updateSymbolNameInMsd :: MultiSymbolDeclaration a -> SymbolRep -> MultiSymbolDeclaration a
 updateSymbolNameInMsd (MultiSymTok (SymName (_, snst)) h mpm st) symRep =
-    MultiSymTok (SymName (symRep, snst)) h mpm st
+    MultiSymTok (SymName (tokenRepToStr symRep, snst)) h mpm st
 
-updateSymbolName :: SDUnion a -> String -> SDUnion a
+updateSymbolName :: SDUnion a -> SymbolRep -> SDUnion a
 updateSymbolName (SD sd) = SD . updateSymbolNameInSd sd
 updateSymbolName (MSD msd) = MSD . updateSymbolNameInMsd msd
 

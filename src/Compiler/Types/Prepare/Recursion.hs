@@ -4,11 +4,12 @@ module Compiler.Types.Prepare.Recursion
 
 import qualified Data.Graph as G
 import Compiler.State as With
+import Compiler.Ast.Common
 import qualified Compiler.Ast.Tree as Raw
 import Compiler.Types.Tables(PropMethodsTable)
 import Compiler.Types.Prepare.Lib
 
-type Node = (Raw.SDUnion With.ProgState, String, [String])
+type Node = (Raw.SDUnion With.ProgState, SymbolRep, [SymbolRep])
 
 createNodes :: [Raw.SDUnion With.ProgState] -> PropMethodsTable With.ProgState -> [Node]
 createNodes sds mhts = map createNode sds

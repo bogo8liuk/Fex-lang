@@ -94,7 +94,7 @@ conBuild tt ct fv lnty con =
                     Just lk -> Right lk
 
 {- A mapping from old vars to new vars. -}
-type ReplacingVars = Map String String
+type ReplacingVars = Map TyVarRep TyVarRep
 
 {- Hack to change type variables in a constructor in order not to have many constructors with same
 type variables. Look at Ty.newLHTyFromLNTy for a better information. -}
@@ -117,21 +117,22 @@ rewindCon con lnty fv =
         changeBindings [] repVars con fv = Right (con, repVars, fv)
         changeBindings (v : t) repVars con fv =
             let (newV, fv') = Fresh.allocFreeVar () fv in
+            let newVarRep = tokenRepFromStr newV in
             let varRep = repOf v in
-                case Raw.visitPtsInAdtCon con <| Right () <| updatePty varRep newV of
+                case Raw.visitPtsInAdtCon con <| Right () <| updatePty varRep newVarRep of
                     (_, Left err) -> Left err
-                    (con', Right _) -> changeBindings t (M.insert varRep newV repVars) con' fv'
+                    (con', Right _) -> changeBindings t (M.insert varRep newVarRep repVars) con' fv'
 
         updatePty
-            :: String
-            -> String
+            :: TyVarRep
+            -> TyVarRep
             -> Raw.ParamTypeName With.ProgState
             -> Either ConsBuildError ()
             -> (Raw.ParamTypeName With.ProgState, Either ConsBuildError ())
         updatePty _ _ pty err @ (Left _) = (pty, err)
         updatePty old new pty (Right _) =
             if old == repOf pty
-            then (Raw.buildPtyName new $ stateOf pty, Right ())
+            then (Raw.buildPtyName <| tokenRepToStr new <| stateOf pty, Right ())
             else (pty, Right ())
 
 {- LangNewType value update. -}
@@ -162,7 +163,7 @@ consFromAdt tt (ct, fv) adt =
     let rName = repOf rty in
     let cons = Raw.adtConsFrom adt in
         case kFind rName tt of
-            Nothing -> Left . Unexpected $ "No type in types table with name " ++ rName
+            Nothing -> Left . Unexpected $ "No type in types table with name " ++ tokenRepToStr rName
             Just lnty -> foldl' <| buildFromRes lnty <| Right (ct, fv) <| cons
         where
             buildFromRes _ err @ (Left _) _ = err

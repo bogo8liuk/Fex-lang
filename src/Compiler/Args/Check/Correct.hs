@@ -11,12 +11,12 @@ import Compiler.State as With
 import qualified Compiler.Args.Check.Count as Count
 
 data ArgsError =
-      AdtErr (With.ProgState, Raw.UnConType With.ProgState)
-    | AliasErr (With.ProgState, Raw.UnConType With.ProgState)
-    | PropErrCont (With.ProgState, Raw.Constraint With.ProgState)
-    | PropErrInst (With.ProgState, Raw.Instance With.ProgState)
+      AdtErr (ProgState, Raw.UnConType With.ProgState)
+    | AliasErr (ProgState, Raw.UnConType With.ProgState)
+    | PropErrCont (ProgState, Raw.Constraint With.ProgState)
+    | PropErrInst (ProgState, Raw.Instance With.ProgState)
     {- A name which does not exist: this should not happen -}
-    | NoName String
+    | NoName TokenRep
 
 argsNE :: String
 argsNE = " has a number of arguments not equal to the number of arguments in the property definition at "
@@ -31,7 +31,7 @@ instance Show ArgsError where
     show (PropErrCont (intfst, c)) =
         "Constraint at " ++ show (stateOf c) ++ argsNE ++ show intfst
     show (PropErrInst (intfst, i)) =
-        "Instance at " ++ show (stateOf i) ++ " for " ++ repOf (Raw.intfNameFromInst i) ++ argsNE ++
+        "Instance at " ++ show (stateOf i) ++ " for " ++ strOf (Raw.intfNameFromInst i) ++ argsNE ++
         show intfst
     show _ = "Unreachable state"
 

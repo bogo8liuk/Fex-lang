@@ -12,7 +12,7 @@ import Compiler.State as With
 import Compiler.Types.Builder.Kind
 import Compiler.Types.Tables
 
-findRoles :: [(String, ProgState)] -> Raw.AlgebraicDataType With.ProgState -> [(String, Role, ProgState)]
+findRoles :: [(TyVarRep, ProgState)] -> Raw.AlgebraicDataType With.ProgState -> [(TyVarRep, Role, ProgState)]
 findRoles [] _ = []
 findRoles ((varRep, st) : t) adt =
     if isRepresentational

@@ -3,13 +3,14 @@ module Compiler.Types.Prepare.Sort
 ) where
 
 import Compiler.State as With
+import Compiler.Ast.Common
 import Compiler.Types.Tables(PropMethodsTable)
 import Compiler.Types.Prepare.Lib
 
 type SortedComponent = SortedBindings
 type RemainingBindingsNo = Int
 
-tryInsert :: RawBinding -> [RawBinding] -> [String] -> PropMethodsTable With.ProgState -> Maybe SortedBindings
+tryInsert :: RawBinding -> [RawBinding] -> [SymbolRep] -> PropMethodsTable With.ProgState -> Maybe SortedBindings
 tryInsert b [] _ _ = Just [b]
 tryInsert b bs @ (b1 : t) deps mhts =
     let b1Reps = symRepsOf b1 in
