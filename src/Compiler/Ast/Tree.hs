@@ -65,6 +65,9 @@ module Compiler.Ast.Tree
     , runAstOpT
     , runAstOp
     , runAstOpRes
+    , execAstOpT
+    , execAstOp
+    , execAstOpRes
     , removeDeclsBy
     , getDecls
     , getDeclsBy
@@ -781,6 +784,15 @@ runAstOp p op = runIdentity $ runAstOpT p op
 {- It executes a AstOpRes. It needs a Program. -}
 runAstOpRes :: Program s -> AstOpRes s err a -> Either err (a, Program s)
 runAstOpRes = runAstOpT
+
+execAstOpT :: Monad m => Program s -> AstOpT s m a -> m (Program s)
+execAstOpT = flip execStateT
+
+execAstOp :: Program s -> AstOp s a -> Program s
+execAstOp p op = runIdentity $ execAstOpT p op
+
+execAstOpRes :: Program s -> AstOpRes s err a -> Either err (Program s)
+execAstOpRes = execAstOpT
 
 {- TODO: legacy
 astOpMap :: (a -> b) -> AstOpRes s err a -> AstOpRes s err b
@@ -1717,7 +1729,7 @@ safeLookupAlias x f =
         builtF y (AliasADT alias) = pure $ f y alias
         builtF y _ = pure y
 
-removeAlias :: AstOp s [AliasAlgebraicDataType s]
+removeAlias :: Monad m => AstOpT s m [AliasAlgebraicDataType s]
 removeAlias = removeDeclsWith isAlias
     where
         isAlias (AliasADT alias) = Just alias
