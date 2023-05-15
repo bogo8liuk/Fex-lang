@@ -48,9 +48,7 @@ library
       Compiler.Desugar.AdHoc.Accumulate
       Compiler.Desugar.AdHoc.Create
       Compiler.Desugar.AdHoc.Lib
-      Compiler.Desugar.Alias.Lib.Alias
-      Compiler.Desugar.Alias.Lib.Error
-      Compiler.Desugar.Alias.Replace
+      Compiler.Desugar.Alias
       Compiler.Desugar.BreadthPM
       Compiler.Desugar.DeepPM
       Compiler.Desugar.Lambda

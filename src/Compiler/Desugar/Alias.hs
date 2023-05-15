@@ -1,9 +1,10 @@
-module Compiler.Desugar.Alias.Lib.Alias
+module Compiler.Desugar.Alias
     ( AliasErr
-    , aliasSubstitution
+    , substitution
 ) where
 
 import Lib.Utils
+import Lib.Result
 import Data.List as List
 import Data.List.NonEmpty as NEList hiding (map, (<|))
 import Data.Map.Strict as Map hiding (map)
@@ -17,6 +18,19 @@ type AliasMap = Map TyConRep ([Raw.ParamTypeName With.ProgState], Raw.UnConType 
 
 newtype AliasErr =
       Cycle [Raw.AliasAlgebraicDataType With.ProgState]
+
+instance InfoShow AliasErr where
+    infoShow (Cycle aliases) =
+        "A cycle among the following aliases has been found:" ++ concatMap showAlias aliases
+        where
+            showAlias alias =
+                "\n" ++ tokenRepToStr (repOf $ Raw.aliasNameFrom alias) ++ " defined at " ++ show (stateOf alias)
+
+instance DebugShow AliasErr where
+    dbgShow = infoShow
+
+instance UnreachableState AliasErr where
+    isUnreachable = Just . dbgShow
 
 {- `expandTypes ps tys ty` replaces the i-th parametric type of `ps` with the i-th type in `tys`
 in the Type `ty` (so the elements of `ps` are searched for in `ty`).
@@ -97,12 +111,6 @@ replaceAlias a a' =
     let bty = Raw.unConFromAlias a in
     let ty = Raw.unConFromAlias a' in
         Raw.buildAlias adtDecl (replace params strName bty ty) aliasSt
-
-splitAliases :: [Raw.Declaration With.ProgState]
-             -> ([Raw.AliasAlgebraicDataType With.ProgState], [Raw.Declaration With.ProgState])
-splitAliases l = onFst (map unWrap) . Raw.splitDecls l $ Raw.AOFSome [AOFAlias]
-    where
-        unWrap (AliasADT a) = a
 
 {- `subst a l1 l2 l1' l2'` replaces every occurrence of the name of alias `a` with the name of the type
 which implements `a` in all aliases of `l1` and `l2`. `l1'` and `l2'` are just accumulator lists. -}
@@ -259,5 +267,5 @@ of aliases are replaced with the implementations of those aliases (until no alia
 the cases of errors which are:
     - a cycle among aliases
 -}
-aliasSubstitution :: Raw.Program With.ProgState -> Either AliasErr (Raw.Program With.ProgState)
-aliasSubstitution p = Raw.execAstOpRes p aliasSubstitutionOp
+substitution :: Raw.Program With.ProgState -> Either AliasErr (Raw.Program With.ProgState)
+substitution p = Raw.execAstOpRes p aliasSubstitutionOp
