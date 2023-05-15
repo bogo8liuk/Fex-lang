@@ -70,18 +70,17 @@ import Fingerprint
 
 evalPhaseWith
     :: UnreachableState err
-    => a
-    -> (a -> Either err b)
+    => Either err b
     -> (b -> IO ())
     -> (b -> c)
     -> (err -> IO ())
     -> IO c    --Error case
     -> IO c
-evalPhaseWith input eval doOn f doOnErr doErr =
-    case eval input of
-        Right res ->
-            do { doOn res
-               ; return $ f res
+evalPhaseWith res doOn f doOnErr doErr =
+    case res of
+        Right ok ->
+            do { doOn ok
+               ; return $ f ok
                }
         Left err ->
             do { doOnErr err
@@ -90,51 +89,45 @@ evalPhaseWith input eval doOn f doOnErr doErr =
                }
 
 evalSuccessPhase
-    :: a
-    -> (a -> b)
+    :: b
     -> (b -> IO ())
     -> IO b
-evalSuccessPhase input eval doOn = evalSuccessPhaseWith input eval doOn id
+evalSuccessPhase res doOn = evalSuccessPhaseWith res doOn id
 
 evalSuccessPhaseWith
-    :: a
-    -> (a -> b)
+    :: b
     -> (b -> IO ())
     -> (b -> c)
     -> IO c
-evalSuccessPhaseWith input eval doOn f = do
-    let res = eval input
+evalSuccessPhaseWith res doOn f = do
     doOn res
     return $ f res
 
 evalPhase
     :: UnreachableState err
-    => a
-    -> (a -> Either err b)
+    => Either err b
     -> (b -> IO ())
     -> (err -> IO ())
     -> IO b    --Error case
     -> IO b
-evalPhase input eval doOn = evalPhaseWith input eval doOn id
+evalPhase res doOn = evalPhaseWith res doOn id
 
 evalDbgPhase
     :: (DebugShow err, UnreachableState err)
-    => a
-    -> (a -> Either err b)
+    => Either err b
     -> (b -> IO ())
     -> IO b    --Error case
     -> IO b
-evalDbgPhase input eval doOn = evalDbgPhaseWith input eval doOn id
+evalDbgPhase res doOn = evalDbgPhaseWith res doOn id
 
 evalDbgPhaseWith
     :: (DebugShow err, UnreachableState err)
-    => a
-    -> (a -> Either err b)
+    => Either err b
     -> (b -> IO ())
     -> (b -> c)
     -> IO c    --Error case
     -> IO c
-evalDbgPhaseWith input eval doOn f = evalPhaseWith input eval doOn f (putStrLn . dbgShow)
+evalDbgPhaseWith res doOn f = evalPhaseWith res doOn f (putStrLn . dbgShow)
 
 prNone :: a -> IO ()
 prNone = const doNothing'
@@ -145,22 +138,26 @@ readSource = readFile
 parsing :: FilePath -> IO (Raw.Program With.ProgState)
 parsing path = do
     input <- readSource path
-    evalDbgPhase input (Parser.program path) prNone exitFailure
+    let parserRes = Parser.program path input
+    evalDbgPhase parserRes prNone exitFailure
 
 addBuiltinTypes :: FilePath -> IO (Raw.Program With.ProgState)
 addBuiltinTypes path = do
     p <- parsing path
-    evalDbgPhase p Builtin.Tokens.addAdts prNone exitFailure
+    let builtinRes = Builtin.Tokens.addAdts p
+    evalDbgPhase builtinRes prNone exitFailure
 
 addBuiltinProps :: FilePath -> IO (Raw.Program With.ProgState)
 addBuiltinProps path = do
     p <- addBuiltinTypes path
-    evalDbgPhase p Builtin.Tokens.addProps prNone exitFailure
+    let builtinRes = Builtin.Tokens.addProps p
+    evalDbgPhase builtinRes prNone exitFailure
 
 namesCheck :: FilePath -> IO (Raw.Program With.ProgState)
 namesCheck path = do
     p <- addBuiltinProps path
-    evalDbgPhase p Names.Check.perform prNone exitFailure
+    let namesCheckRes = Names.Check.perform p
+    evalDbgPhase namesCheckRes prNone exitFailure
     return p
 
 {- TODO: use Lib.Result API. -}
@@ -186,7 +183,8 @@ argsCheck path = do
 aliasReplace :: FilePath -> IO (Raw.Program With.ProgState)
 aliasReplace path = do
     p <- argsCheck path
-    evalDbgPhase p Alias.substitution prNone exitFailure
+    let aliasRes = Alias.substitution p
+    evalDbgPhase aliasRes prNone exitFailure
 
 {- TODO: use Lib.Result API. -}
 sigsReplace :: FilePath -> IO (Raw.Program With.ProgState)
@@ -199,13 +197,15 @@ rebindTyVars :: FilePath -> IO (MkTy.FV (), Raw.Program With.ProgState)
 rebindTyVars path = do
     p <- sigsReplace path
     print "Rebinding type variables"
-    evalSuccessPhase p Rebind.updateTyVars prNone
+    let tyVarsRes = Rebind.updateTyVars p
+    evalSuccessPhase tyVarsRes prNone
 
 constraintsCheck :: FilePath -> IO (MkTy.FV (), Raw.Program With.ProgState)
 constraintsCheck path = do
     (fv, p) <- rebindTyVars path
     print "Constraints check"
-    evalDbgPhaseWith p ContCheck.perform
+    let contCheckRes = ContCheck.perform p
+    evalDbgPhaseWith contCheckRes
         (const $ print "Constraints check terminated successfully")
         (fv, )
         exitFailure
@@ -214,7 +214,8 @@ inferKinds :: FilePath -> IO (MkTy.FV (), MkTy.TypesTable With.ProgState, Raw.Pr
 inferKinds path = do
     (fv, p) <- constraintsCheck path
     print "Kind inference"
-    evalDbgPhaseWith p MkTy.inferKind prNone (\(tt, p') -> (fv, tt, p')) exitFailure
+    let kindRes = MkTy.inferKind p
+    evalDbgPhaseWith kindRes prNone (uncurry (fv,,)) exitFailure
 
 buildCons
     :: FilePath
@@ -227,7 +228,8 @@ buildCons
 buildCons path = do
     (fv, tt, p) <- inferKinds path
     print "Building constructors"
-    evalDbgPhaseWith tt (MkTy.buildCons p fv)
+    let consRes = MkTy.buildCons p fv tt
+    evalDbgPhaseWith consRes
         prNone
         (\(dct, fv', p') -> (fv', tt, dct, p'))
         exitFailure
@@ -244,9 +246,10 @@ inferConstraints
 inferConstraints path = do
     (fv, tt, dct, p) <- buildCons path
     print "Constraint inference"
-    evalDbgPhaseWith tt (MkTy.inferConstraint p)
+    let contRes = MkTy.inferConstraint p tt
+    evalDbgPhaseWith contRes
         prNone
-        (\(ct, p') -> (fv, tt, dct, ct, p'))
+        (uncurry (fv, tt, dct,,))
         exitFailure
 
 instances
@@ -264,7 +267,8 @@ instances
 instances path = do
     (fv, tt, dct, ct, p) <- inferConstraints path
     print "Instances variables creation"
-    evalDbgPhaseWith fv (MkTy.mkInsts p tt ct)
+    let instsRes = MkTy.mkInsts p tt ct fv
+    evalDbgPhaseWith instsRes
         prNone
         (\(insts, mhts, it, fv', p') -> (fv', tt, dct, ct, insts, mhts, it, p'))
         exitFailure
@@ -290,7 +294,8 @@ bindings
 bindings path = do
     (fv, tt, dct, ct, insts, mhts, it, p) <- instances path
     print "Fetching bindings from program and instances"
-    evalSuccessPhaseWith p (MkTy.addInstsBindings insts . MkTy.getBindings)
+    let bindingsRes = MkTy.addInstsBindings insts $ MkTy.getBindings p
+    evalSuccessPhaseWith bindingsRes
         prNone
         (fv, tt, dct, ct, mhts, it, )
 
@@ -308,7 +313,8 @@ prepareTyInf
 prepareTyInf path = do
     (fv, tt, dct, ct, mhts, it, bs) <- bindings path
     print "Preparing bindings for type inference"
-    evalSuccessPhaseWith bs (MkTy.sortDefs mhts . MkTy.splitRec mhts . MkTy.disambiguateNested)
+    let prepRes = MkTy.sortDefs mhts . MkTy.splitRec mhts $ MkTy.disambiguateNested bs
+    evalSuccessPhaseWith prepRes
         prNone
         (fv, tt, dct, ct, mhts, it, )
 
@@ -328,7 +334,8 @@ typeInference
 typeInference path = do
     (fv, tt, dct, ct, mhts, it, bs) <- prepareTyInf path
     print "Type inference"
-    evalDbgPhaseWith bs (MkTy.mkTypedProg fv tt dct ct mhts it)
+    let typeRes = MkTy.mkTypedProg fv tt dct ct mhts it bs
+    evalDbgPhaseWith typeRes
         prNone
         (\(tp, fv', c, bstr) -> (fv', tt, dct, ct, mhts, it, tp, c, bstr))
         exitFailure
@@ -347,7 +354,8 @@ adHocPolymorphism
         )
 adHocPolymorphism path = do
     (fv, tt, dct, ct, mhts, it, tp, c, bstr) <- typeInference path
-    evalDbgPhaseWith bstr (AdHoc.staticDispatch tp mhts)
+    let dispatchRes = AdHoc.staticDispatch tp mhts bstr
+    evalDbgPhaseWith dispatchRes
         prNone
         (fv, tt, dct, ct, mhts, it,, c)
         exitFailure
@@ -367,7 +375,8 @@ makeLambdas
 makeLambdas path = do
     (fv, tt, dct, ct, mhts, it, tp, c) <- adHocPolymorphism path
     print "Making lambda expressions"
-    evalSuccessPhaseWith tp Lambdas.make
+    let lambdasRes = Lambdas.make tp
+    evalSuccessPhaseWith lambdasRes
         prNone
         (fv, tt, dct, ct, mhts, it,, c)
 
@@ -386,7 +395,8 @@ removeDeepPatternMatching
 removeDeepPatternMatching path = do
     (fv, tt, dct, ct, mhts, it, tp, c) <- makeLambdas path
     print "Removing deep pattern matching"
-    evalDbgPhaseWith c (DeepPM.removeDeepPm tp)
+    let deepPmRes = DeepPM.removeDeepPm tp c
+    evalDbgPhaseWith deepPmRes
         prNone
         (uncurry (fv, tt, dct, ct, mhts, it,, ))
         exitFailure
@@ -406,7 +416,8 @@ unifyScrutinee
 unifyScrutinee path = do
     (fv, tt, dct, ct, mhts, it, tp, c) <- removeDeepPatternMatching path
     print "Unifying scrutinee in pattern matching constructs"
-    evalSuccessPhaseWith c (Scrutinee.unify tp)
+    let scrutineeRes = Scrutinee.unify tp c
+    evalSuccessPhaseWith scrutineeRes
         prNone
         (uncurry (fv, tt, dct, ct, mhts, it,, ))
 
@@ -416,7 +427,8 @@ genCore :: FilePath -> IO (CoreProgram, [TyCon], ToCore.MainBndr)
 genCore path = do
     (_, _, dct, _, _, _, tp, c) <- unifyScrutinee path
     print "Generating Core code"
-    evalDbgPhaseWith tp (ToCore.generate dct c)
+    let coreGenRes = ToCore.generate dct c tp
+    evalDbgPhaseWith coreGenRes
         prNone
         id
         exitFailure
