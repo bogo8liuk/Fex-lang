@@ -43,7 +43,7 @@ import qualified Compiler.Ast.Tree as Raw
 import qualified Compiler.Syntax.Parser as Parser
 import qualified Compiler.Names.Check as Names.Check
 import qualified Compiler.Args.Check as Args.Check
-import qualified Compiler.Desugar.Alias.Replace as Alias.Replace
+import qualified Compiler.Desugar.Alias as Alias
 import qualified Compiler.Desugar.Sigs as Sigs.Replace
 import qualified Compiler.Desugar.TyVars as Rebind
 import qualified Compiler.Desugar.Lambda as Lambdas
@@ -183,21 +183,10 @@ argsCheck path = do
                          ; exitFailure
                          }
 
-{- TODO: use Lib.Result API. -}
 aliasReplace :: FilePath -> IO (Raw.Program With.ProgState)
 aliasReplace path = do
     p <- argsCheck path
-    case Alias.Replace.perform p of
-        This p' -> do { print "Aliases replacing"
-                      ; return p'
-                      }
-        That cycle -> do { Alias.Replace.errPrint $ That cycle
-                         ; exitFailure
-                         }
-        None -> do { Alias.Replace.errPrint None
-                   ; print "PANIC"
-                   ; exitFailure
-                   }
+    evalDbgPhase p Alias.substitution prNone exitFailure
 
 {- TODO: use Lib.Result API. -}
 sigsReplace :: FilePath -> IO (Raw.Program With.ProgState)
