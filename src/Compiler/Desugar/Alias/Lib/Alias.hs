@@ -1,6 +1,5 @@
 module Compiler.Desugar.Alias.Lib.Alias
-    ( CycleAliasesErrorInfo
-    , AliasSubstRes
+    ( AliasErr
     , aliasSubstitution
 ) where
 
@@ -9,15 +8,15 @@ import Data.List as List
 import Data.List.NonEmpty as NEList hiding (map, (<|))
 import Data.Map.Strict as Map hiding (map)
 import Data.Semigroup
+import Control.Monad.Trans.Class(lift)
 import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
 import qualified Compiler.State as With
 
 type AliasMap = Map TyConRep ([Raw.ParamTypeName With.ProgState], Raw.UnConType With.ProgState)
 
-type CycleAliasesErrorInfo = [Raw.AliasAlgebraicDataType With.ProgState]
-
-type AliasSubstRes a = KnowledgeOneOf a CycleAliasesErrorInfo
+newtype AliasErr =
+      Cycle [Raw.AliasAlgebraicDataType With.ProgState]
 
 {- `expandTypes ps tys ty` replaces the i-th parametric type of `ps` with the i-th type in `tys`
 in the Type `ty` (so the elements of `ps` are searched for in `ty`).
@@ -214,8 +213,16 @@ make up the cycle. -}
 aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either [Raw.AliasAlgebraicDataType With.ProgState] AliasMap
 aliasSubst l = __aliasSubst l [] l
 
-aliasSubstOp :: AliasMap -> Raw.AstOp With.ProgState ()
-aliasSubstOp m = Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
+mkAliasMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> Raw.AstOpRes With.ProgState AliasErr AliasMap
+mkAliasMap = lift . mkMap
+    where
+        mkMap aliases =
+            case aliasSubst aliases of
+                Left rec -> Left $ Cycle rec
+                Right table -> Right table
+
+aliasSubstOp :: AliasMap -> Raw.AstOpRes With.ProgState err ()
+aliasSubstOp m = astOpRes . Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
     where
         substCallback ty =
             let conts = Raw.contsFromType ty in
@@ -241,17 +248,16 @@ aliasSubstOp m = Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
                 Nothing -> ty
                 Just (params, bty) -> replace params name bty ty
 
-aliasSubstitutionForDecls :: AliasMap -> Raw.Program With.ProgState -> Raw.Program With.ProgState
-aliasSubstitutionForDecls m p = snd . runAstOp p $ aliasSubstOp m
+aliasSubstitutionOp :: Raw.AstOpRes With.ProgState AliasErr ()
+aliasSubstitutionOp = do
+    aliases <- removeAlias
+    table <- mkAliasMap aliases
+    aliasSubstOp table
 
 {- Given a Program, it returns a new Program, namely the changed version of the old one, where all occurrences
 of aliases are replaced with the implementations of those aliases (until no aliases remain). It handles also
 the cases of errors which are:
-    a cycle among aliases => it returns `That aliases`, where `aliases` are the aliases which build up the cycle.
-    unreachable state => this can be due only to a bad implementation of Ast.Tree visit functions, it returns None. -}
-aliasSubstitution :: Raw.Program With.ProgState -> AliasSubstRes (Raw.Program With.ProgState)
-aliasSubstitution p = case splitAliases $ Raw.declarationsFrom p of
-    (aliases, nonAliases) -> (case aliasSubst aliases of
-        Left [] -> None     --This is unreachable
-        Left err -> That err
-        Right m -> This . aliasSubstitutionForDecls m $ Raw.buildProgram nonAliases)
+    - a cycle among aliases
+-}
+aliasSubstitution :: Raw.Program With.ProgState -> Either AliasErr (Raw.Program With.ProgState)
+aliasSubstitution p = Raw.execAstOpRes p aliasSubstitutionOp
