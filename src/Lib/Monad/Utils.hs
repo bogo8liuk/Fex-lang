@@ -58,6 +58,24 @@ partitionM f l = parts l ([], [])
 forAllM :: (Foldable t, Monad m) => t a -> (b -> a -> m b) -> b -> m b
 forAllM t f x = foldM f x t
 
+{- More fancy version of foldM -}
+fromFstToLastM :: (Foldable t, Monad m) => t a -> (b -> a -> m b) -> b -> m b
+fromFstToLastM t f x = foldM f x t
+
+{- fromLastToFstM [x1, x2, x3] f a
+        =
+    do
+        a3 <- f x3 a
+        a2 <- f x2 a3
+        f x1 a2
+-}
+fromLastToFstM :: (Foldable t, Monad m) => t a -> (a -> b -> m b) -> b -> m b
+fromLastToFstM t f x = foldr f' (pure x) t
+    where
+        f' e yM = do
+            y <- yM
+            f e y
+
 {- The same of `local` of MonadReader, but with MonadState. -}
 local' :: MonadState s m => (s -> s) -> m a -> m a
 local' stUpd op = do

@@ -35,6 +35,7 @@ module Lib.Utils
     , imap
     , lastmap
     , fltmap
+    , splitmap
     , firstThat
     , lastThat
     , foldne
@@ -55,6 +56,8 @@ module Lib.Utils
     , greatest'
     , lowest'
     , forAll
+    , fromFstToLast
+    , fromLastToFst
     , takeWhile'
     , indexing
 ) where
@@ -266,6 +269,15 @@ fltmap f (e : t) =
         Nothing -> fltmap f t
         Just e' -> e' : fltmap f t
 
+splitmap :: (a -> Maybe b) -> [a] -> ([b], [a])
+{- NB: the elements are visited from the last to the first. -}
+splitmap f = foldr f' ([], [])
+    where
+        f' x (incl, notIncl) =
+            case f x of
+                Nothing -> (incl, x : notIncl)
+                Just x' -> (x' : incl, notIncl)
+
 {- Same of `any`, but it returns the first element which satisfies the predicate. -}
 firstThat :: (a -> Bool) -> [a] -> Maybe a
 firstThat f l = head' $ dropWhile (not . f) l
@@ -368,6 +380,20 @@ lowest' = theMost' (<)
 -}
 forAll :: Foldable t => t a -> (b -> a -> b) -> b -> b
 forAll obj f start = foldl' f start obj
+
+{- A more fancy version of foldl':
+
+    fromFstToLast ["hello", "world", "42"] deleteKeyFrom strTable
+-}
+fromFstToLast :: Foldable t => t a -> (b -> a -> b) -> b -> b
+fromFstToLast x f start = foldl' f start x
+
+{- A more fancy version of foldr:
+
+    fromLastToFst ["hello", "world", "42"] deleteKeyFrom strTable
+-}
+fromLastToFst :: Foldable t => t a -> (a -> b -> b) -> b -> b
+fromLastToFst x f start = foldr f start x
 
 {- Same of takeWhile, but it includes also the element that satisfy the predicate. -}
 takeWhile' :: (a -> Bool) -> [a] -> [a]
