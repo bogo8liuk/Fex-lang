@@ -7,6 +7,8 @@ module Lib.Monad.Utils
     , concatIxMapM
     , partitionM
     , forAllM
+    , fromFstToLastM
+    , fromLastToFstM
     , local'
     , (>>*)
 ) where
