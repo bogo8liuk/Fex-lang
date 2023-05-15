@@ -94,6 +94,7 @@ module Compiler.Ast.Tree
     , safeSetAdt
     , lookupAlias
     , safeLookupAlias
+    , removeAlias
     , updateSymDecl
     , safeUpdateSymDecl
     , updateMultiSymDecl
@@ -833,6 +834,13 @@ infix 0 <?>
 
 -}
 
+removeDeclsWith :: Monad m => (Declaration s -> Maybe d) -> AstOpT s m [d]
+removeDeclsWith select = do
+    decls <- getDecls
+    let (selected, decls') = splitmap select decls
+    replaceProg decls'
+    return selected
+
 {- It removes declarations specified by filters and it returns them. -}
 removeDeclsBy :: Monad m => AstOpFilters -> AstOpT s m [Declaration s]
 removeDeclsBy aof = do
@@ -1505,16 +1513,17 @@ unConTransUpdate f ty =
 unConTransLookup :: (a -> UnConType s -> b) -> (a -> Type s -> b)
 unConTransLookup f x = f x . unConFromType
 
-{- Low-level ast visiting function. -}
+{- Low-level ast visiting function.
+NB: it visits declarations starting from the last one. -}
 visitTypes :: Monad m => a -> (a -> Type s -> m (a, Type s)) -> AstOpFilters -> AstOpT s m a
 visitTypes x f aof = do
     p <- get
     let decls = declarationsFrom p
-    (x', decls') <- forAllM decls visit `accumulatingIn` (x, [])
-    replaceProg $ reverse decls'    --Reversing is necessary since declarations have been accumulated from the head
+    (x', decls') <- fromLastToFstM decls visit `accumulatingIn` (x, [])
+    replaceProg decls'
     return x'
     where
-        visit (y, decls) decl = do
+        visit decl (y, decls) = do
             (y', decl') <- astOpTypeVisit (`visitTypesInDecl` aof) decl y f
             return (y', decl' : decls)
 
@@ -1707,6 +1716,12 @@ safeLookupAlias x f =
     where
         builtF y (AliasADT alias) = pure $ f y alias
         builtF y _ = pure y
+
+removeAlias :: AstOp s [AliasAlgebraicDataType s]
+removeAlias = removeDeclsWith isAlias
+    where
+        isAlias (AliasADT alias) = Just alias
+        isAlias _ = Nothing
 
 lookupSymDecl :: a -> (a -> SymbolDeclaration s -> Either err a) -> AstOpRes s err a
 lookupSymDecl x f =
