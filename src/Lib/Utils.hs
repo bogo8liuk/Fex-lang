@@ -62,7 +62,7 @@ module Lib.Utils
     , indexing
 ) where
 
-import Data.List(maximumBy, minimumBy, foldl')
+import Data.List(maximumBy, minimumBy, foldl', find)
 import Data.List.NonEmpty(NonEmpty(..))
 import Data.Maybe(isNothing)
 import Data.Either(isRight, isLeft)
@@ -278,12 +278,19 @@ splitmap f = foldr f' ([], [])
                 Nothing -> (incl, x : notIncl)
                 Just x' -> (x' : incl, notIncl)
 
-{- Same of `any`, but it returns the first element which satisfies the predicate. -}
-firstThat :: (a -> Bool) -> [a] -> Maybe a
-firstThat f l = head' $ dropWhile (not . f) l
+{- Alias for `find`. -}
+firstThat :: Foldable t => (a -> Bool) -> t a -> Maybe a
+firstThat = find
 
-lastThat :: (a -> Bool) -> [a] -> Maybe a
-lastThat f l = firstThat f $ reverse l
+lastThat :: Foldable t => (a -> Bool) -> t a -> Maybe a
+lastThat f l =
+    fromLastToFst l findIt `startingFrom` Nothing
+    where
+        findIt _ found @ (Just _) = found
+        findIt x Nothing =
+            if f x
+            then Just x
+            else Nothing
 
 {- Total version of foldl1'. -}
 foldne :: (a -> a -> a) -> [a] -> Maybe a
