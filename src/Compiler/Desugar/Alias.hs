@@ -5,7 +5,6 @@ module Compiler.Desugar.Alias
 
 import Lib.Utils
 import Lib.Result
-import Data.List as List
 import Data.List.NonEmpty as NEList hiding (map, (<|))
 import Data.Map.Strict as Map hiding (map)
 import Data.Semigroup
@@ -99,9 +98,10 @@ replace params name bty ty =
 
 {- Given an alias `a` and an alias `a'`, it substitutes each occurrence in implementation of `a'` of the alias' name
 of `a` with the type which implements `a`. -}
-replaceAlias :: Raw.AliasAlgebraicDataType With.ProgState
-             -> Raw.AliasAlgebraicDataType With.ProgState
-             -> Raw.AliasAlgebraicDataType With.ProgState
+replaceAlias
+    :: Raw.AliasAlgebraicDataType With.ProgState
+    -> Raw.AliasAlgebraicDataType With.ProgState
+    -> Raw.AliasAlgebraicDataType With.ProgState
 replaceAlias a a' =
     let params = Raw.boundParamTNamesFromAlias a in
     let name = Raw.aliasNameFrom a in
@@ -112,80 +112,70 @@ replaceAlias a a' =
     let ty = Raw.unConFromAlias a' in
         Raw.buildAlias adtDecl (replace params strName bty ty) aliasSt
 
-{- `subst a l1 l2 l1' l2'` replaces every occurrence of the name of alias `a` with the name of the type
-which implements `a` in all aliases of `l1` and `l2`. `l1'` and `l2'` are just accumulator lists. -}
-subst :: Raw.AliasAlgebraicDataType With.ProgState
-      -> [Raw.AliasAlgebraicDataType With.ProgState]
-      -> [Raw.AliasAlgebraicDataType With.ProgState]
-      -> [Raw.AliasAlgebraicDataType With.ProgState]  --accum list of the first list
-      -> [Raw.AliasAlgebraicDataType With.ProgState]  --accum list of the second list
-      -> ([Raw.AliasAlgebraicDataType With.ProgState], [Raw.AliasAlgebraicDataType With.ProgState])
-{- This is the base case (when the algorithm ends), but elements has been inserted to the head, so
-the order they were changed (they are reversed), thus they get reversed one more time to keep the
-original order. Maybe this a useless operation and can be removed. -}
-subst a [] [] l1 l2 = (List.reverse l1, List.reverse l2)
-subst a [] (a'' : t'') l1 l2 = subst a [] t'' l1 $ replaceAlias a a'' : l2
-subst a (a' : t') l l1 l2 = subst a t' l (replaceAlias a a' : l1) l2
-
-{- `findCycleOfAlias adt ty l res` looks for `adt` in `ty`, if found, then the aliases in `res`
-constitutes a cycle and `res` is returned, else `adt` is searched in implementations of aliases
-in `l`, if found, then a rec call is performed with the alias name whose implementation was
-containing `adt` as first argument. -}
-findCycleOfAlias :: Raw.ADTName With.ProgState                          --current adt name to find
-                 -> Raw.UnConType With.ProgState                             --original type
-                 -> [Raw.AliasAlgebraicDataType With.ProgState]         --read-only list to find the cycle
-                 -> [Raw.AliasAlgebraicDataType With.ProgState]         --accum list to eventually return
-                 -> Maybe [Raw.AliasAlgebraicDataType With.ProgState]
-findCycleOfAlias adt ty l res =
-    if existAdt adt ty
-    then Just res
-    else case find (existAdt adt . Raw.unConFromAlias) l of
-        {- Searching for the new adt name (the alias name). -}
-        Just alias -> findCycleOfAlias (Raw.aliasNameFrom alias) ty l (alias : res)
-        Nothing -> Nothing
+{- `subst a as` replaces every occurrence of the name of alias `a` with the name of the type which implements `a` in
+all aliases `as`. -}
+subst
+    :: Raw.AliasAlgebraicDataType With.ProgState
+    -> [Raw.AliasAlgebraicDataType With.ProgState]
+    -> [Raw.AliasAlgebraicDataType With.ProgState]
+subst alias aliases =
+    fromLastToFst aliases replaceAlias' `accumulatingIn` []
     where
-        existAdt name ty = any (\name' -> repOf name' == repOf name) $ Raw.realTypes' ty
+        replaceAlias' oldAlias as =
+            let newAlias = replaceAlias alias oldAlias in
+                newAlias : as
 
-{- Given two lists of aliases, it iterates all the elements of the first list and for each one
-looks for a cycling dependency of aliases in the second list. It returns the list of aliases which
-makes the cycle. -}
-findCycle :: [Raw.AliasAlgebraicDataType With.ProgState]    --list to analyze
-          -> [Raw.AliasAlgebraicDataType With.ProgState]    --read-only list to find the cycle
-          -> [Raw.AliasAlgebraicDataType With.ProgState]
-findCycle [] _ = [] --unreachable
-findCycle (a : t) l = let aliasName = Raw.aliasNameFrom a in
-    case findCycleOfAlias aliasName (Raw.unConFromAlias a) l [a] of
-        Nothing -> findCycle t l
-        Just res -> res
-
-buildMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> AliasMap -> AliasMap
-buildMap [] m = m
-buildMap (a : t) m =
-    buildMap t $ Map.insert (repOf $ Raw.aliasNameFrom a) (argsOf a, Raw.unConFromAlias a) m
-
-__aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState]
-             -> [Raw.AliasAlgebraicDataType With.ProgState]     --accumulator list
-             -> [Raw.AliasAlgebraicDataType With.ProgState]     --original read-only list to eventually find cycles
-             -> Either [Raw.AliasAlgebraicDataType With.ProgState] AliasMap
-__aliasSubst [] al _ = Right $ buildMap al empty
-{- How can it say there is a cycle just from one alias token? The alias replacing takes place also on
-the sublist `t`, so when a new alias token is analyzed, it is exptected that previous aliases have been
-already replaced in it. -}
-__aliasSubst (a : t) al rol = if isCycle a
-                              then Left $ findCycle rol rol
-                              {- As said before, the replacing takes place also on `t`. -}
-                              else case subst a t al [] [] of
-                                  (l1, l2) -> __aliasSubst l1 (l2 ++ [a]) rol
+{- `findCycleOfAlias alias as` looks for an aliases cycle involving `alias` in the list `as`. If it can find the cycle,
+it returns the list which builds up the cycle. The algorithm works like this:
+    1) accumulate a potential cycle;
+    2) if there is a cycle in `alias`, it is returned with the accumulated cycle;
+    3) else, if an alias (we call it `newAlias`) which has an implementation type where the `alias`'s name occurs,
+       go to 2) with `newAlias` as `alias` parameter, accumulating the old `alias` in the cycle;
+    4) otherwise, there is no cycle.
+-}
+findCycleOfAlias
+    :: Raw.AliasAlgebraicDataType With.ProgState
+    -> [Raw.AliasAlgebraicDataType With.ProgState]
+    -> Maybe [Raw.AliasAlgebraicDataType With.ProgState]
+findCycleOfAlias alias aliases =
+    findCycleOf (Raw.aliasNameFrom alias) `accumulatingIn` []
     where
-        {- Affirming there's a cycle is quite easy: the name of an alias occurs in the type of its definition.
-        NB: this function just says there's a cycle, it does not find it. -}
-        isCycle a = cycleOnType (Raw.aliasNameFrom a) $ Raw.unConFromAlias a
+        aliasUty = Raw.unConFromAlias alias
 
-        cycleOnType r ty = doOnUnCon ty
-            (\rty -> repOf r == repOf rty)
-            (\_ -> False)
-            (\rty ts -> repOf r == repOf rty || any (cycleOnType r) ts)
-            (\_ ts -> any (cycleOnType r) ts)
+        findCycleOf alName curCycle =
+            if alName `hasTypeName` aliasUty
+            then Just curCycle
+            else
+                case firstThat (hasTypeName alName . Raw.unConFromAlias) aliases of
+                    Nothing -> Nothing
+                    {- Searching for the new alias name. -}
+                    Just al -> findCycleOf <| Raw.aliasNameFrom al <| al : curCycle
+
+        hasTypeName alName uty =
+            let types = Raw.realTypes' uty in
+                any (\alName' -> repOf alName' == repOf alName) types
+
+{- Given a list of aliases which contains a cycle, it returns the list of only aliases which makes the cycle.
+NB: it's supposed that a cycle really exists. It returns an empty list if it cannot find the cycle. -}
+getCycle
+    :: [Raw.AliasAlgebraicDataType With.ProgState]
+    -> [Raw.AliasAlgebraicDataType With.ProgState]
+getCycle aliases =
+    try'
+        (fromFstToLast aliases lookForCycle `startingFrom` Nothing)
+    `else'`
+        []    --Unreachable, if there is really a cycle
+    where
+        lookForCycle res @ (Just _) _ = res
+        lookForCycle Nothing alias =
+            findCycleOfAlias alias aliases
+
+buildMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> AliasMap
+buildMap aliases =
+    fromFstToLast aliases buildMap' `startingFrom` empty
+    where
+        buildMap' table alias =
+            Map.insert (repOf $ Raw.aliasNameFrom alias) (argsOf alias, Raw.unConFromAlias alias) table
 
 {- Given a list of aliases, it builds up a map representing the same aliases, but already expanded, namely
 if there's some alias which refers to another alias, the first alias is expanded into what implement the
@@ -218,16 +208,42 @@ and so on...
 
 aliasSubst is also capable of discovering cycles among aliases and returning an error with aliases which
 make up the cycle. -}
-aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either [Raw.AliasAlgebraicDataType With.ProgState] AliasMap
-aliasSubst l = __aliasSubst l [] l
+aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either AliasErr AliasMap
+aliasSubst aliases =
+    aliasSubst' aliases []
+    where
+        aliasSubst'
+            {- Aliases to visit list -}
+            :: [Raw.AliasAlgebraicDataType With.ProgState]
+            {- Visited aliases list: this is kept in order to update all aliases while they are visited. -}
+            -> [Raw.AliasAlgebraicDataType With.ProgState]
+            -> Either AliasErr AliasMap
+        aliasSubst' [] visited = Right $ buildMap visited
+        {- How can it say there is a cycle just from one alias token? The alias replacing takes place also on
+        the sublist `t`, so when a new alias token is analyzed, it is exptected that previous aliases have been
+        already replaced in it. -}
+        aliasSubst' (alias : toVisit) visited =
+            let toVisit' = subst alias toVisit in
+            let visited' = subst alias visited in
+                if isCycle alias
+                then Left . Cycle $ getCycle aliases
+                else aliasSubst' toVisit' (alias : visited')
+
+        {- Affirming there's a cycle is quite easy: the name of an alias occurs in the type of its definition. This
+        is true since updates are perfomed on visited aliases and aliases to visit as well. The updates make substitutions
+        on aliases.
+        NB: this function just says there's a cycle, it does not find it. -}
+        isCycle a = cycleOnType (Raw.aliasNameFrom a) $ Raw.unConFromAlias a
+
+        cycleOnType r ty =
+            doOnUnCon ty
+                (\rty -> repOf r == repOf rty)
+                (\_ -> False)
+                (\rty ts -> repOf r == repOf rty || any (cycleOnType r) ts)
+                (\_ ts -> any (cycleOnType r) ts)
 
 mkAliasMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> Raw.AstOpRes With.ProgState AliasErr AliasMap
-mkAliasMap = lift . mkMap
-    where
-        mkMap aliases =
-            case aliasSubst aliases of
-                Left rec -> Left $ Cycle rec
-                Right table -> Right table
+mkAliasMap = lift . aliasSubst
 
 aliasSubstOp :: AliasMap -> Raw.AstOpRes With.ProgState err ()
 aliasSubstOp m = astOpRes . Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
