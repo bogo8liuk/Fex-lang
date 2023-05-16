@@ -4,6 +4,7 @@ module Lib.Utils
     , if'
     , then'
     , else'
+    , try'
     , startingFrom
     , accumulatingIn
     , intOfStr
@@ -64,7 +65,7 @@ module Lib.Utils
 
 import Data.List(maximumBy, minimumBy, foldl', find)
 import Data.List.NonEmpty(NonEmpty(..))
-import Data.Maybe(isNothing)
+import Data.Maybe(isNothing, fromMaybe)
 import Data.Either(isRight, isLeft)
 import Data.Foldable(toList)
 import Text.Read
@@ -101,12 +102,15 @@ then' False _ = id
 else' :: (a -> a) -> a -> a
 else' = ($)
 
+{- More fancy version of `fromMaybe`. -}
+try' :: Maybe a -> a -> a
+try' = flip fromMaybe
+
 {- More fancy versions of application. For example:
 
     forAll ["hello", "world", "!!!"] fetchVowels `accumulatingIn` (x, [])
 
 -}
-
 infixl 0 `startingFrom`
 startingFrom :: (a -> b) -> a -> b
 startingFrom = ($)
