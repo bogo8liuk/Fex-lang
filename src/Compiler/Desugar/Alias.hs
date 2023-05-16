@@ -34,32 +34,38 @@ instance UnreachableState AliasErr where
 {- `expandTypes ps tys ty` replaces the i-th parametric type of `ps` with the i-th type in `tys`
 in the Type `ty` (so the elements of `ps` are searched for in `ty`).
 NB: `ty` is treated as an accumulator, namely it is changed in-place and then it is returned. -}
-expandTypes :: [Raw.ParamTypeName With.ProgState]
-            -> [Raw.UnConType With.ProgState]
-            -> Raw.UnConType With.ProgState
-            -> Raw.UnConType With.ProgState
+expandTypes
+    :: [Raw.ParamTypeName With.ProgState]
+    -> [Raw.UnConType With.ProgState]
+    -> Raw.UnConType With.ProgState
+    -> Raw.UnConType With.ProgState
 expandTypes [] _ ty = ty
 expandTypes _ [] ty = ty --Unreachable
 expandTypes (par : t) (ty' : t') ty =
     expandTypes t t' $ Raw.doOnUnCon ty
-        (\_ -> ty)  --nothing to replace
+        {- With a singleton concrete type, there's nothing to expand. -}
+        (const ty)
         (\p ->
             if repOf p == repOf par
             then ty'
-            else ty)
-        {- TODO: This is a very inefficient hack to change a Type in-place (due to the rec call in a map function).
-        NB: in the rec call, the lists are passed and not reduced, but this won't cause an infinite loop because
+            else ty
+        )
+        {- NB: in the rec call, the lists are passed and not reduced, but this won't cause an infinite loop because
         sooner or later, it will arrive to the non-rec case (the first two callbacks passed to `doOnUnCon`). -}
-        (\a ts -> let ts' = map (expandTypes (par : t) (ty' : t')) ts in
-            Raw.buildRealCompUnCon a ts' $ stateOf ty)   --setting the state of the old type
-        (\p ts -> let ts' = map (expandTypes (par : t) (ty' : t')) ts in
-            if repOf p == repOf par
-            {- The parametric type `p` has also params (`ts`), thus, besides the substitution of `p` with type `ty`,
-            it is also necessary that the new type `ty` gets the old params of `p` (but changed by the rec call). -}
-            then sconcat (ty' :| ts')
-            else Raw.buildParamCompUnCon p ts' $ stateOf ty)
+        (\a ts ->
+            let ts' = map (expandTypes (par : t) (ty' : t')) ts in
+                Raw.buildRealCompUnCon a ts' $ stateOf ty
+        )
+        (\p ts ->
+            let ts' = map (expandTypes (par : t) (ty' : t')) ts in
+                if repOf p == repOf par
+                {- The parametric type `p` has also params (`ts`), thus, besides the substitution of `p` with type `ty`,
+                it is also necessary that the new type `ty` gets the old params of `p` (but changed by the rec call). -}
+                then sconcat (ty' :| ts')
+                else Raw.buildParamCompUnCon p ts' $ stateOf ty
+        )
 
-{- Given a list of paramtetric types `params`, a string `name` representing an adt name, a type `bty` and another
+{- Given a list of paramtetric types `params`, a `name` representing an adt name, a type `bty` and another
 type `ty`, it substitutes each occurrence in `ty` of `name` with `bty` according to elements of `params` which stand
 inside `ty`. Here a schematic example to make the situation clearer:
 
@@ -74,43 +80,70 @@ the output must be:
 B T1 K1 T2 K2 T3 K3 ...
 
 -}
-replace :: [Raw.ParamTypeName With.ProgState]
-        -> TyConRep
-        -> Raw.UnConType With.ProgState
-        -> Raw.UnConType With.ProgState
-        -> Raw.UnConType With.ProgState
+replace
+    :: [Raw.ParamTypeName With.ProgState]
+    -> TyConRep
+    -> Raw.UnConType With.ProgState
+    -> Raw.UnConType With.ProgState
+    -> Raw.UnConType With.ProgState
 replace params name bty ty =
     Raw.doOnUnCon ty
-        (\adt -> let name' = repOf adt in
-            if name == name'
-            then bty    --it's only the base type and nothing more because this is the case where only a real type appears.
-            else ty)
-        (\_ -> ty)
+        (\adt ->
+            if name == repOf adt
+            then bty
+            else ty
+        )
+        {- With a singleton parametric type, there's nothing to replace since a parametric type name cannot be equal
+        to an alias name. -}
+        (const ty)
         {- This works under the hypothesis that the args number check has already been performed. -}
         (\adt ts ->
-            let name' = repOf adt in
+            {- Recursive calls: performing replacing on arguments. -}
             let ts' = map (replace params name bty) ts in
             let st = stateOf ty in
-                if name == name'
+                {- If the name of the type (`adt`) is the same of the one we are looking for (`name`), then into the
+                arguments (`ts'`) - which are supposed to contain the parameters `params` - `params` have to be
+                substituted with the arguments of `ty` (expanding the type). -}
+                if name == repOf adt
                 then expandTypes params ts' bty
-                else Raw.buildRealCompUnCon adt ts' st)
-        (\par ts -> Raw.buildParamCompUnCon par (map (replace params name bty) ts) $ stateOf ty)
+                else Raw.buildRealCompUnCon adt ts' st
+        )
+        (\par ts ->
+            {- Recursive calls: performing replacing on arguments. -}
+            let ts' = map (replace params name bty) ts in
+                Raw.buildParamCompUnCon par ts' $ stateOf ty
+        )
 
-{- Given an alias `a` and an alias `a'`, it substitutes each occurrence in implementation of `a'` of the alias' name
-of `a` with the type which implements `a`. -}
+{- Given an `alias` and an `alias'`, it substitutes each occurrence of `alias` name in implementation of `alias'` with
+the type which implements `alias`. -}
 replaceAlias
     :: Raw.AliasAlgebraicDataType With.ProgState
     -> Raw.AliasAlgebraicDataType With.ProgState
     -> Raw.AliasAlgebraicDataType With.ProgState
-replaceAlias a a' =
-    let params = Raw.boundParamTNamesFromAlias a in
-    let name = Raw.aliasNameFrom a in
-    let strName = repOf name in
-    let aliasSt = stateOf a' in
-    let adtDecl = Raw.adtDeclareFromAlias a' in
-    let bty = Raw.unConFromAlias a in
-    let ty = Raw.unConFromAlias a' in
-        Raw.buildAlias adtDecl (replace params strName bty ty) aliasSt
+replaceAlias alias alias' =
+    {- Here, the scheme of what is used
+
+       type A  a1 a2 a3 =  T ...
+            |  |  |  |    |     |
+         +--+  +--+--+    +--+--+
+         |        |          |
+         V        V          V
+        name   params       bty
+
+       type B  b1 b2 b3 = P ...
+                         |     |
+                         +--+--+
+                            |
+                            V
+                            ty
+    -}
+    let params = argsOf alias in
+    let name = repOf $ Raw.aliasNameFrom alias in
+    let aliasSt = stateOf alias' in
+    let adtDecl = Raw.adtDeclareFromAlias alias' in
+    let bty = Raw.unConFromAlias alias in
+    let ty = Raw.unConFromAlias alias' in
+        Raw.buildAlias adtDecl (replace params name bty ty) aliasSt
 
 {- `subst a as` replaces every occurrence of the name of alias `a` with the name of the type which implements `a` in
 all aliases `as`. -}
@@ -208,8 +241,8 @@ and so on...
 
 aliasSubst is also capable of discovering cycles among aliases and returning an error with aliases which
 make up the cycle. -}
-aliasSubst :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either AliasErr AliasMap
-aliasSubst aliases =
+mkAliasMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> Either AliasErr AliasMap
+mkAliasMap aliases =
     aliasSubst' aliases []
     where
         aliasSubst'
@@ -238,12 +271,12 @@ aliasSubst aliases =
         cycleOnType r ty =
             doOnUnCon ty
                 (\rty -> repOf r == repOf rty)
-                (\_ -> False)
+                (const False)
                 (\rty ts -> repOf r == repOf rty || any (cycleOnType r) ts)
                 (\_ ts -> any (cycleOnType r) ts)
 
-mkAliasMap :: [Raw.AliasAlgebraicDataType With.ProgState] -> Raw.AstOpRes With.ProgState AliasErr AliasMap
-mkAliasMap = lift . aliasSubst
+mkAliasMapOp :: [Raw.AliasAlgebraicDataType With.ProgState] -> Raw.AstOpRes With.ProgState AliasErr AliasMap
+mkAliasMapOp = lift . mkAliasMap
 
 aliasSubstOp :: AliasMap -> Raw.AstOpRes With.ProgState err ()
 aliasSubstOp m = astOpRes . Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAlias]
@@ -251,6 +284,7 @@ aliasSubstOp m = astOpRes . Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAl
         substCallback ty =
             let conts = Raw.contsFromType ty in
             let unCon = Raw.unConFromType ty in
+            {- Applying the substitution to the constraints as well. -}
             let newConts = map mkNewCont conts in
             let newUnCon = substCallback' unCon in
                 Raw.buildType newConts newUnCon $ stateOf ty
@@ -260,22 +294,23 @@ aliasSubstOp m = astOpRes . Raw.safeUpdateTypes substCallback $ AOFExcept [AOFAl
                 Raw.buildCont (Raw.intfNameFromCont c) ts $ stateOf c
 
         {- This cannot return a Nothing. -}
-        substCallback' ty = Raw.doOnUnCon ty
-            (lookupAndReplace ty)
-            (\_ -> ty)
-            (\adtn _ -> lookupAndReplace ty adtn)
-            (\_ _ -> ty)
+        substCallback' ty =
+            Raw.doOnUnCon ty
+                (lookupAndReplace ty)
+                (const ty)
+                (\adtn _ -> lookupAndReplace ty adtn)
+                (\_ _ -> ty)
 
         lookupAndReplace ty adtn =
             let name = repOf adtn in
-            case m !? name of
-                Nothing -> ty
-                Just (params, bty) -> replace params name bty ty
+                case Map.lookup name m of
+                    Nothing -> ty
+                    Just (params, bty) -> replace params name bty ty
 
 aliasSubstitutionOp :: Raw.AstOpRes With.ProgState AliasErr ()
 aliasSubstitutionOp = do
     aliases <- removeAlias
-    table <- mkAliasMap aliases
+    table <- mkAliasMapOp aliases
     aliasSubstOp table
 
 {- Given a Program, it returns a new Program, namely the changed version of the old one, where all occurrences
