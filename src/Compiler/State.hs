@@ -18,7 +18,7 @@ module Compiler.State
     , endSrcLocFromState
 ) where
 
-import Lib.Utils((<|))
+import Utils.Fancy((<|))
 import Text.Parsec
 import SrcLoc
 import FastString

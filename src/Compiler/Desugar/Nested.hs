@@ -4,8 +4,8 @@ module Compiler.Desugar.Nested
     ( replaceNested
 ) where
 
-import Lib.Utils
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
+import Utils.Data.Foldable
 import Data.Map.Strict as M hiding (map)
 import Compiler.State as With
 import Compiler.Ast.Common

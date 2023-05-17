@@ -29,13 +29,13 @@ module Compiler
 ) where
 
 import Control.Monad(when)
-import Lib.Monad.Utils
+import Utils.Monad
 import Data.Maybe(isJust)
 import System.Exit
-import Lib.Utils
+import Utils.Fancy
 import Lib.Result
 --import Text.Pretty.Simple(pPrint)
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import qualified Compiler.State as With
 import Compiler.Config.Lexer
 import qualified Compiler.Builtin.Tokens as Builtin.Tokens
@@ -130,7 +130,7 @@ evalDbgPhaseWith
 evalDbgPhaseWith res doOn f = evalPhaseWith res doOn f (putStrLn . dbgShow)
 
 prNone :: a -> IO ()
-prNone = const doNothing'
+prNone = const doNothing
 
 readSource :: FilePath -> IO String
 readSource = readFile

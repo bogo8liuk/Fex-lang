@@ -15,9 +15,11 @@ module Compiler.Types.Builder.Kind
     , kindDiscover
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Knowledge
+import Utils.Data.Foldable
 import Lib.Result
-import Data.Map.Strict as Map hiding (null, map, filter, foldl')
+import Data.Map.Strict as Map hiding (null, map, filter, foldl', elemAt)
 import Data.List(foldl')
 import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
@@ -136,13 +138,13 @@ singleReal (Just (pos, ty)) m cont rty =
                 let (v, _) = Fresh.allocFreeVar () cont in
                     Left $ UeKErr (name, (LKConst, st''), (SubLK [LKVar v, LKConst], st))
             (Just (lk', st'), Just (SubLK ks'', st'')) ->
-                case Lib.Utils.elemAt pos ks'' of
+                case elemAt pos ks'' of
                     Nothing -> Left $ TArgsErr (ty, (SubLK ks'', st''))
                     Just lk -> case lk' Ty.==^ lk of
                         Nothing -> Left $ UeKErr (rName, (SubLK ks'', st''), (lk', st'))
                         Just l -> Right (updateKinds l m, cont)
             (Nothing, Just (SubLK ks'', st'')) ->
-                case Lib.Utils.elemAt pos ks'' of
+                case elemAt pos ks'' of
                     Nothing -> Left $ TArgsErr (ty, (SubLK ks'', st''))
                     Just lk -> Right (Map.insert rName (lk, rst) m, cont)
             (Nothing, _) ->
@@ -178,13 +180,13 @@ singleParam (Just (pos, ty)) m cont pty =
                 let (v, _) = Fresh.allocFreeVar () cont in
                     Left $ UeKErr (name, (LKConst, st''), (SubLK [LKVar v, LKConst], st))
             (Just (lk', st'), Just (SubLK ks'', st'')) ->
-                case Lib.Utils.elemAt pos ks'' of
+                case elemAt pos ks'' of
                     Nothing -> Left $ TArgsErr (ty, (SubLK ks'', st''))
                     Just lk -> case lk' Ty.==^ lk of
                         Nothing -> Left $ UeKErr (pName, (SubLK ks'', st''), (lk', st'))
                         Just l -> Right (updateKinds l m, cont)
             (Nothing, Just (SubLK ks'', st'')) ->
-                case Lib.Utils.elemAt pos ks'' of
+                case elemAt pos ks'' of
                     Nothing -> Left $ TArgsErr (ty, (SubLK ks'', st''))
                     Just lk -> Right (Map.insert pName (lk, pst) m, cont)
             {- In this case there's nothing to do: the external type (`ty`) should be updated to SubLK,

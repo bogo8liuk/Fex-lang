@@ -4,7 +4,8 @@ module Compiler.Types.Builder.Cons
 ) where
 
 import Lib.Result
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.List
 import Data.Semigroup(sconcat)
 import Data.Map.Strict as M hiding (map, foldl')

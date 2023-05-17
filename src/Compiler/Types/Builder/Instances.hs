@@ -6,7 +6,8 @@ module Compiler.Types.Builder.Instances
     , InstanceErr(..)
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Lib.Result
 import Control.Monad.State
 import Compiler.Ast.Common

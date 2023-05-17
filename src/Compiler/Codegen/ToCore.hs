@@ -3,9 +3,10 @@ module Compiler.Codegen.ToCore
     , MainBndr
 ) where
 
-import Lib.Utils
-import Lib.Monad.Utils
-import qualified Lib.Counter as C
+import Utils.Fancy
+import Utils.Data.Foldable
+import Utils.Monad
+import qualified Utils.Data.Counter as C
 import Control.Monad.State
 import Compiler.State as With
 import Compiler.Ast.Common
@@ -163,7 +164,7 @@ ifMainUpdate bs binding =
     then do
         bndr <- getCoreMain binding
         putMain bndr
-    else doNothing'
+    else doNothing
 
 strRepOfCoreVar :: Var -> String
 strRepOfCoreVar = occNameString . nameOccName . Var.varName

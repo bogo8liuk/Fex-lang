@@ -13,16 +13,17 @@ module Compiler.Types.Builder.Type
     , BindingToRefine
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Lib.Result
 import Data.List as L
 import Data.List.NonEmpty(NonEmpty(..))
 import Data.Map.Strict as M hiding (map, drop, elemAt)
 import Data.Semigroup
 import Control.Monad.State.Lazy
-import Lib.Monad.Utils
+import Utils.Monad
 import qualified Compiler.NameSpace as NS
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import qualified Compiler.Types.Lib.State as S
 import qualified Compiler.Desugar.Names as Desugar
 import qualified Compiler.Desugar.BreadthPM as RmMult
@@ -781,7 +782,7 @@ withIncScope op = do
     op `withScope` NS.incrScope sc
 
 incScope :: TyInf ()
-incScope = withIncScope doNothing'
+incScope = withIncScope doNothing
 
 withLocalIncScope :: TyInf res -> TyInf res
 withLocalIncScope op = do
@@ -805,7 +806,7 @@ withDecScope op = do
     op
 
 decScope :: TyInf ()
-decScope = withDecScope doNothing'
+decScope = withDecScope doNothing
 
 putPhC :: PlaceholderCounter -> TyInf ()
 putPhC newpc = put' newpc stPutPhC
@@ -852,7 +853,7 @@ popNested :: TyInf ()
 popNested = do
     ns <- getNested
     case ns of
-        [] -> doNothing'
+        [] -> doNothing
         (_ : t) -> putNested t
 
 putToRefine :: [BindingToRefine] -> TyInf ()
@@ -2203,7 +2204,7 @@ inferExprSymbol hts sn st = do
                             {- Collecting type-hinting. -}
                             addTypeHintToRecSym symRep sc monoTy
                         `elseInfer`
-                            doNothing'
+                            doNothing
                     return (nExpr, [subst])
                 ) `elseInfer` do
                     (updNVar, cs) <- divideContsFrom nVar

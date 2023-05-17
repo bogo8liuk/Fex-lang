@@ -288,8 +288,9 @@ module Compiler.Ast.Tree
     , strToAdtName
 ) where
 
-import Lib.Utils
-import Lib.Monad.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
+import Utils.Monad
 import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.RWS
@@ -307,7 +308,15 @@ newtype Program a = Program {- TODO: import/export -} [Declaration a] deriving S
 
 newtype OperatorsCategories a = OpsCatgs [OperatorsCategory a] deriving Show
 
-newtype OperatorsCategory a = Catg (CategoryName a, [SymbolName a], [CategoryName a], [CategoryName a], Fixity a, a) deriving Show
+newtype OperatorsCategory a =
+    Catg
+        ( CategoryName a
+        , [SymbolName a]
+        , [CategoryName a]
+        , [CategoryName a]
+        , Fixity a
+        , a
+        ) deriving Show
 
 newtype CategoryName a = CatgName (String, a) deriving Show
 newtype Fixity a = Fxty (String, a) deriving Show

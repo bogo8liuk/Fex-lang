@@ -9,7 +9,7 @@ module Compiler.Syntax.Grammar
     , specialAdt'
 ) where
 
-import Lib.Utils
+import Utils.Fancy
 import Data.Array(bounds, (!))
 import Compiler.Config.Rep
 import qualified Compiler.Config.Types as BITy

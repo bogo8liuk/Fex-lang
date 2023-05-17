@@ -12,7 +12,7 @@ module Compiler.Types.Lib.FreeVars
 ) where
 
 import Data.Map.Strict as M hiding (map)
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 
 data FV a =
     FV

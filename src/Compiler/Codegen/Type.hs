@@ -10,7 +10,8 @@ module Compiler.Codegen.Type
     , getExprCoreType
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.Array(assocs)
 import Data.String(fromString)
 import Compiler.Codegen.Lib

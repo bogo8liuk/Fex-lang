@@ -20,8 +20,9 @@ module Compiler.Types.Tables
     , module Lib.Table
 ) where
 
-import Lib.Utils
+import Utils.Fancy
 import Lib.Table
+import Utils.Data.Foldable
 import Data.List(foldl')
 import Data.Map.Strict as Map hiding (map, filter, foldl')
 import qualified Compiler.Config.Types as BITy

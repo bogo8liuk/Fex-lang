@@ -1,5 +1,5 @@
 {- This module is responsible to make unique names of whatever symbol (here, the term "symbol" is a name used to
-represent something which can have a name in a program). It relies on Lib.Counter. -}
+represent something which can have a name in a program). -}
 
 module Compiler.Desugar.Names
     ( mkLamUniqueName
@@ -14,11 +14,12 @@ module Compiler.Desugar.Names
     , mkUniqueObj
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.List(foldl')
 import Data.Map.Strict as M hiding (foldl')
 import Compiler.Config.Lexer(reservedIdKeyword)
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import Unique
 import Compiler.Ast.Common
 import qualified Compiler.Ast.Typed as Ty

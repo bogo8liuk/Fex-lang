@@ -3,7 +3,8 @@ module Compiler.Syntax.Parser
     ( program
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Lib.Result
 import Text.Parsec
 import Text.Parsec.Expr

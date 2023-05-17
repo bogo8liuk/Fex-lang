@@ -3,7 +3,8 @@ module Compiler.Desugar.Alias
     , substitution
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Lib.Result
 import Data.List.NonEmpty as NEList hiding (map, (<|))
 import Data.Map.Strict as Map hiding (map)

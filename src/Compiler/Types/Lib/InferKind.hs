@@ -15,7 +15,8 @@ module Compiler.Types.Lib.InferKind
     , module Fresh
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.List(foldl')
 import Data.Map.Strict as M hiding (map, foldl')
 import Compiler.State as With

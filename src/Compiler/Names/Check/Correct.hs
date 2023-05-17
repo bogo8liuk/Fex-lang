@@ -2,10 +2,10 @@ module Compiler.Names.Check.Correct
     ( namesCheck
 ) where
 
-import Lib.Utils
+import Utils.Data.Foldable
 import Data.Map.Strict hiding (null)
 import Control.Monad
-import Lib.Monad.Utils
+import Utils.Monad
 import Control.Monad.State.Lazy
 import Compiler.Ast.Common
 import Compiler.Ast.Tree
@@ -22,7 +22,7 @@ propInConstraint c = do
     let propName = intfNameFromCont c
     tables <- get
     if repOf propName `Names.isInterfaceMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoProp propName
 
 contCheck :: [ParamTypeName With.ProgState] -> Constraint With.ProgState -> Names.Op ()
@@ -45,7 +45,7 @@ symInSignature sig = do
     let sym = symNameFromSig sig
     tables <- get
     if repOf sym `Names.isSymbolMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoSymSig sym
 
 contsCheckInType :: Type With.ProgState -> Names.Op ()
@@ -82,7 +82,7 @@ propInInstance inst = do
     let propName = intfNameFromInst inst
     tables <- get
     if repOf propName `Names.isInterfaceMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoProp propName
 
 contsCheckInInstance :: Instance With.ProgState -> Names.Op ()
@@ -108,14 +108,14 @@ allImplsExist inst = do
         existsImpl symReps sd = do
             let symRep = repOf $ symNameFromSD sd
             if symRep `elem` symReps
-            then doNothing'
+            then doNothing
             else Names.err $ NoImpl symRep inst
 
 existsAdtName :: ADTName With.ProgState -> Names.Op ()
 existsAdtName adtName = do
     tables <- get
     if repOf adtName `Names.isAdtMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoAdt adtName
 
 allAdtExist :: [ADTName With.ProgState] -> Names.Op ()
@@ -124,7 +124,7 @@ allAdtExist = mapM_ existsAdtName
 allParamTypesBound :: [ParamTypeName With.ProgState] -> [ParamTypeName With.ProgState] -> Names.Op ()
 allParamTypesBound binders pts =
     case firstThat isNotBound pts of
-        Nothing -> doNothing'
+        Nothing -> doNothing
         Just pty -> Names.err $ UnboundParamType pty
     where
         isNotBound pty =
@@ -235,15 +235,15 @@ checkUnAltExpr (Base sym) = do
     tables <- get
     if symRep `Names.isSymbolMember` tables ||
        symRep `Names.isSignatureMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoSym sym
 checkUnAltExpr (ADTBase con) = do
     let conRep = repOf con
     tables <- get
     if conRep `Names.isConstructorMember` tables
-    then doNothing'
+    then doNothing
     else Names.err $ NoCon con
-checkUnAltExpr (Lit _) = doNothing'
+checkUnAltExpr (Lit _) = doNothing
 checkUnAltExpr (App (AppExpr (e, es, _))) = do
     checkExpr e
     mapM_ checkExpr es
@@ -271,7 +271,7 @@ checkUnAltExpr (MultiBound (MultiBoundExpr msd e _)) = do
             tryInsert tables $ symNameFromMultiSymDecl msd
 
 typesCheckInHint :: Hint With.ProgState -> Names.Op ()
-typesCheckInHint (Hint (Nothing, _)) = doNothing'
+typesCheckInHint (Hint (Nothing, _)) = doNothing
 typesCheckInHint (Hint (Just ty, _)) = do
     let names = adtNamesFromUnCon $ unConFromType ty
     allAdtExist names
@@ -288,7 +288,7 @@ symInGenSymDecl sd = do
     tables <- get
     if repOf sym `Names.isAnyPropMethod` tables
     then Names.err $ DupSymProp sym
-    else doNothing'
+    else doNothing
 
 exprsInSd :: SymbolDeclaration With.ProgState -> Names.Op ()
 exprsInSd (SymTok (SymDecl (_, hint, args, _), e, _)) = do

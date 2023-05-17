@@ -19,8 +19,8 @@ module Compiler.Types.Make
     , mkTypedProg
 ) where
 
-import Lib.Utils((<|))
-import qualified Lib.Counter as C
+import Utils.Fancy((<|))
+import qualified Utils.Data.Counter as C
 import Compiler.State as With
 import Compiler.Ast.Tree as Raw
 import Compiler.Types.Tables

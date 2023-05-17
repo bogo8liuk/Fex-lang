@@ -2,10 +2,10 @@ module Compiler.Desugar.Scrutinee
     ( unify
 ) where
 
-import Lib.Utils
+import Utils.Fancy
 import Data.List(foldl')
 import Control.Monad.State.Lazy
-import Lib.Counter as C
+import Utils.Data.Counter as C
 import Compiler.Ast.Common
 import Compiler.State as With
 import qualified Compiler.Desugar.Names as Desugar

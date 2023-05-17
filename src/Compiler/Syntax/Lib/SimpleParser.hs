@@ -57,7 +57,7 @@ module Compiler.Syntax.Lib.SimpleParser
 ) where
 
 import Data.Char
-import Lib.Utils
+import Utils.Fancy
 import Text.Parsec
 import qualified Text.Parsec.Token as Tokens
 import Text.Parsec.Expr

@@ -22,10 +22,10 @@ module Compiler.Codegen.Env
     , putMain
 ) where
 
-import Lib.Utils
+import Utils.Data.Foldable
 import Lib.Result
 import Control.Monad.State.Lazy
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import Data.Map.Lazy as M hiding (filter)
 import Compiler.State as With
 import Compiler.Ast.Common as Ast

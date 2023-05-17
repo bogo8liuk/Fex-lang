@@ -5,7 +5,8 @@ module Compiler.Desugar.AdHoc.Accumulate
     , bindingsToDispatch
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.List.NonEmpty hiding (takeWhile, (<|))
 import Control.Monad.State.Lazy
 import Compiler.State as With

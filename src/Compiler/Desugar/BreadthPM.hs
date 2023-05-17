@@ -6,7 +6,7 @@ module Compiler.Desugar.BreadthPM
     , mkPattMatch
 ) where
 
-import Lib.Utils
+import Utils.Fancy
 import Control.Monad.State.Lazy
 --import Control.Monad.Trans.Identity
 import Lib.Result

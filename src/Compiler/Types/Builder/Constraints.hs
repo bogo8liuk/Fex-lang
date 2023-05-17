@@ -3,7 +3,8 @@ module Compiler.Types.Builder.Constraints
     , build
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Lib.Result
 import Data.Map.Strict as M hiding (map, foldl', filter)
 import Data.List(foldl', nubBy)

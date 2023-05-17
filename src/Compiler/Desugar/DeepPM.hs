@@ -3,12 +3,12 @@ module Compiler.Desugar.DeepPM
     , removeDeepPm
 ) where
 
-import Lib.Utils
+import Utils.Data.Foldable
 import Data.List(foldl')
-import Lib.Monad.Utils
+import Utils.Monad
 import Control.Monad.State
 import Lib.Result
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import Compiler.Desugar.Names
 import Compiler.State as With
 import Compiler.Ast.Common

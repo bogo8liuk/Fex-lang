@@ -190,13 +190,15 @@ module Compiler.Ast.Typed
     , showExpr
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Knowledge
+import Utils.Data.Foldable
 import Data.List(foldl', nub, partition)
 import Data.List.NonEmpty(NonEmpty(..))
 import Data.Maybe(isNothing)
 import Data.Map.Strict as M hiding (map, foldl', foldl, take, drop, elemAt, findIndex, null, filter, splitAt, partition)
 import Data.Semigroup
-import qualified Lib.Counter as C
+import qualified Utils.Data.Counter as C
 import Control.Monad.State.Lazy
 import Compiler.Ast.Common
 import Compiler.Config.Types as BI

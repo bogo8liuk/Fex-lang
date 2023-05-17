@@ -23,7 +23,7 @@ module Compiler.Desugar.AdHoc.Lib
     , addBinding
 ) where
 
-import Lib.Utils
+import Utils.Data.Foldable
 --import Data.List(nubBy)
 --import Data.List.NonEmpty hiding (nubBy)
 import Control.Monad.Trans

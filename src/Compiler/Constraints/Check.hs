@@ -6,8 +6,8 @@ module Compiler.Constraints.Check
     ( perform
 ) where
 
+import Utils.Data.Foldable
 import Lib.Result
-import Lib.Utils
 import Data.List(foldl')
 import Compiler.State as With
 import Compiler.Ast.Common

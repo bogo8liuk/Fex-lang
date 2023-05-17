@@ -4,11 +4,12 @@ module Compiler.Desugar.AdHoc.Create
     ( instantiateBindings
 ) where
 
-import Lib.Utils
+import Utils.Fancy
+import Utils.Data.Foldable
 import Data.List(partition)
 import Data.Map.Strict as M hiding (map, filter, splitAt, partition)
 import Control.Monad
-import Lib.Monad.Utils
+import Utils.Monad
 import Control.Monad.State
 import Compiler.State as With
 import qualified Compiler.Types.Lib.State as S
@@ -135,7 +136,7 @@ handleNestedRepls bSing = foldM createNested (bSing, [])
                     return (updBSing, repls' ++ repls)
 
 createNewBindings :: [Replacement] -> AdHocHandle ()
-createNewBindings [] = doNothing'
+createNewBindings [] = doNothing
 createNewBindings (repl : t) = do
     (maybinding, repls) <- createNewBinding repl
     case maybinding of

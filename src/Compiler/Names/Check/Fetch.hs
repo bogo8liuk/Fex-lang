@@ -2,8 +2,8 @@ module Compiler.Names.Check.Fetch
     ( addNamesFrom
 ) where
 
-import Lib.Utils
-import Lib.Monad.Utils
+import Utils.Fancy
+import Utils.Monad
 import Control.Monad.State.Lazy
 import Compiler.Ast.Common
 import Compiler.Ast.Tree
@@ -82,7 +82,7 @@ add (Intf d) = do
     addPropSigs prop sigs
 add (Sig d) =
     addSig d
-add (Ins _) = doNothing'
+add (Ins _) = doNothing
 
 addNamesFrom :: [Declaration With.ProgState] -> Names.Op ()
 addNamesFrom = mapM_ add

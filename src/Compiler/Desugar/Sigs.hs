@@ -4,7 +4,7 @@ module Compiler.Desugar.Sigs
     ( perform
 ) where
 
-import Lib.Utils
+import Utils.Data.Foldable(onFst)
 import Compiler.Ast.Common
 import Compiler.Ast.Tree as Raw
 import Compiler.State as With
