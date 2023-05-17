@@ -89,12 +89,8 @@ library
       Compiler.Types.Prepare.Recursion
       Compiler.Types.Prepare.Sort
       Compiler.Types.Tables
-      Lib.Counter
-      Lib.Monad.Tape
-      Lib.Monad.Utils
       Lib.Result
       Lib.Table
-      Lib.Utils
       ModuleSys.HsModl
   other-modules:
       Paths_Fex
@@ -107,6 +103,7 @@ library
     , containers >=0.6.5.1
     , core-comp-unit
     , ghc
+    , hs-utils
     , mtl
     , parsec >=3.1.13.0 && <=3.1.14.0
     , pretty-simple >=4.0.0.0
@@ -127,6 +124,7 @@ executable fexc
     , containers >=0.6.5.1
     , core-comp-unit
     , ghc
+    , hs-utils
     , mtl
     , parsec >=3.1.13.0 && <=3.1.14.0
     , pretty-simple >=4.0.0.0
@@ -154,6 +152,7 @@ test-suite mylang-test
     , containers >=0.6.5.1
     , core-comp-unit
     , ghc
+    , hs-utils
     , mtl
     , parsec >=3.1.13.0 && <=3.1.14.0
     , pretty-simple >=4.0.0.0
