@@ -8,7 +8,7 @@ module Compiler.Types.Lib.Create
     , aConstrainedType
 ) where
 
-import Utils.Fancy
+import Utils.Fancy hiding (Description)
 import Utils.Data.Foldable
 import Lib.Result(Description(..))
 import Data.List(foldl', nub)
