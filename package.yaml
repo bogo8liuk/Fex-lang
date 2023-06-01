@@ -23,7 +23,7 @@ dependencies:
 - transformers
 - mtl
 - ghc
-- parsec >= 3.1.13.0 && <= 3.1.14.0
+- parsec
 - containers >= 0.6.5.1
 - array >= 0.5.4.0
 - pretty-simple >= 4.0.0.0
