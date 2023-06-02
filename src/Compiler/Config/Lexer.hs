@@ -3,67 +3,66 @@ module Compiler.Config.Lexer
     ( inlineCommentKeyword
     , multilineStartCommentKeyword
     , multilineEndCommentKeyword
-    , symbolDeclarationKeyword
-    , adtKeyword
-    , aliasKeyword
-    , interfaceKeyword
-    , instanceKeyword
+    , symbolDeclarationDefKeyword
+    , typeThingDefKeyword
+    , aliasDefKeyword
+    , typeClassDefKeyword
+    , instanceDefKeyword
     , matchKeyword
     , matchWithKeyword
-    , specificsKeyword
-    , exprBindKeyword
-    , lambdaKeyword
-    , lambdaContKeyword
-    , signatureKeyword
-    , functionAppKeyword
+    , letDefKeyword
+    , postLetDefKeyword
+    , letScopeKeyword
+    , lambdaDefKeyword
+    , lambdaScopeKeyword
+    , signatureDefKeyword
+    , functionTypeKeyword
     , constraintAppKeyword
     , definitionKeyword
-    , defaultKeyword
+    , defaultPatternKeyword
     , caseSeparationKeyword
     , andSeparationKeyword
-    , caseThenKeyword
-    , stateDefinitionKeyword
+    , caseScopeKeyword
+    , signatureScopeKeyword
     , stringLitKeyword
     , charLitKeyword
     , recordStartKeyword
     , recordEndKeyword
-    , funAsOpKeyword
+    , varAsOpKeyword
     , reservedIdKeyword
     , mainSymbol
-    , listTySugarStart
-    , listTySugarEnd
-    , listConSugarStart
-    , listConSugarEnd
-    , listConSugarSep
-    , listEmptyCon
-    , listConsCon
-    , tupleTySugarStart
-    , tupleTySugarEnd
-    , tupleTySugarSep
-    , tupleConSugarStart
-    , tupleConSugarEnd
-    , tupleConSugarSep
-    , trueCon
-    , falseCon
+    , listTypeStart
+    , listTypeEnd
+    , listDataConStart
+    , listDataConEnd
+    , listDataConSep
+    , listEmptyDataCon
+    , listConsDataCon
+    , tupleTypeStart
+    , tupleTypeEnd
+    , tupleTypeSep
+    , tupleDataConStart
+    , tupleDataConEnd
+    , tupleDataConSep
+    , trueDataCon
+    , falseDataCon
     , endStatementKeyword
-    , compileTimeStartEval
-    , compileTimeEndEval
+    , compileTimeEvalStart
+    , compileTimeEvalEnd
     , compileTimeOpsCategory
-    , OpsCategoryRecord     --must be abstract, the user does not have the right to see it or create a new one
-    , fieldName
-    , fieldOps
-    , fieldGt
-    , fieldLt
-    , fieldFixity
-    , def
-    , listSep
-    , end
-    , opsCategoryKeywords
-    , infixLeftKey
-    , infixRightKey
-    , infixNoneKey
-    , prefixKey
-    , postfixKey
+    , opsCatIdField
+    , opsCatOpsField
+    , opsCatGtField
+    , opsCatLtField
+    , opsCatFixityField
+    , opsCatFieldDef
+    , opsCatAndSep
+    , opsCatFieldEnd
+    , opsCatInfixLeftVal
+    , opsCatInfixRightVal
+    , opsCatInfixNoneVal
+    , opsCatPrefixVal
+    , opsCatPostfixVal
     , possibleOpsHead
     , possibleOpsTail
 ) where
@@ -79,20 +78,20 @@ multilineStartCommentKeyword = "{*"
 multilineEndCommentKeyword :: String
 multilineEndCommentKeyword = "*}"
 
-symbolDeclarationKeyword :: String
-symbolDeclarationKeyword = "let"
+symbolDeclarationDefKeyword :: String
+symbolDeclarationDefKeyword = "let"
 
-adtKeyword :: String
-adtKeyword = "type"
+typeThingDefKeyword :: String
+typeThingDefKeyword = "type"
 
-aliasKeyword :: String
-aliasKeyword = "alias"
+aliasDefKeyword :: String
+aliasDefKeyword = "alias"
 
-interfaceKeyword :: String
-interfaceKeyword = "property"
+typeClassDefKeyword :: String
+typeClassDefKeyword = "class"
 
-instanceKeyword :: String
-instanceKeyword = "instance"
+instanceDefKeyword :: String
+instanceDefKeyword = "instance"
 
 matchKeyword :: String
 matchKeyword = "match"
@@ -100,24 +99,26 @@ matchKeyword = "match"
 matchWithKeyword :: String
 matchWithKeyword = "with"
 
-{- LEGACY -}
-specificsKeyword :: String
-specificsKeyword = "where"
+letDefKeyword :: String
+letDefKeyword = "let"
 
-exprBindKeyword :: String
-exprBindKeyword = "in"
+postLetDefKeyword :: String
+postLetDefKeyword = "where"
 
-lambdaKeyword :: String
-lambdaKeyword = "lam"
+letScopeKeyword :: String
+letScopeKeyword = "in"
 
-lambdaContKeyword :: String
-lambdaContKeyword = "->"
+lambdaDefKeyword :: String
+lambdaDefKeyword = "lam"
 
-signatureKeyword :: String
-signatureKeyword = "val"
+lambdaScopeKeyword :: String
+lambdaScopeKeyword = "->"
 
-functionAppKeyword :: String
-functionAppKeyword = "->"
+signatureDefKeyword :: String
+signatureDefKeyword = "val"
+
+functionTypeKeyword :: String
+functionTypeKeyword = "->"
 
 constraintAppKeyword :: String
 constraintAppKeyword = "=>"
@@ -125,8 +126,8 @@ constraintAppKeyword = "=>"
 definitionKeyword :: String
 definitionKeyword = "="
 
-defaultKeyword :: String
-defaultKeyword = "_"
+defaultPatternKeyword :: String
+defaultPatternKeyword = "_"
 
 caseSeparationKeyword :: String
 caseSeparationKeyword = "|"
@@ -134,11 +135,11 @@ caseSeparationKeyword = "|"
 andSeparationKeyword :: String
 andSeparationKeyword = ","
 
-caseThenKeyword :: String
-caseThenKeyword = "->"
+caseScopeKeyword :: String
+caseScopeKeyword = "->"
 
-stateDefinitionKeyword :: String    --TODO: name not satisfying
-stateDefinitionKeyword = ":"
+signatureScopeKeyword :: String
+signatureScopeKeyword = ":"
 
 stringLitKeyword :: String
 stringLitKeyword = "\""
@@ -152,8 +153,8 @@ recordStartKeyword = "{"
 recordEndKeyword :: String
 recordEndKeyword = "}"
 
-funAsOpKeyword :: String
-funAsOpKeyword = "`"
+varAsOpKeyword :: String
+varAsOpKeyword = "`"
 
 endStatementKeyword :: String
 endStatementKeyword = ";;"
@@ -165,94 +166,98 @@ reservedIdKeyword = "_,"
 mainSymbol :: String
 mainSymbol = "main"
 
-listTySugarStart :: String
-listTySugarStart = "["
+listTypeStart :: String
+listTypeStart = "["
 
-listTySugarEnd :: String
-listTySugarEnd = "]"
+listTypeEnd :: String
+listTypeEnd = "]"
 
-listConSugarStart :: String
-listConSugarStart = "["
+listDataConStart :: String
+listDataConStart = "["
 
-listConSugarEnd :: String
-listConSugarEnd = "]"
+listDataConEnd :: String
+listDataConEnd = "]"
 
-listConSugarSep :: String
-listConSugarSep = ","
+listDataConSep :: String
+listDataConSep = ","
 
-listEmptyCon :: String
-listEmptyCon = "[]"
+listEmptyDataCon :: String
+listEmptyDataCon = "[]"
 
-listConsCon :: String
-listConsCon = "::"
+listConsDataCon :: String
+listConsDataCon = "::"
 
-tupleTySugarStart :: String
-tupleTySugarStart = "("
+tupleTypeStart :: String
+tupleTypeStart = "("
 
-tupleTySugarEnd :: String
-tupleTySugarEnd = ")"
+tupleTypeEnd :: String
+tupleTypeEnd = ")"
 
-tupleTySugarSep :: String
-tupleTySugarSep = ","
+tupleTypeSep :: String
+tupleTypeSep = ","
 
-tupleConSugarStart :: String
-tupleConSugarStart = "("
+tupleDataConStart :: String
+tupleDataConStart = "("
 
-tupleConSugarEnd :: String
-tupleConSugarEnd = ")"
+tupleDataConEnd :: String
+tupleDataConEnd = ")"
 
-tupleConSugarSep :: String
-tupleConSugarSep = ","
+tupleDataConSep :: String
+tupleDataConSep = ","
 
-trueCon :: String
-trueCon = "True"
+trueDataCon :: String
+trueDataCon = "True"
 
-falseCon :: String
-falseCon = "False"
+falseDataCon :: String
+falseDataCon = "False"
 
-compileTimeStartEval :: String
-compileTimeStartEval = "{#"
+compileTimeEvalStart :: String
+compileTimeEvalStart = "{#"
 
-compileTimeEndEval :: String
-compileTimeEndEval = "#}"
+compileTimeEvalEnd :: String
+compileTimeEvalEnd = "#}"
 
 compileTimeOpsCategory :: String
 compileTimeOpsCategory = "OPERATORS_CATEGORY"
 
-data OpsCategoryRecord =
-    Record
-        { fieldName :: String
-        , fieldOps :: String
-        , fieldGt :: String
-        , fieldLt :: String
-        , fieldFixity :: String
-        , def :: String
-        , listSep :: String
-        , end :: String
-        , infixLeftKey :: String
-        , infixRightKey :: String
-        , infixNoneKey :: String
-        , prefixKey :: String
-        , postfixKey :: String
-        }
+opsCatIdField :: String
+opsCatIdField = "name"
 
-opsCategoryKeywords :: OpsCategoryRecord
-opsCategoryKeywords =
-    Record
-        { fieldName = "name"
-        , fieldOps = "operators"
-        , fieldGt = "greater than"
-        , fieldLt = "lesser than"
-        , fieldFixity = "fixity"
-        , def = ":"
-        , listSep = ","
-        , end = ";"
-        , infixLeftKey = "InfixLeft"
-        , infixRightKey = "InfixRight"
-        , infixNoneKey = "InfixNone"
-        , prefixKey = "Prefix"
-        , postfixKey = "Postfix"
-        }
+opsCatOpsField :: String
+opsCatOpsField = "operators"
+
+opsCatGtField :: String
+opsCatGtField = "greater-than"
+
+opsCatLtField :: String
+opsCatLtField = "lesser-than"
+
+opsCatFixityField :: String
+opsCatFixityField = "fixity"
+
+opsCatFieldDef :: String
+opsCatFieldDef = ":"
+
+opsCatAndSep :: String
+opsCatAndSep = ","
+
+opsCatFieldEnd :: String
+opsCatFieldEnd = ";"
+
+opsCatInfixLeftVal :: String
+opsCatInfixLeftVal = "InfixLeft"
+
+opsCatInfixRightVal :: String
+opsCatInfixRightVal = "InfixRight"
+
+opsCatInfixNoneVal :: String
+opsCatInfixNoneVal = "InfixNone"
+
+opsCatPrefixVal :: String
+opsCatPrefixVal = "Prefix"
+
+opsCatPostfixVal :: String
+opsCatPostfixVal = "Postfix"
 
 possibleOpsHead :: String
 possibleOpsHead = "|!$%&/=?^~+*@#<>.:-"
