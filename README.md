@@ -5,6 +5,12 @@ tongue, a starting point for the documentation can be found at https://github.co
 will come in the future (I hope as soon as possible). Anyway, this is an experiment and everyone are encouraged to contribute,
 thus feel free to start a pull request or open an issue!
 
+## :warning: WARNING
+This project is under massive refactoring. The primary goal is to rewrite all the codebase with the goals of making it more
+modular, improving readability, taking better implementation choices, using better patterns and removing all the code smells.
+Refer to the [refactoring](https://github.com/bogo8liuk/Fex-lang/tree/refactoring) branch to see the actual state of the
+compiler.
+
 ### main TODOs
 - Rewrite old code in terms of monad trasformers.
 - Rewrite kind-inference and the definition of kind.
