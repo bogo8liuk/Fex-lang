@@ -20,6 +20,7 @@ description:         Please see the README.md on GitHub at https://github.com/bo
 
 dependencies:
 - base >= 4.7 && < 5
+- text
 - transformers
 - mtl
 - ghc
