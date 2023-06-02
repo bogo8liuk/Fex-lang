@@ -10,18 +10,39 @@ import Data.List.NonEmpty(NonEmpty)
 {- There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
 application of tokens which build them. Other tokens, instead, use list of tokens since the semantics is not the
 the tokens applications. -}
+
+{- Application of tokens with left associativity. You can think:
+    TokenLeftApplication A B
+as
+    (...((((A) B) B) B) ... B)
+-}
 data TokenLeftApplication applier applied a =
       LeftHead (applier a)
     | LeftApp (TokenLeftApplication applier applied a) (applied a)
 
+{- Same of `TokenLeftApplication`, but with the just one token (the head token is the same of the applied tokens):
+    TokenLeftApplication' B
+as
+    (...((((B) B) B) B) ... B)
+-}
 data TokenLeftApplication' app a =
       LeftHead' (app a)
     | LeftApp' (TokenLeftApplication' app a) (app a)
 
+{- Application of tokens with right associativity. You can think:
+    TokenRightApplication A B
+as
+    (B ... (B (B (B (A))))...)
+-}
 data TokenRightApplication applied applier a =
       RightHead (applier a)
     | RightApp (applied a) (TokenRightApplication applied applier a)
 
+{- Auto-application of tokens. You can think:
+    TokenAutoApplication X
+as
+    X X
+-}
 data TokenAutoApplication app a = AutoApp (app a) (app a)
 
 data DefinitionWithExpression head a =
