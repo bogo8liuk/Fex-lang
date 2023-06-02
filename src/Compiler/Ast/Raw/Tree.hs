@@ -24,10 +24,11 @@ data TokenRightApplication applied applier a =
 
 data TokenAutoApplication app a = AutoApp (app a) (app a)
 
-data ExpressionDefinition head a =
-      SimpleDef head (Expression a) a
-    | PatternDef (PatternMatch a) a
+data DefinitionWithExpression head a =
+      SimpleDef head (TyHintExpression a) a
+    | PatternDef (MultiplePatternMatch a) a
 
+{- Entry point of a program. -}
 newtype Program a = Program [Declaration a]
 
 data Declaration a =
@@ -48,7 +49,7 @@ data InstanceDefinition a = InstanceDefinition (InstanceDefHeader a) [Binding a]
 
 data Signature a = Signature (SymbolName a) (QualifiedType a) a
 
-data Binding a = Binding (ExpressionDefinition (SymbolDefHeader a) a) a
+data Binding a = Binding (DefinitionWithExpression (SymbolDefHeader a) a) a
 
 data TypeDefHeader a = TyDefHeader (TypeConName a) [TypeVarName a] a
 data TypeClassDefHeader a = TyClDefHeader (ConstraintName a) [TypeVarName a] [Constraint a] a
@@ -71,9 +72,13 @@ data ConstraintName a = ConstrName !Text !a
 data SymbolName a = SymName !Text !a
 data TypeVarName a = TyVarName !Text !a
 
-data Literal a
+data Literal a =
+      IntLit Integer a
+    | FloatLit Double a
+    | CharLit Char a
+    | StringLit String a
 
-data TyHintExpression a = Expr (Expression a) (TypeHinting a) a
+data TyHintExpression a = Expr (Expression a) (Maybe (TypeHinting a)) a
 data Expression a =
       ExprVar (SymbolName a) a
     | ExprDataCon (DataConName a) a
@@ -84,6 +89,17 @@ data Expression a =
     | ExprLetRec (NonEmpty (Binding a)) (TyHintExpression a) a
     | ExprApp (TokenAutoApplication TyHintExpression a) a
 
-data Lambda a = Lambda (ExpressionDefinition [SymbolName a] a) a
+data Lambda a = Lambda (DefinitionWithExpression [SymbolName a] a) a
 
-data PatternMatch a
+data PatternExpression a =
+      PatternVar (SymbolName a) a
+    | PatternLit (Literal a) a
+    | PatternDataCon (DataConName a) a
+    | PatternDefault a
+    | PatternDataConApp (TokenLeftApplication DataConName PatternExpression a) a
+
+data Case a = Case (PatternExpression a) (TyHintExpression a) a
+data MultiplePatternCase a = MultiCase (NonEmpty (PatternExpression a)) (TyHintExpression a) a
+
+data PatternMatch a = PatternMatch (TyHintExpression a) [Case a] a
+data MultiplePatternMatch a = MultiMatch [MultiplePatternCase a] a
