@@ -1,59 +1,106 @@
-{- Rewriting of Ast.Tree module. A new file is created since Ast.Tree.hs is a huge file. -}
+{- |
+Module : Compiler.Ast.Tree
+Description : Abstract syntax tree
+Copyright : (c) Luca Borghi, 2022
+License : GPL-3
+Stability : experimental
+
+API for the abstract syntax tree.
+-}
 
 module Compiler.Ast.Tree
-    ( Program(..)
+    (
+    -- * Nodes
+    --
+    -- | The nodes of abstract syntax tree. The entry-point is `Program`.
+      Program(..)
+    , Declaration(..)
+    , TypeDefinition
+    , AliasDefinition
+    , TypeClassDefinition
+    , InstanceDefinition
+    , Signature
+    , Binding
+    -- * Tokens applications
+    --
+    -- | There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
+    -- application of tokens which build them. Other tokens, instead, use list of tokens since the semantics is not the
+    -- the tokens applications.
+    , TokenLeftApplication(..)
+    , TokenLeftApplication'(..)
+    , TokenRightApplication(..)
+    , TokenAutoApplication(..)
+    , DefinitionWithExpression(..)
 ) where
 
 import Data.Text(Text)
 import Data.List.NonEmpty(NonEmpty)
 
-{- There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
-application of tokens which build them. Other tokens, instead, use list of tokens since the semantics is not the
-the tokens applications. -}
+{- | Application of tokens with left associativity. You can think:
 
-{- Application of tokens with left associativity. You can think:
-    TokenLeftApplication A B
+> TokenLeftApplication A B
+
 as
-    (...((((A) B) B) B) ... B)
+
+> (...((((A) B) B) B) ... B)
+
 -}
-data TokenLeftApplication applier applied a =
-      LeftHead (applier a)
+data TokenLeftApplication applier applied a
+    = LeftHead (applier a)
     | LeftApp (TokenLeftApplication applier applied a) (applied a)
 
-{- Same of `TokenLeftApplication`, but with the just one token (the head token is the same of the applied tokens):
-    TokenLeftApplication' B
+{- |
+Same of `TokenLeftApplication`, but with just one token (the head token is the same of the applied tokens).
+You can think:
+
+> TokenLeftApplication' B
+
 as
-    (...((((B) B) B) B) ... B)
+
+> (...((((B) B) B) B) ... B)
+
 -}
-data TokenLeftApplication' app a =
-      LeftHead' (app a)
+data TokenLeftApplication' app a
+    = LeftHead' (app a)
     | LeftApp' (TokenLeftApplication' app a) (app a)
 
-{- Application of tokens with right associativity. You can think:
-    TokenRightApplication A B
+{- |
+Application of tokens with right associativity. You can think:
+
+> TokenRightApplication A B
+
 as
-    (B ... (B (B (B (A))))...)
+
+> (B ... (B (B (B (A))))...)
+
 -}
-data TokenRightApplication applied applier a =
-      RightHead (applier a)
+data TokenRightApplication applied applier a
+    = RightHead (applier a)
     | RightApp (applied a) (TokenRightApplication applied applier a)
 
-{- Auto-application of tokens. You can think:
-    TokenAutoApplication X
+{- |
+Auto-application of tokens. You can think:
+
+> TokenAutoApplication X
+
 as
-    X X
+
+> X X
+
 -}
 data TokenAutoApplication app a = AutoApp (app a) (app a)
 
-data DefinitionWithExpression head a =
-      SimpleDef head (TyHintExpression a) a
+data DefinitionWithExpression head a
+    = SimpleDef head (TyHintExpression a) a
     | PatternDef (MultiplePatternMatch a) a
 
-{- Entry point of a program. -}
+{- |
+Entry point of a program.
+-}
 newtype Program a = Program [Declaration a]
 
-data Declaration a =
-      TyDef (TypeDefinition a)
+data Declaration a
+    = TyDef (TypeDefinition a)
     | AliasDef (AliasDefinition a)
     | TyClDef (TypeClassDefinition a)
     | InstDef (InstanceDefinition a)
@@ -79,8 +126,8 @@ data SymbolDefHeader a = SymDefHeader (SymbolName a) [SymbolName a] a
 
 data DataConDefinition a = DataCon (DataConName a) [Type a] a
 
-data Type a =
-      SingleTyCon (TypeConName a) a
+data Type a
+    = SingleTyCon (TypeConName a) a
     | SingleTyVar (TypeVarName a) a
     | AppType !(TokenAutoApplication Type a) a
 data QualifiedType a = QualType !(TokenRightApplication Constraint Type a) a
@@ -93,15 +140,15 @@ data ConstraintName a = ConstrName !Text !a
 data SymbolName a = SymName !Text !a
 data TypeVarName a = TyVarName !Text !a
 
-data Literal a =
-      IntLit Integer a
+data Literal a
+    = IntLit Integer a
     | FloatLit Double a
     | CharLit Char a
     | StringLit String a
 
 data TyHintExpression a = Expr (Expression a) (Maybe (TypeHinting a)) a
-data Expression a =
-      ExprVar (SymbolName a) a
+data Expression a
+    = ExprVar (SymbolName a) a
     | ExprDataCon (DataConName a) a
     | ExprLit (Literal a) a
     | ExprLam (Lambda a) a
@@ -112,8 +159,8 @@ data Expression a =
 
 data Lambda a = Lambda (DefinitionWithExpression [SymbolName a] a) a
 
-data PatternExpression a =
-      PatternVar (SymbolName a) a
+data PatternExpression a
+    = PatternVar (SymbolName a) a
     | PatternLit (Literal a) a
     | PatternDataCon (DataConName a) a
     | PatternDefault a
