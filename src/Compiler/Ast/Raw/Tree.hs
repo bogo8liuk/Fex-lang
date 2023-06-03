@@ -15,12 +15,35 @@ module Compiler.Ast.Tree
     -- | The nodes of abstract syntax tree. The entry-point is `Program`.
       Program(..)
     , Declaration(..)
-    , TypeDefinition
-    , AliasDefinition
-    , TypeClassDefinition
-    , InstanceDefinition
-    , Signature
-    , Binding
+    , TypeDefinition(..)
+    , AliasDefinition(..)
+    , TypeClassDefinition(..)
+    , InstanceDefinition(..)
+    , Signature(..)
+    , Binding(..)
+    , TypeDefHeader(..)
+    , TypeClassDefHeader(..)
+    , InstanceDefHeader(..)
+    , SymbolDefHeader(..)
+    , DataConDefinition(..)
+    , Type(..)
+    , QualifiedType(..)
+    , Constraint(..)
+    , TypeHinting(..)
+    , TypeConName(..)
+    , DataConName(..)
+    , ConstraintName(..)
+    , SymbolName(..)
+    , TypeVarName(..)
+    , Literal(..)
+    , TyHintExpression(..)
+    , Expression(..)
+    , Lambda(..)
+    , PatternExpression(..)
+    , Case(..)
+    , MultiplePatternCase(..)
+    , PatternMatch(..)
+    , MultiplePatternMatch(..)
     -- * Tokens applications
     --
     -- | There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
@@ -30,6 +53,7 @@ module Compiler.Ast.Tree
     , TokenLeftApplication'(..)
     , TokenRightApplication(..)
     , TokenAutoApplication(..)
+    -- * Tokens with expressions
     , DefinitionWithExpression(..)
 ) where
 
@@ -43,7 +67,6 @@ import Data.List.NonEmpty(NonEmpty)
 as
 
 > (...((((A) B) B) B) ... B)
-
 -}
 data TokenLeftApplication applier applied a
     = LeftHead (applier a)
@@ -58,7 +81,6 @@ You can think:
 as
 
 > (...((((B) B) B) B) ... B)
-
 -}
 data TokenLeftApplication' app a
     = LeftHead' (app a)
@@ -72,7 +94,6 @@ Application of tokens with right associativity. You can think:
 as
 
 > (B ... (B (B (B (A))))...)
-
 -}
 data TokenRightApplication applied applier a
     = RightHead (applier a)
@@ -86,12 +107,20 @@ Auto-application of tokens. You can think:
 as
 
 > X X
-
 -}
 data TokenAutoApplication app a = AutoApp (app a) (app a)
 
+{- |
+Parametric token along with an expression. There are two cases:
+-}
 data DefinitionWithExpression head a
+    {- |
+    it takes a parametric head and attaches an expression.
+    -}
     = SimpleDef head (TyHintExpression a) a
+    {- |
+    it consists in a `MultiplePatternMatch` construct. No headers.
+    -}
     | PatternDef (MultiplePatternMatch a) a
 
 {- |
