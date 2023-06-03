@@ -1,5 +1,5 @@
 {- |
-Module : Compiler.Ast.Tree
+Module : Compiler.Ast.Raw.Tree
 Description : Abstract syntax tree
 Copyright : (c) Luca Borghi, 2022
 License : GPL-3
@@ -8,7 +8,7 @@ Stability : experimental
 API for the abstract syntax tree.
 -}
 
-module Compiler.Ast.Tree
+module Compiler.Ast.Raw.Tree
     (
     -- * Nodes
     --
