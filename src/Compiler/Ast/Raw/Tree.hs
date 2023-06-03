@@ -8,6 +8,9 @@ Stability : experimental
 API for the abstract syntax tree.
 -}
 
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module Compiler.Ast.Raw.Tree
     (
     -- * Nodes
@@ -44,7 +47,7 @@ module Compiler.Ast.Raw.Tree
     , MultiplePatternCase(..)
     , PatternMatch(..)
     , MultiplePatternMatch(..)
-    -- * Tokens applications
+    -- ** Tokens applications
     --
     -- | There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
     -- application of tokens which build them. Other tokens, instead, use list of tokens since the semantics is not the
@@ -53,12 +56,20 @@ module Compiler.Ast.Raw.Tree
     , TokenLeftApplication'(..)
     , TokenRightApplication(..)
     , TokenAutoApplication(..)
-    -- * Tokens with expressions
+    -- ** Tokens with expressions
     , DefinitionWithExpression(..)
+    -- ** Filters
+    , DeclarationTokens(..)
+    , DeclarationFilters
+    -- * Functions on ast
+    -- ** Building
+    -- ** Getters
+    , HasDeclarations(..)
 ) where
 
-import Data.Text(Text)
-import Data.List.NonEmpty(NonEmpty)
+import Data.Text (Text)
+import Data.List.NonEmpty (NonEmpty)
+import Utils.Data.Filter (Filter)
 
 {- | Application of tokens with left associativity. You can think:
 
@@ -200,3 +211,25 @@ data MultiplePatternCase a = MultiCase (NonEmpty (PatternExpression a)) (TyHintE
 
 data PatternMatch a = PatternMatch (TyHintExpression a) [Case a] a
 data MultiplePatternMatch a = MultiMatch [MultiplePatternCase a] a
+
+{- |
+Tokens which encapsulate a list of `Declaration`.
+-}
+class HasDeclarations t where
+    declarations :: t a -> [Declaration a]
+
+instance HasDeclarations Program where
+    declarations (Program decls) = decls
+
+{- |
+Data constructors corresponding to the different types of declarations.
+-}
+data DeclarationTokens
+    = TypeDefToken
+    | AliasDefToken
+    | TyClDefToken
+    | InstDefToken
+    | SigToken
+    | BindToken
+
+type DeclarationFilters = Filter DeclarationTokens
