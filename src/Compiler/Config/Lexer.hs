@@ -1,6 +1,17 @@
---Keywords
+{- |
+Module : Compiler.Config.Lexer
+Description : Lexical tokens
+Copyright : (c) Luca Borghi, 2022
+License : GPL-3
+Stability : experimental
+
+List of lexical tokens of the language.
+-}
+
 module Compiler.Config.Lexer
-    ( inlineCommentKeyword
+    (
+    -- * Keywords and main tokens
+      inlineCommentKeyword
     , multilineStartCommentKeyword
     , multilineEndCommentKeyword
     , symbolDeclarationDefKeyword
@@ -47,8 +58,10 @@ module Compiler.Config.Lexer
     , trueDataCon
     , falseDataCon
     , endStatementKeyword
+    -- * Compile time tokens
     , compileTimeEvalStart
     , compileTimeEvalEnd
+    -- ** Operators categories
     , compileTimeOpsCategory
     , opsCatIdField
     , opsCatOpsField
@@ -63,11 +76,10 @@ module Compiler.Config.Lexer
     , opsCatInfixNoneVal
     , opsCatPrefixVal
     , opsCatPostfixVal
+    -- * Operators
     , possibleOpsHead
     , possibleOpsTail
 ) where
-
--- KEYWORDS
 
 inlineCommentKeyword :: String
 inlineCommentKeyword = "//"
@@ -159,7 +171,9 @@ varAsOpKeyword = "`"
 endStatementKeyword :: String
 endStatementKeyword = ";;"
 
-{- To use at the beginning of an identifier, to safely create names which are unparsable. -}
+{- |
+This token should be unparsable.
+-}
 reservedIdKeyword :: String
 reservedIdKeyword = "_,"
 
