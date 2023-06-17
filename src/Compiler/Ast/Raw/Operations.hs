@@ -26,7 +26,7 @@ module Compiler.Ast.Raw.Operations
     , fallible
 ) where
 
-import Utils.Data.Foldable (splitmap)
+import Utils.Data.Foldable (splitMap)
 import qualified Compiler.Ast.Raw.Tree as Tree (Program (..), Declaration, HasDeclarations (..))
 import Control.Monad.State (StateT, MonadState (..), runStateT, execStateT, gets)
 import Data.Functor.Identity (Identity, runIdentity)
@@ -125,6 +125,6 @@ from @Just@ constructor) is returned in the final list and the declaration is re
 removeDeclarationsWith :: Monad m => (Tree.Declaration s -> Maybe d) -> AstOpT s m [d]
 removeDeclarationsWith select = do
     decls <- getDeclarations
-    let (selected, decls') = splitmap select decls
+    let (selected, decls') = splitMap select decls
     replaceProgram decls'
     return selected
