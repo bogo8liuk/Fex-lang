@@ -5,7 +5,9 @@ Copyright : (c) Luca Borghi, 2022
 License : GPL-3
 Stability : experimental
 
-API for the abstract syntax tree.
+API for the abstract syntax tree. Some notation: we will refer to nodes of the ast as "tokens", for example,
+a type definition (with presumably a name and list of constructors) is token; we will refer to opaque objects
+denoting some tokens as "items". An item should keep no information about a token, including its structure.
 -}
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -59,8 +61,8 @@ module Compiler.Ast.Raw.Tree
     -- ** Tokens with expressions
     , DefinitionWithExpression(..)
     -- ** Filters
-    , DeclarationTokens(..)
-    , DeclarationFilters
+    , DeclarationItem(..)
+    , DeclarationFilter
     -- * Functions on ast
     -- ** Building
     -- ** Getters
@@ -224,12 +226,50 @@ instance HasDeclarations Program where
 {- |
 Data constructors corresponding to the different types of declarations.
 -}
-data DeclarationTokens
-    = TypeDefToken
-    | AliasDefToken
-    | TyClDefToken
-    | InstDefToken
-    | SigToken
-    | BindToken
+data DeclarationItem
+    = TypeDefItem
+    | AliasDefItem
+    | TyClDefItem
+    | InstDefItem
+    | SigItem
+    | BindItem
 
-type DeclarationFilters = Filter DeclarationTokens
+type DeclarationFilter = Filter DeclarationItem
+
+{- |
+The class for "itemization" of tokens.
+-}
+class Item token item where
+    {- |
+    It returns the item of a token.
+    -}
+    itemOf :: token -> item
+
+instance Item DeclarationItem DeclarationItem where
+    itemOf = id
+
+instance Item (Declaration a) DeclarationItem where
+    itemOf (TyDef tyDef) = itemOf tyDef
+    itemOf (AliasDef aliasDef) = itemOf aliasDef
+    itemOf (TyClDef tyClDef) = itemOf tyClDef
+    itemOf (InstDef instDef) = itemOf instDef
+    itemOf (Sig sig) = itemOf sig
+    itemOf (Bind bind) = itemOf bind
+
+instance Item (TypeDefinition a) DeclarationItem where
+    itemOf _ = TypeDefItem
+
+instance Item (AliasDefinition a) DeclarationItem where
+    itemOf _ = AliasDefItem
+
+instance Item (TypeClassDefinition a) DeclarationItem where
+    itemOf _ = TyClDefItem
+
+instance Item (InstanceDefinition a) DeclarationItem where
+    itemOf _ = InstDefItem
+
+instance Item (Signature a) DeclarationItem where
+    itemOf _ = SigItem
+
+instance Item (Binding a) DeclarationItem where
+    itemOf _ = BindItem
