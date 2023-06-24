@@ -21,13 +21,14 @@ module Compiler.Ast.Raw.Operations
     , execAstOpT
     , execAstOp
     , execAstOpEither
-    -- ** Functions on operation monad
+    -- ** Functions on monad
     , astOpErr
-    , fallible
+    , mkFallible
+    -- ** Operations
 ) where
 
 import Utils.Data.Foldable (splitMap)
-import qualified Compiler.Ast.Raw.Tree as Tree (Program (..), Declaration, HasDeclarations (..))
+import qualified Compiler.Ast.Raw.Tree as Tree (Program (..), Declaration, HasDeclarations (..), DeclarationFilter)
 import Control.Monad.State (StateT, MonadState (..), runStateT, execStateT, gets)
 import Data.Functor.Identity (Identity, runIdentity)
 import Control.Monad.Trans (lift)
@@ -101,8 +102,8 @@ astOpErr = lift . Left
 {- |
 It takes an infallible ast operation and it makes it fallible.
 -}
-fallible :: AstOp s a -> AstOpEither s err a
-fallible op = do
+mkFallible :: AstOp s a -> AstOpEither s err a
+mkFallible op = do
     p <- get
     let (x, p') = runAstOp p op
     put p'
@@ -128,3 +129,6 @@ removeDeclarationsWith select = do
     let (selected, decls') = splitMap select decls
     replaceProgram decls'
     return selected
+
+removeDeclarationsBy :: Tree.DeclarationFilter -> AstOpT s m [Tree.Declaration s]
+removeDeclarationsBy declsFilter = undefined
