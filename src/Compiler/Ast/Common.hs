@@ -17,25 +17,20 @@ keep no information about a token, including its structure and it shouldn't be u
 
 module Compiler.Ast.Common
     (
-    --( module Compiler.Config.Rep
-    --, HasArgs(..)
-    --, HasHead(..)
-    --, HasState(..)
-    --, AtomRep(..)
-    --, strOf
-    --, Binder(..)
-    --, Diff(..)
-    --, CxtDiff(..)
+    -- * Itemization of tokens
       Item(..)
+    -- * Representation of tokens
     , TokenRep
     , HasRepresentation(..)
     , textOf
+    -- * Identification of tokens
     , Id(..)
     , HasId(..)
 ) where
 
 import Utils.TypeAlias (Typing (unTyping))
 import Data.Text (Text)
+import Compiler.Phase (CompPhase)
 
 {- |
 The class for "itemization" of tokens.
@@ -72,7 +67,8 @@ data Id
     -- | A constructor coming from a type class
     | ConstrConId !TokenRep
     -- | Identifier for tokens solved at compile-time
-    | CompTimeTokenId !TokenRep
+    | CompTimeTokenId !CompPhase !TokenRep
+    deriving (Eq, Ord)
 
 {- |
 Tokens which can be identified by an `Id`.
