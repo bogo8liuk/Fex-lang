@@ -236,15 +236,6 @@ data DeclarationItem
 
 type DeclarationFilter = Filter DeclarationItem
 
-{- |
-The class for "itemization" of tokens.
--}
-class Item token item where
-    {- |
-    It returns the item of a token.
-    -}
-    itemOf :: token -> item
-
 instance Item DeclarationItem DeclarationItem where
     itemOf = id
 
