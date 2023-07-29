@@ -72,6 +72,7 @@ module Compiler.Ast.Raw.Tree
 import Data.Text (Text)
 import Data.List.NonEmpty (NonEmpty)
 import Utils.Data.Filter (Filter)
+import Compiler.Ast.Common (Item (..))
 
 {- | Application of tokens with left associativity. You can think:
 
