@@ -35,8 +35,10 @@ module Compiler.Config.Lexer
     , andSeparationKeyword
     , caseScopeKeyword
     , signatureScopeKeyword
-    , stringLitKeyword
-    , charLitKeyword
+    , stringLitStartKeyword
+    , stringLitEndKeyword
+    , charLitStartKeyword
+    , charLitEndKeyword
     , recordStartKeyword
     , recordEndKeyword
     , varAsOpKeyword
@@ -153,11 +155,17 @@ caseScopeKeyword = "->"
 signatureScopeKeyword :: String
 signatureScopeKeyword = ":"
 
-stringLitKeyword :: String
-stringLitKeyword = "\""
+stringLitStartKeyword :: String
+stringLitStartKeyword = "\""
 
-charLitKeyword :: String
-charLitKeyword = "'"
+stringLitEndKeyword :: String
+stringLitEndKeyword = "\""
+
+charLitStartKeyword :: String
+charLitStartKeyword = "'"
+
+charLitEndKeyword :: String
+charLitEndKeyword = "'"
 
 recordStartKeyword :: String
 recordStartKeyword = "{"
