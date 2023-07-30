@@ -73,6 +73,7 @@ library
       Compiler.Syntax.NonTranzitInsertion
       Compiler.Syntax.Operators
       Compiler.Syntax.Parser
+      Compiler.Syntax.Refactoring.Lex
       Compiler.Types.Builder.Cons
       Compiler.Types.Builder.Constraints
       Compiler.Types.Builder.Instances
