@@ -22,12 +22,17 @@ Steps for updating a new keyword:
 Usually, with identifier we mean everything starting with a-z, A-Z or _. An
 operator is everything else.
 -}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Compiler.Syntax.Refactoring.Language
     (
 ) where
 
 import Compiler.Config.Lexer
+import Text.Parsec.Token (GenLanguageDef (..))
+import Data.Text (Text)
+import Control.Monad.Identity (Identity)
+import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -85,3 +90,35 @@ reservedOps =
     , compileTimeEvalEnd
     ]
 
+identifierStart :: Stream s m Char => ParsecT s u m Char
+identifierStart = try identifierStartUpper <|> identifierStartLower
+
+identifierStartUpper :: Stream s m Char => ParsecT s u m Char
+identifierStartUpper = oneOf possibleIdsHeadUpper
+
+identifierStartLower :: Stream s m Char => ParsecT s u m Char
+identifierStartLower = oneOf possibleIdsHeadLower
+
+identifierTail :: Stream s m Char => ParsecT s u m Char
+identifierTail = oneOf possibleIdsTail
+
+operatorStart :: Stream s m Char => ParsecT s u m Char
+operatorStart = oneOf possibleOpsHead
+
+operatorTail :: Stream s m Char => ParsecT s u m Char
+operatorTail = oneOf possibleOpsTail
+
+parsecDefinition :: GenLanguageDef Text u Identity
+parsecDefinition =
+    LanguageDef
+        { commentStart = multilineStartCommentKeyword
+        , commentEnd = multilineEndCommentKeyword
+        , commentLine = inlineCommentKeyword
+        , nestedComments = True
+        , identStart = identifierStart
+        , identLetter = identifierTail
+        , opStart = operatorStart
+        , opLetter = operatorTail
+        , reservedNames = reservedIds
+        , reservedOpNames = reservedOps
+        }

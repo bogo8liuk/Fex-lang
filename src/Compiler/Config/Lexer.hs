@@ -80,9 +80,14 @@ module Compiler.Config.Lexer
     , opsCatInfixNoneVal
     , opsCatPrefixVal
     , opsCatPostfixVal
-    -- * Operators
+    -- * Syntax
+    -- ** Operators
     , possibleOpsHead
     , possibleOpsTail
+    -- ** Identifiers
+    , possibleIdsHeadLower
+    , possibleIdsHeadUpper
+    , possibleIdsTail
 ) where
 
 inlineCommentKeyword :: String
@@ -288,3 +293,13 @@ possibleOpsHead = "|!$%&/=?^~+*@#<>.:-"
 
 possibleOpsTail :: String
 possibleOpsTail = "|!$%&/=?^~+*@#<>.:-"
+
+possibleIdsHeadLower :: String
+possibleIdsHeadLower = "_abcdefghijklmnopqrstuvwxyz"
+
+possibleIdsHeadUpper :: String
+possibleIdsHeadUpper = "_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+possibleIdsTail :: String
+possibleIdsTail =
+  "_'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
