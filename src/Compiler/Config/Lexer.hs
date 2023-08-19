@@ -5,7 +5,9 @@ Copyright : (c) Luca Borghi, 2022
 License : GPL-3
 Stability : experimental
 
-List of lexical tokens of the language.
+List of lexical tokens of the language. If you change some keyword or you add
+a new one, you should update the
+[syntax module]("Compiler.Syntax.Refactoring.Language")
 -}
 
 module Compiler.Config.Lexer
