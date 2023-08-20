@@ -29,9 +29,14 @@ module Compiler.Syntax.Refactoring.Language
 ) where
 
 import Compiler.Config.Lexer
-import Text.Parsec.Token (GenLanguageDef (..), GenTokenParser (..), makeTokenParser)
-import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, many, lookAhead)
+import qualified Text.Parsec.Token as Token
+    ( GenLanguageDef (..)
+    , GenTokenParser (..)
+    , makeTokenParser
+    )
+import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf)
 import Data.Text (Text, pack)
+import Compiler.Syntax.Refactoring.Lib (nextMustBe)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -107,83 +112,73 @@ operatorStart = oneOf possibleOpsHead
 operatorTail :: Stream s m Char => ParsecT s u m Char
 operatorTail = oneOf possibleOpsTail
 
-definition :: Stream s m Char => GenLanguageDef s u m
+definition :: Stream s m Char => Token.GenLanguageDef s u m
 definition =
-    LanguageDef
-        { commentStart = multilineStartCommentKeyword
-        , commentEnd = multilineEndCommentKeyword
-        , commentLine = inlineCommentKeyword
-        , nestedComments = True
-        , identStart = identifierStart
-        , identLetter = identifierTail
-        , opStart = operatorStart
-        , opLetter = operatorTail
-        , reservedNames = reservedIds
-        , reservedOpNames = reservedOps
-        , caseSensitive = True
+    Token.LanguageDef
+        { Token.commentStart = multilineStartCommentKeyword
+        , Token.commentEnd = multilineEndCommentKeyword
+        , Token.commentLine = inlineCommentKeyword
+        , Token.nestedComments = True
+        , Token.identStart = identifierStart
+        , Token.identLetter = identifierTail
+        , Token.opStart = operatorStart
+        , Token.opLetter = operatorTail
+        , Token.reservedNames = reservedIds
+        , Token.reservedOpNames = reservedOps
+        , Token.caseSensitive = True
         }
 
-tokenParser :: Stream s m Char => GenTokenParser s u m
-tokenParser = makeTokenParser definition
-
-{-
-{- |
-A more fine-grained token parser than "GenTokenParser".
--}
-data LanguageParser s u m
-    = LanguageParser
-        {
-        {- |
-        Identifiers starting with upper-case letter.
-        -}
-          upperIdentifier :: ParsecT s u m Text
-        {- |
-        Identifiers starting with lower-case letter.
-        -}
-        , lowerIdentifier :: ParsecT s u m Text
-        {- |
-        This should be the general case which gathers "upperIdentifier" and
-        "lowerIdentifier", so a possible implementation should be:
-
-        > generalIdentifier = try upperIdentifier <|> lowerIdentifier
-        -}
-        , generalIdentifier :: ParsecT s u m Text
-        {- |
-        Words not usable as identifiers.
-        -}
-        , reservedIdentifier :: ParsecT s u m Text
-        {- |
-        An operator.
-        -}
-        , operator :: ParsecT s u m Text
-        {- |
-        Words not usable as operators.
-        -}
-        , reservedOperator :: ParsecT s u m Text
-        }
-        -}
+tokenParser :: Stream s m Char => Token.GenTokenParser s u m
+tokenParser = Token.makeTokenParser definition
 
 {- |
 `identifierStartingWith p` parses a VALID identifier according to the language
-checking also that the identifier starts with `p`.
+checking also that the identifier starts with `p`, then it skips white spaces
+and comments.
 -}
 identifierStartingWith
     :: Stream s m Char
     => ParsecT s u m Char
     -> ParsecT s u m Text
 identifierStartingWith p = do
-    try $ lookAhead p
-    s <- identifier tokenParser
+    nextMustBe p
+    s <- Token.identifier tokenParser
     return $ pack s
 
 {- |
-Identifiers starting with upper-case letter.
+Identifiers starting with upper-case letter, then it skips white spaces and
+comments.
 -}
 upperIdentifier :: Stream s m Char => ParsecT s u m Text
 upperIdentifier = identifierStartingWith identifierStartUpper
 
 {- |
-Identifiers starting with lower-case letter.
+Identifiers starting with lower-case letter then it skips white spaces and
+comments.
 -}
 lowerIdentifier :: Stream s m Char => ParsecT s u m Text
 lowerIdentifier = identifierStartingWith identifierStartLower
+
+{- |
+It parses a valid identifier then it skips white spaces and comments.
+-}
+generalIdentifier :: Stream s m Char => ParsecT s u m Text
+generalIdentifier = pack <$> Token.identifier tokenParser
+
+{- |
+It parses a reserved identifier then it skips white spaces and comments.
+-}
+reservedIdentifier :: Stream s m Char => String -> ParsecT s u m ()
+reservedIdentifier = Token.reserved tokenParser
+
+{- |
+It parses a valid operator then it skips white spaces and comments.
+-}
+operator :: Stream s m Char => ParsecT s u m Text
+operator = pack <$> Token.operator tokenParser
+
+{- |
+It parses a reserved operator then it skips white spaces and comments.
+-}
+reservedOperator :: Stream s m Char => String -> ParsecT s u m ()
+reservedOperator = Token.reservedOp tokenParser
