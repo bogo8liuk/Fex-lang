@@ -29,9 +29,9 @@ module Compiler.Syntax.Refactoring.Language
 ) where
 
 import Compiler.Config.Lexer
-import Text.Parsec.Token (GenLanguageDef (..), GenTokenParser, makeTokenParser)
-import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf)
-import Data.Text (Text)
+import Text.Parsec.Token (GenLanguageDef (..), GenTokenParser (..), makeTokenParser)
+import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, many, lookAhead)
+import Data.Text (Text, pack)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -107,8 +107,8 @@ operatorStart = oneOf possibleOpsHead
 operatorTail :: Stream s m Char => ParsecT s u m Char
 operatorTail = oneOf possibleOpsTail
 
-parsecDefinition :: Stream s m Char => GenLanguageDef s u m
-parsecDefinition =
+definition :: Stream s m Char => GenLanguageDef s u m
+definition =
     LanguageDef
         { commentStart = multilineStartCommentKeyword
         , commentEnd = multilineEndCommentKeyword
@@ -123,9 +123,10 @@ parsecDefinition =
         , caseSensitive = True
         }
 
-parsecTokenParser :: Stream s m Char => GenTokenParser s u m
-parsecTokenParser = makeTokenParser parsecDefinition
+tokenParser :: Stream s m Char => GenTokenParser s u m
+tokenParser = makeTokenParser definition
 
+{-
 {- |
 A more fine-grained token parser than "GenTokenParser".
 -}
@@ -160,3 +161,29 @@ data LanguageParser s u m
         -}
         , reservedOperator :: ParsecT s u m Text
         }
+        -}
+
+{- |
+`identifierStartingWith p` parses a VALID identifier according to the language
+checking also that the identifier starts with `p`.
+-}
+identifierStartingWith
+    :: Stream s m Char
+    => ParsecT s u m Char
+    -> ParsecT s u m Text
+identifierStartingWith p = do
+    try $ lookAhead p
+    s <- identifier tokenParser
+    return $ pack s
+
+{- |
+Identifiers starting with upper-case letter.
+-}
+upperIdentifier :: Stream s m Char => ParsecT s u m Text
+upperIdentifier = identifierStartingWith identifierStartUpper
+
+{- |
+Identifiers starting with lower-case letter.
+-}
+lowerIdentifier :: Stream s m Char => ParsecT s u m Text
+lowerIdentifier = identifierStartingWith identifierStartLower
