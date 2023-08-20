@@ -74,6 +74,7 @@ library
       Compiler.Syntax.Operators
       Compiler.Syntax.Parser
       Compiler.Syntax.Refactoring.Language
+      Compiler.Syntax.Refactoring.Lib
       Compiler.Types.Builder.Cons
       Compiler.Types.Builder.Constraints
       Compiler.Types.Builder.Instances
