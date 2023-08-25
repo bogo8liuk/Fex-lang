@@ -34,9 +34,10 @@ import qualified Text.Parsec.Token as Token
     , GenTokenParser (..)
     , makeTokenParser
     )
-import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf)
+import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, between, string)
 import Data.Text (Text, pack)
 import Compiler.Syntax.Refactoring.Lib (nextMustBe)
+import Utils.Fancy ((<|))
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -182,3 +183,8 @@ It parses a reserved operator then it skips white spaces and comments.
 -}
 reservedOperator :: Stream s m Char => String -> ParsecT s u m ()
 reservedOperator = Token.reservedOp tokenParser
+
+charLiteral :: ParsecT s u m Char
+charLiteral = Token.lexeme (between <| string charLitStartKeyword <| string charLitEndKeyword <| character)
+    where
+        character = charLetter <|> charEscape

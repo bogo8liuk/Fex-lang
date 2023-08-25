@@ -75,6 +75,7 @@ library
       Compiler.Syntax.Parser
       Compiler.Syntax.Refactoring.Language
       Compiler.Syntax.Refactoring.Lib
+      Compiler.Syntax.Refactoring.TextLiterals
       Compiler.Types.Builder.Cons
       Compiler.Types.Builder.Constraints
       Compiler.Types.Builder.Instances
