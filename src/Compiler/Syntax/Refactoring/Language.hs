@@ -39,6 +39,7 @@ import Data.Text (Text, pack)
 import Compiler.Syntax.Refactoring.Lib (nextMustBe)
 import Utils.Fancy ((<|))
 import Compiler.Syntax.Refactoring.TextLiterals (validCharLiteral, validStringLiteral)
+import GHC.Natural (Natural)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -210,3 +211,28 @@ stringLiteral = do
                 <| string stringLitStartKeyword
                 <| (string stringLitEndKeyword <?> "end of string")
                 <| validStringLiteral
+
+{- |
+It parses a natural literal then it skips white spaces and comments.
+-}
+naturalLiteral :: Stream s m Char => ParsecT s u m Integer --TODO: use a Natural data type
+naturalLiteral = Token.natural tokenParser
+
+{- |
+It parses an integer literal then it skips white spaces and comments.
+-}
+integerLiteral :: Stream s m Char => ParsecT s u m Integer
+integerLiteral = Token.integer tokenParser
+
+{- |
+It parses a floating-point number literal then it skips white spaces and
+comments.
+-}
+floatLiteral :: Stream s m Char => ParsecT s u m Double --TODO: is Double correct?
+floatLiteral = Token.float tokenParser
+
+{- |
+It parses zero or more white spaces and/or comments (both inline and multiline).
+-}
+skipSemanticless :: Stream s m Char => ParsecT s u m ()
+skipSemanticless = Token.whiteSpace tokenParser
