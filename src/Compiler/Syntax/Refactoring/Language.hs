@@ -37,6 +37,7 @@ module Compiler.Syntax.Refactoring.Language
     , integerLiteral
     , floatLiteral
     , skipSemanticless
+    , lexeme
 ) where
 
 import Compiler.Config.Lexer
@@ -246,3 +247,9 @@ It parses zero or more white spaces and/or comments (both inline and multiline).
 -}
 skipSemanticless :: Stream s m Char => ParsecT s u m ()
 skipSemanticless = Token.whiteSpace tokenParser
+
+{- |
+`lexeme p` applies parser `p` then it skips white spaces and comments.
+-}
+lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+lexeme = Token.lexeme tokenParser
