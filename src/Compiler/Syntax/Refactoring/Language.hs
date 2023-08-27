@@ -25,7 +25,18 @@ Usually, with \"identifier\" we mean everything starting with a-z, A-Z or _. An
 {-# LANGUAGE FlexibleContexts #-}
 
 module Compiler.Syntax.Refactoring.Language
-    (
+    ( upperIdentifier
+    , lowerIdentifier
+    , generalIdentifier
+    , reservedIdentifier
+    , operator
+    , reservedOperator
+    , charLiteral
+    , stringLiteral
+    , naturalLiteral
+    , integerLiteral
+    , floatLiteral
+    , skipSemanticless
 ) where
 
 import Compiler.Config.Lexer
@@ -39,7 +50,6 @@ import Data.Text (Text, pack)
 import Compiler.Syntax.Refactoring.Lib (nextMustBe)
 import Utils.Fancy ((<|))
 import Compiler.Syntax.Refactoring.TextLiterals (validCharLiteral, validStringLiteral)
-import GHC.Natural (Natural)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
