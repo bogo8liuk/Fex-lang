@@ -10,15 +10,31 @@ https://hackage.haskell.org/package/parsec-3.1.16.1/docs/src/Text.Parsec.Token.h
 The aim is to have a generic way to parse text-like literals (namely char
 literals and string literals) enclosing. Actually, Parsec exposes only two
 functions (`charLiteral` and `stringLiteral`) which parses literals according
-to Haskell standard and it doesn't parameterize the enclosing of literals.
+to Haskell standard and it doesn't parameterize the enclosing of literals. This
+module exposes functions to parse just what is enclosed in a literal and not
+the enclosing of the literal.
 -}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Compiler.Syntax.Refactoring.TextLiterals
     (
 ) where
-import Text.Parsec (ParsecT, char, choice, many1, digit, upper, (<|>), octDigit, hexDigit, string, try, (<?>), satisfy, Stream)
+import Text.Parsec (ParsecT, char, choice, many1, digit, upper, (<|>),
+    octDigit, hexDigit, string, try, (<?>), satisfy, Stream, many, space)
 import Data.Char (digitToInt)
+import Data.Foldable (foldl')
+
+validCharLiteral :: Stream s m Char => ParsecT s u m Char
+validCharLiteral = charLetter <|> charEscape
+    where
+        charEscape = do
+            char '\\'
+            escapeCode
+
+        charLetter = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
+
+validStringLiteral :: Stream s m Char => ParsecT s u m [Maybe Char]
+validStringLiteral = many stringChar
 
 charControl :: Stream s m Char => ParsecT s u m Char
 charControl = do
@@ -28,12 +44,13 @@ charControl = do
 
 number base baseDigit = do
     digits <- many1 baseDigit
-    let n = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 digits
+    let n = foldl' (\x d -> base*x + toInteger (digitToInt d)) 0 digits
     seq n (return n)
 
+decimal :: Stream s m Char => ParsecT s u m Integer
 decimal = number 10 digit
 
-charNum :: ParsecT s u m Char
+charNum :: Stream s m Char => ParsecT s u m Char
 charNum = do
     code <-
         decimal
@@ -87,11 +104,41 @@ escapeCode :: Stream s m Char => ParsecT s u m Char
 escapeCode =
     charEsc <|> charNum <|> charAscii <|> charControl <?> "escape code"
 
-charLiteralInternal :: Stream s m Char => ParsecT s u m Char
-charLiteralInternal = charLetter <|> charEscape
+stringChar :: Stream s m Char => ParsecT s u m (Maybe Char)
+stringChar =
+    justStringLetter <|> stringEscape <?> "string character"
     where
-        charEscape = do
-            char '\\'
-            escapeCode
+        justStringLetter = do
+            c <- stringLetter
+            return (Just c)
 
-        charLetter = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
+stringLetter :: Stream s m Char => ParsecT s u m Char
+stringLetter = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
+
+stringEscape :: Stream s m Char => ParsecT s u m (Maybe Char)
+stringEscape = do
+    { char '\\'
+    ;   passEscapeGap
+    <|> passEscapeEmpty
+    <|> justEscapeCode
+    }
+    where
+        passEscapeGap = do
+            escapeGap
+            return Nothing
+
+        passEscapeEmpty = do
+            escapeEmpty
+            return Nothing
+
+        justEscapeCode = do
+            esc <- escapeCode
+            return $ Just esc
+
+escapeEmpty :: Stream s m Char => ParsecT s u m Char
+escapeEmpty = char '&'
+
+escapeGap :: Stream s m Char => ParsecT s u m Char
+escapeGap = do
+    many1 space
+    char '\\' <?> "end of string gap"
