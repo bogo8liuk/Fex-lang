@@ -17,13 +17,17 @@ the enclosing of the literal.
 {-# LANGUAGE FlexibleContexts #-}
 
 module Compiler.Syntax.Refactoring.TextLiterals
-    (
+    ( validCharLiteral
+    , validStringLiteral
 ) where
 import Text.Parsec (ParsecT, char, choice, many1, digit, upper, (<|>),
     octDigit, hexDigit, string, try, (<?>), satisfy, Stream, many, space)
 import Data.Char (digitToInt)
 import Data.Foldable (foldl')
 
+{- |
+It parses a single character valid to be enclosed in a character literal.
+-}
 validCharLiteral :: Stream s m Char => ParsecT s u m Char
 validCharLiteral = charLetter <|> charEscape
     where
@@ -33,8 +37,13 @@ validCharLiteral = charLetter <|> charEscape
 
         charLetter = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
 
-validStringLiteral :: Stream s m Char => ParsecT s u m [Maybe Char]
-validStringLiteral = many stringChar
+{- |
+It parses a sequence valid to be enclosed in a string literal.
+-}
+validStringLiteral :: Stream s m Char => ParsecT s u m String
+validStringLiteral = do
+    chars <- many stringChar
+    return (foldr (maybe id (:)) "" chars)
 
 charControl :: Stream s m Char => ParsecT s u m Char
 charControl = do

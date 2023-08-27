@@ -34,10 +34,11 @@ import qualified Text.Parsec.Token as Token
     , GenTokenParser (..)
     , makeTokenParser
     )
-import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, between, string)
+import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, between, string, (<?>))
 import Data.Text (Text, pack)
 import Compiler.Syntax.Refactoring.Lib (nextMustBe)
 import Utils.Fancy ((<|))
+import Compiler.Syntax.Refactoring.TextLiterals (validCharLiteral, validStringLiteral)
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -184,7 +185,28 @@ It parses a reserved operator then it skips white spaces and comments.
 reservedOperator :: Stream s m Char => String -> ParsecT s u m ()
 reservedOperator = Token.reservedOp tokenParser
 
-charLiteral :: ParsecT s u m Char
-charLiteral = Token.lexeme (between <| string charLitStartKeyword <| string charLitEndKeyword <| character)
+{- |
+It parses a character literal then it skips white spaces and comments.
+-}
+charLiteral :: Stream s m Char => ParsecT s u m Char
+charLiteral =
+    Token.lexeme tokenParser
+        (  between
+        <| string charLitStartKeyword
+        <| (string charLitEndKeyword <?> "end of character")
+        <| validCharLiteral
+        ) <?> "literal character"
+
+{- |
+It parses a string literal then it skips white spaces and comments.
+-}
+stringLiteral :: Stream s m Char => ParsecT s u m Text
+stringLiteral = do
+    lit <- Token.lexeme tokenParser enclosedStringLiteral <?> "string literal"
+    return $ pack lit
     where
-        character = charLetter <|> charEscape
+        enclosedStringLiteral =
+            between
+                <| string stringLitStartKeyword
+                <| (string stringLitEndKeyword <?> "end of string")
+                <| validStringLiteral
