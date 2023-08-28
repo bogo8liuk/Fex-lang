@@ -73,6 +73,7 @@ library
       Compiler.Syntax.NonTranzitInsertion
       Compiler.Syntax.Operators
       Compiler.Syntax.Parser
+      Compiler.Syntax.Refactoring.Grammar
       Compiler.Syntax.Refactoring.Language
       Compiler.Syntax.Refactoring.Lib
       Compiler.Syntax.Refactoring.TextLiterals
