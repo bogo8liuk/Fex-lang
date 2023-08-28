@@ -76,6 +76,7 @@ library
       Compiler.Syntax.Refactoring.Language
       Compiler.Syntax.Refactoring.Lib
       Compiler.Syntax.Refactoring.TextLiterals
+      Compiler.Syntax.Refactoring.Types
       Compiler.Types.Builder.Cons
       Compiler.Types.Builder.Constraints
       Compiler.Types.Builder.Instances
