@@ -65,6 +65,7 @@ library
       Compiler.Names.Check.Lib
       Compiler.NameSpace
       Compiler.Phase
+      Compiler.Pos
       Compiler.State
       Compiler.Syntax.Grammar
       Compiler.Syntax.Lib.Info
