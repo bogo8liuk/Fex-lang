@@ -59,13 +59,14 @@ library
       Compiler.Desugar.Scrutinee
       Compiler.Desugar.Sigs
       Compiler.Desugar.TyVars
+      Compiler.Lib.Pos
+      Compiler.Lib.Types
       Compiler.Names.Check
       Compiler.Names.Check.Correct
       Compiler.Names.Check.Fetch
       Compiler.Names.Check.Lib
       Compiler.NameSpace
       Compiler.Phase
-      Compiler.Pos
       Compiler.State
       Compiler.Syntax.Grammar
       Compiler.Syntax.Lib.Info

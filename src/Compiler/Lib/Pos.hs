@@ -1,5 +1,5 @@
 {- |
-Module : Compiler.Pos
+Module : Compiler.Lib.Pos
 Description : Source position tracking
 Copyright : (c) Luca Borghi, 2023
 License : GPL-3
@@ -8,7 +8,7 @@ Stability : experimental
 Types for position tracking in source code.
 -}
 
-module Compiler.Pos
+module Compiler.Lib.Pos
     (
     -- * Positions
 
