@@ -14,6 +14,7 @@ module Compiler.Lib.Types
       LeftApplication(..)
     , LeftAutoApplication(..)
     , RightApplication(..)
+    , RightAutoApplication(..)
     , AutoApplication(..)
     -- * Functions on applications
     , leftToAutoLeft
