@@ -15,6 +15,9 @@ module Compiler.Lib.Types
     , LeftAutoApplication(..)
     , RightApplication(..)
     , AutoApplication(..)
+    -- * Functions on applications
+    , leftToAutoLeft
+    , rightToAutoRight
 ) where
 
 {- | Application of items with left associativity. You can think:
@@ -80,3 +83,22 @@ as
 > X X
 -}
 data AutoApplication app a = AutoApp (app a) (app a)
+
+{- |
+Given a `LeftApplication applier applied` value where `applier` and `applied`
+are the same type, it builds up `LeftAutoApplication applier` semantically
+identical to the previous `LeftApplication` value.
+-}
+leftToAutoLeft :: LeftApplication app app a -> LeftAutoApplication app a
+leftToAutoLeft (LeftHead x) = LeftAutoHead x
+leftToAutoLeft (LeftApp leftApp y) = LeftAutoApp (leftToAutoLeft leftApp) y
+
+{- |
+Given a `RightApplication applier applied` value where `applier` and `applied`
+are the same type, it builds up `RightAutoApplication applier` semantically
+identical to the previous `RightApplication` value.
+-}
+rightToAutoRight :: RightApplication app app a -> RightAutoApplication app a
+rightToAutoRight (RightHead x) = RightAutoHead x
+rightToAutoRight (RightApp y rightApp) =
+    RightAutoApp y (rightToAutoRight rightApp)
