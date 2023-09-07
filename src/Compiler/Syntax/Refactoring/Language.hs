@@ -48,9 +48,20 @@ import qualified Text.Parsec.Token as Token
     )
 import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, between, string, (<?>))
 import Data.Text (Text, pack)
-import Compiler.Syntax.Refactoring.Lib (nextMustBe)
+import Compiler.Syntax.Refactoring.Lib (nextMustBe, application, applicationLast)
 import Utils.Fancy ((<|))
-import Compiler.Syntax.Refactoring.TextLiterals (validCharLiteral, validStringLiteral)
+import Compiler.Syntax.Refactoring.TextLiterals
+    ( validCharLiteral
+    , validStringLiteral
+    )
+import Compiler.Lib.Types
+    ( LeftApplication(..)
+    , LeftAutoApplication
+    , leftToAutoLeft
+    , RightApplication(..)
+    , RightAutoApplication
+    , rightToAutoRight
+    )
 
 reservedIds, reservedOps :: [String]
 reservedIds =
@@ -253,3 +264,43 @@ skipSemanticless = Token.whiteSpace tokenParser
 -}
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 lexeme = Token.lexeme tokenParser
+
+leftApplication
+    :: Stream s m Char
+    => ParsecT s u m (applier a)
+    -> ParsecT s u m (applied a)
+    -> ParsecT s u m (LeftApplication applier applied a)
+leftApplication applier applied = do
+    (h, t) <- application <| lexeme applier <| lexeme applied
+    return $ buildLeft (LeftHead h) t
+    where
+        buildLeft base [] = base
+        buildLeft base (x : xs) = buildLeft (LeftApp base x) xs
+
+leftAutoApplication
+    :: Stream s m Char
+    => ParsecT s u m (app a)
+    -> ParsecT s u m (LeftAutoApplication app a)
+leftAutoApplication app = do
+    leftApp <- leftApplication app app
+    return $ leftToAutoLeft leftApp
+
+rightApplication
+    :: Stream s m Char
+    => ParsecT s u m (applier a)
+    -> ParsecT s u m (applied a)
+    -> ParsecT s u m (RightApplication applier applied a)
+rightApplication applier applied = do
+    (h, t) <- applicationLast <| lexeme applier <| lexeme applied
+    return . buildRight h $ RightTail t
+    where
+        buildRight [] base = base
+        buildRight (x : xs) base = buildRight xs $ RightApp x base
+
+rightAutoApplication
+    :: Stream s m Char
+    => ParsecT s u m (app a)
+    -> ParsecT s u m (RightAutoApplication app a)
+rightAutoApplication app = do
+    rightApp <- rightApplication app app
+    return $ rightToAutoRight rightApp
