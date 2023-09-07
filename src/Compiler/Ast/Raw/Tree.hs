@@ -49,15 +49,6 @@ module Compiler.Ast.Raw.Tree
     , MultiplePatternCase(..)
     , PatternMatch(..)
     , MultiplePatternMatch(..)
-    -- ** Tokens applications
-    --
-    -- | There are various ast tokens built upon the application of other tokens. These tokens are built with recursive
-    -- application of tokens which build them. Other tokens, instead, use list of tokens since the semantics is not the
-    -- the tokens applications.
-    , TokenLeftApplication(..)
-    , TokenLeftApplication'(..)
-    , TokenRightApplication(..)
-    , TokenAutoApplication(..)
     -- ** Tokens with expressions
     , DefinitionWithExpression(..)
     -- ** Filters
@@ -73,56 +64,7 @@ import Data.Text (Text)
 import Data.List.NonEmpty (NonEmpty)
 import Utils.Data.Filter (Filter)
 import Compiler.Ast.Common (Item (..))
-
-{- | Application of tokens with left associativity. You can think:
-
-> TokenLeftApplication A B
-
-as
-
-> (...((((A) B) B) B) ... B)
--}
-data TokenLeftApplication applier applied a
-    = LeftHead (applier a)
-    | LeftApp (TokenLeftApplication applier applied a) (applied a)
-
-{- |
-Same of `TokenLeftApplication`, but with just one token (the head token is the same of the applied tokens).
-You can think:
-
-> TokenLeftApplication' B
-
-as
-
-> (...((((B) B) B) B) ... B)
--}
-data TokenLeftApplication' app a
-    = LeftHead' (app a)
-    | LeftApp' (TokenLeftApplication' app a) (app a)
-
-{- |
-Application of tokens with right associativity. You can think:
-
-> TokenRightApplication A B
-
-as
-
-> (B ... (B (B (B (A))))...)
--}
-data TokenRightApplication applied applier a
-    = RightHead (applier a)
-    | RightApp (applied a) (TokenRightApplication applied applier a)
-
-{- |
-Auto-application of tokens. You can think:
-
-> TokenAutoApplication X
-
-as
-
-> X X
--}
-data TokenAutoApplication app a = AutoApp (app a) (app a)
+import Compiler.Lib.Types (AutoApplication, RightApplication, LeftApplication)
 
 {- |
 Parametric token along with an expression. There are two cases:
@@ -172,9 +114,9 @@ data DataConDefinition a = DataCon (DataConName a) [Type a] a
 data Type a
     = SingleTyCon (TypeConName a) a
     | SingleTyVar (TypeVarName a) a
-    | AppType !(TokenAutoApplication Type a) a
-data QualifiedType a = QualType !(TokenRightApplication Constraint Type a) a
-data Constraint a = Constraint !(TokenLeftApplication ConstraintName Type a) a
+    | AppType !(AutoApplication Type a) a
+data QualifiedType a = QualType !(RightApplication Constraint Type a) a
+data Constraint a = Constraint !(LeftApplication ConstraintName Type a) a
 data TypeHinting a = TyHint (QualifiedType a) a
 
 data TypeConName a = TyConName !Text !a
@@ -198,7 +140,7 @@ data Expression a
     | ExprMatch (PatternMatch a) a
     | ExprLet (Binding a) (TyHintExpression a) a
     | ExprLetRec (NonEmpty (Binding a)) (TyHintExpression a) a
-    | ExprApp (TokenAutoApplication TyHintExpression a) a
+    | ExprApp (AutoApplication TyHintExpression a) a
 
 data Lambda a = Lambda (DefinitionWithExpression [SymbolName a] a) a
 
@@ -207,7 +149,7 @@ data PatternExpression a
     | PatternLit (Literal a) a
     | PatternDataCon (DataConName a) a
     | PatternDefault a
-    | PatternDataConApp (TokenLeftApplication DataConName PatternExpression a) a
+    | PatternDataConApp (LeftApplication DataConName PatternExpression a) a
 
 data Case a = Case (PatternExpression a) (TyHintExpression a) a
 data MultiplePatternCase a = MultiCase (NonEmpty (PatternExpression a)) (TyHintExpression a) a
