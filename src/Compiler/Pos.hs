@@ -18,8 +18,6 @@ module Compiler.Pos
     , SourcePos(..)
     , ProgramPos(..)
     -- * Notion of position
-    , isPhysical
-    , isSpecial
     , initPos
     , initPos'
     , endPos
@@ -35,6 +33,7 @@ import Utils.TypeAlias (Typing (..))
 import Text.Parsec.Pos (SourceName, Line, Column)
 import Utils.Data.Text.TypeAlias (Description)
 import Data.Text (unpack)
+import Data.Maybe (isJust)
 
 -- $position
 -- A position in a source consists of three pieces of information:
@@ -51,11 +50,9 @@ import Data.Text (unpack)
 -- A position can also be \"special\", which means that the position is not
 -- part of an existing source.
 
-data Init
-type InitPos = Typing Init (Line, Column)
+type InitPos = (Line, Column)
 
-data End
-type EndPos = Typing End (Line, Column)
+type EndPos = (Line, Column)
 
 {- |
 A position in a source.
@@ -67,10 +64,7 @@ showPoint (line, column) = "line " ++ show line ++ " and column " ++ show column
 
 instance Show SourcePos where
     show (SourcePos srcName begin end) =
-        srcName ++ ", from " ++ showPoint begin' ++ " to " ++ showPoint end'
-        where
-            begin' = unTyping begin
-            end' = unTyping end
+        srcName ++ ", from " ++ showPoint begin ++ " to " ++ showPoint end
 
 instance Eq SourcePos where
     (==) (SourcePos srcName begin end) (SourcePos srcName' begin' end') =
@@ -97,37 +91,28 @@ instance Eq ProgramPos where
     (==) (Special desc) (Special desc') = desc == desc'
     (==) _ _ = False
 
-isPhysical :: ProgramPos -> Bool
-isPhysical (Pos _) = True
-isPhysical (Special _) = False
-
-isSpecial :: ProgramPos -> Bool
-isSpecial (Pos _) = False
-isSpecial (Special _) = True
-
 initPos :: SourcePos -> InitPos
 initPos (SourcePos _ begin _) = begin
 
 initPos' :: SourcePos -> (SourceName, Line, Column)
 initPos' (SourcePos srcName begin _) =
-    (srcName, fst begin', snd begin')
-    where
-        begin' = unTyping begin
+    (srcName, fst begin, snd begin)
 
 endPos :: SourcePos -> EndPos
 endPos (SourcePos _ _ end) = end
 
 endPos' :: SourcePos -> (SourceName, Line, Column)
 endPos' (SourcePos srcName _ end) =
-    (srcName, fst end', snd end')
-    where
-        end' = unTyping end
+    (srcName, fst end, snd end)
 
 {- |
-For items which can tell their position.
+For items which can tell their position in a program.
 -}
 class HasPosition a where
     positionOf :: a -> ProgramPos
+
+instance HasPosition ProgramPos where
+    positionOf = id
 
 instance HasPosition SourcePos where
     positionOf = Pos
@@ -139,7 +124,7 @@ physicalPositionOf token =
         Special _ -> Nothing
 
 hasPhysicalPosition :: HasPosition a => a -> Bool
-hasPhysicalPosition = isPhysical . positionOf
+hasPhysicalPosition = isJust . physicalPositionOf
 
 specialPositionOf :: HasPosition a => a -> Maybe Description
 specialPositionOf token =
@@ -148,4 +133,4 @@ specialPositionOf token =
         Special desc -> Just desc
 
 hasSpecialPosition :: HasPosition a => a -> Bool
-hasSpecialPosition = isSpecial . positionOf
+hasSpecialPosition = isJust . specialPositionOf
