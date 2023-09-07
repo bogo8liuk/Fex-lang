@@ -53,11 +53,11 @@ Application of items with right associativity. You can think:
 
 as
 
-> (B ... (B (B (B (A))))...)
+> (A ... (A (A (A (B))))...)
 -}
-data RightApplication applied applier a
-    = RightHead (applier a)
-    | RightApp (applied a) (RightApplication applied applier a)
+data RightApplication applier applied a
+    = RightTail (applied a)
+    | RightApp (applier a) (RightApplication applier applied a)
 
 {- |
 Same of `RightApplication`, but with just one item (the head item is the same of
@@ -70,7 +70,7 @@ as
 > (B ... (B (B (B (B))))...)
 -}
 data RightAutoApplication app a
-    = RightAutoHead (app a)
+    = RightAutoTail (app a)
     | RightAutoApp (app a) (RightAutoApplication app a)
 
 {- |
@@ -99,6 +99,6 @@ are the same type, it builds up `RightAutoApplication applier` semantically
 identical to the previous `RightApplication` value.
 -}
 rightToAutoRight :: RightApplication app app a -> RightAutoApplication app a
-rightToAutoRight (RightHead x) = RightAutoHead x
+rightToAutoRight (RightTail x) = RightAutoTail x
 rightToAutoRight (RightApp y rightApp) =
     RightAutoApp y (rightToAutoRight rightApp)
