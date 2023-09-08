@@ -15,7 +15,7 @@ module Compiler.Lib.Pos
     -- $position
       InitPos
     , EndPos
-    , SourcePos(..)
+    , PhysicalPos(..)
     , ProgramPos(..)
     -- * Notion of position
     , initPos
@@ -51,23 +51,22 @@ import Data.Maybe (isJust)
 -- part of an existing source.
 
 type InitPos = (Line, Column)
-
 type EndPos = (Line, Column)
 
 {- |
-A position in a source.
+A (physical) position in a source.
 -}
-data SourcePos = SourcePos !SourceName !InitPos !EndPos
+data PhysicalPos = PhysicalPos !SourceName !InitPos !EndPos
 
 showPoint :: (Line, Column) -> String
 showPoint (line, column) = "line " ++ show line ++ " and column " ++ show column
 
-instance Show SourcePos where
-    show (SourcePos srcName begin end) =
+instance Show PhysicalPos where
+    show (PhysicalPos srcName begin end) =
         srcName ++ ", from " ++ showPoint begin ++ " to " ++ showPoint end
 
-instance Eq SourcePos where
-    (==) (SourcePos srcName begin end) (SourcePos srcName' begin' end') =
+instance Eq PhysicalPos where
+    (==) (PhysicalPos srcName begin end) (PhysicalPos srcName' begin' end') =
         srcName == srcName' &&
         begin == begin' &&
         end == end'
@@ -77,7 +76,7 @@ A position in a program.
 -}
 data ProgramPos
     -- | A physical position in a source.
-    = Pos !SourcePos
+    = Pos !PhysicalPos
     -- | A special case of position, it should be used for tokens defined
     -- \"natively\", so the tokens which doesn't have a real source.
     | Special !Description
@@ -91,18 +90,18 @@ instance Eq ProgramPos where
     (==) (Special desc) (Special desc') = desc == desc'
     (==) _ _ = False
 
-initPos :: SourcePos -> InitPos
-initPos (SourcePos _ begin _) = begin
+initPos :: PhysicalPos -> InitPos
+initPos (PhysicalPos _ begin _) = begin
 
-initPos' :: SourcePos -> (SourceName, Line, Column)
-initPos' (SourcePos srcName begin _) =
+initPos' :: PhysicalPos -> (SourceName, Line, Column)
+initPos' (PhysicalPos srcName begin _) =
     (srcName, fst begin, snd begin)
 
-endPos :: SourcePos -> EndPos
-endPos (SourcePos _ _ end) = end
+endPos :: PhysicalPos -> EndPos
+endPos (PhysicalPos _ _ end) = end
 
-endPos' :: SourcePos -> (SourceName, Line, Column)
-endPos' (SourcePos srcName _ end) =
+endPos' :: PhysicalPos -> (SourceName, Line, Column)
+endPos' (PhysicalPos srcName _ end) =
     (srcName, fst end, snd end)
 
 {- |
@@ -114,10 +113,10 @@ class HasPosition a where
 instance HasPosition ProgramPos where
     positionOf = id
 
-instance HasPosition SourcePos where
+instance HasPosition PhysicalPos where
     positionOf = Pos
 
-physicalPositionOf :: HasPosition a => a -> Maybe SourcePos
+physicalPositionOf :: HasPosition a => a -> Maybe PhysicalPos
 physicalPositionOf token =
     case positionOf token of
         Pos srcPos -> Just srcPos
