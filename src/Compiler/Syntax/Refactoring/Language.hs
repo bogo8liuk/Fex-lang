@@ -50,26 +50,21 @@ module Compiler.Syntax.Refactoring.Language
 ) where
 
 import Compiler.Config.Lexer
-import qualified Text.Parsec.Token as Token
-    ( GenLanguageDef (..)
-    , GenTokenParser (..)
-    , makeTokenParser
+import qualified Text.Parsec.Token as Token(GenLanguageDef(..)
+    , GenTokenParser(..), makeTokenParser
     )
 import Text.Parsec (Stream, ParsecT, (<|>), try, oneOf, between, string, (<?>))
 import Data.Text (Text, pack)
-import Compiler.Syntax.Refactoring.Lib (nextMustBe, application, applicationLast)
+import Compiler.Syntax.Refactoring.Lib (nextMustBe, application
+    , applicationLast
+    )
 import Utils.Fancy ((<|))
-import Compiler.Syntax.Refactoring.TextLiterals
-    ( validCharLiteral
+import Compiler.Syntax.Refactoring.TextLiterals(validCharLiteral
     , validStringLiteral
     )
-import Compiler.Lib.Types
-    ( LeftApplication(..)
-    , LeftAutoApplication
-    , leftToAutoLeft
-    , RightApplication(..)
-    , RightAutoApplication
-    , rightToAutoRight
+import Compiler.Lib.Types(LeftApplication(..), LeftAutoApplication
+    , leftToAutoLeft, RightApplication(..), RightAutoApplication
+    , rightToAutoRight, buildLeftApplication, buildRightApplication
     )
 
 reservedIds, reservedOps :: [String]
@@ -286,10 +281,7 @@ leftApplication
     -> ParsecT s u m (LeftApplication applier applied a)
 leftApplication applier applied = do
     (h, t) <- application <| lexeme applier <| lexeme applied
-    return $ buildLeft (LeftHead h) t
-    where
-        buildLeft base [] = base
-        buildLeft base (x : xs) = buildLeft (LeftApp base x) xs
+    return $ buildLeftApplication h t
 
 {- |
 It parses a `LeftAutoApplication app` value, then it skips white spaces and
@@ -316,10 +308,7 @@ rightApplication
     -> ParsecT s u m (RightApplication applier applied a)
 rightApplication applier applied = do
     (h, t) <- applicationLast <| lexeme applier <| lexeme applied
-    return . buildRight h $ RightTail t
-    where
-        buildRight [] base = base
-        buildRight (x : xs) base = buildRight xs $ RightApp x base
+    return $ buildRightApplication h t
 
 {- |
 It parses a `RightAutoApplication app` value, then it skips white spaces and
