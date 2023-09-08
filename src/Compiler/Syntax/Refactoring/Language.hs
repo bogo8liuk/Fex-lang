@@ -25,19 +25,28 @@ Usually, with \"identifier\" we mean everything starting with a-z, A-Z or _. An
 {-# LANGUAGE FlexibleContexts #-}
 
 module Compiler.Syntax.Refactoring.Language
-    ( upperIdentifier
+    (
+    -- * Identifiers and operators
+      upperIdentifier
     , lowerIdentifier
     , generalIdentifier
     , reservedIdentifier
     , operator
     , reservedOperator
+    -- * Literals
     , charLiteral
     , stringLiteral
     , naturalLiteral
     , integerLiteral
     , floatLiteral
+    -- * White spaces
     , skipSemanticless
     , lexeme
+    -- * Applications
+    , leftApplication
+    , leftAutoApplication
+    , rightApplication
+    , rightAutoApplication
 ) where
 
 import Compiler.Config.Lexer
@@ -265,6 +274,11 @@ skipSemanticless = Token.whiteSpace tokenParser
 lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 lexeme = Token.lexeme tokenParser
 
+{- |
+It parses a `LeftApplication applier applied` value, then it skips white spaces
+and comments. Each atom in the value is separated from other atoms by white
+spaces and/or comments.
+-}
 leftApplication
     :: Stream s m Char
     => ParsecT s u m (applier a)
@@ -277,6 +291,11 @@ leftApplication applier applied = do
         buildLeft base [] = base
         buildLeft base (x : xs) = buildLeft (LeftApp base x) xs
 
+{- |
+It parses a `LeftAutoApplication app` value, then it skips white spaces and
+comments. Each atom in the value is separated from other atoms by white spaces
+and/or comments.
+-}
 leftAutoApplication
     :: Stream s m Char
     => ParsecT s u m (app a)
@@ -285,6 +304,11 @@ leftAutoApplication app = do
     leftApp <- leftApplication app app
     return $ leftToAutoLeft leftApp
 
+{- |
+It parses a `RightApplication applier applied` value, then it skips white spaces
+and comments. Each atom in the value is separated from other atoms by white
+spaces and/or comments.
+-}
 rightApplication
     :: Stream s m Char
     => ParsecT s u m (applier a)
@@ -297,6 +321,11 @@ rightApplication applier applied = do
         buildRight [] base = base
         buildRight (x : xs) base = buildRight xs $ RightApp x base
 
+{- |
+It parses a `RightAutoApplication app` value, then it skips white spaces and
+comments. Each atom in the value is separated from other atoms by white spaces
+and/or comments.
+-}
 rightAutoApplication
     :: Stream s m Char
     => ParsecT s u m (app a)

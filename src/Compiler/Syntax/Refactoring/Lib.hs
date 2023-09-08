@@ -11,6 +11,7 @@ Utilities for parsing. Usually wrappers to `Parsec` library.
 
 module Compiler.Syntax.Refactoring.Lib
     ( nextMustBe
+    -- * Applications
     , application
     , applicationSepBy
     , applicationLast
@@ -25,6 +26,9 @@ fails or not.
 nextMustBe :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 nextMustBe = try . lookAhead
 
+{- |
+`application p q` parses `p` followed by `many q`.
+-}
 application
     :: ParsecT s u m a
     -> ParsecT s u m b
@@ -34,6 +38,10 @@ application applier applied = do
     t <- many applied
     return (h, t)
 
+{- |
+`applicationSepBy sep p q` parses `p` followed by `many q`, where each `q` is
+preceeded by `sep`.
+-}
 applicationSepBy
     :: ParsecT s u m sep
     -> ParsecT s u m a
@@ -46,6 +54,9 @@ applicationSepBy sep applier applied = do
     where
         applied' = sep >> applied
 
+{- |
+`applicationLast p q` parses `many p` followed `q`
+-}
 applicationLast
     :: ParsecT s u m a
     -> ParsecT s u m b
