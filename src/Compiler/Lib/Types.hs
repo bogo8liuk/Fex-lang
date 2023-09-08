@@ -16,7 +16,9 @@ module Compiler.Lib.Types
     , RightApplication(..)
     , RightAutoApplication(..)
     , AutoApplication(..)
-    -- * Functions on applications
+    -- ** Functions on applications
+    , buildLeftApplication
+    , buildRightApplication
     , leftToAutoLeft
     , rightToAutoRight
 ) where
@@ -84,6 +86,34 @@ as
 > X X
 -}
 data AutoApplication app a = AutoApp (app a) (app a)
+
+{- |
+`buildLeftApplication applier appliedList` builds a `LeftApplication` value
+with applier atom from `applier` and applied atoms from `appliedList`.
+-}
+buildLeftApplication
+    :: applier a
+    -> [applied a]
+    -> LeftApplication applier applied a
+buildLeftApplication =
+    buildFrom . LeftHead
+    where
+        buildFrom base [] = base
+        buildFrom base (x : xs) = buildFrom (LeftApp base x) xs
+
+{- |
+`buildRightApplication applierList applied` builds a `RightApplication` value
+with applier atoms from `applierList` and applied atom from `applied`.
+-}
+buildRightApplication
+    :: [applier a]
+    -> applied a
+    -> RightApplication applier applied a
+buildRightApplication h =
+    buildFrom h . RightTail
+    where
+        buildFrom [] base = base
+        buildFrom (x : xs) base = buildFrom xs $ RightApp x base
 
 {- |
 Given a `LeftApplication applier applied` value where `applier` and `applied`
