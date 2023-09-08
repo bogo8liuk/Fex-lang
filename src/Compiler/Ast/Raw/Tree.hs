@@ -157,6 +157,21 @@ data MultiplePatternCase a = MultiCase (NonEmpty (PatternExpression a)) (TyHintE
 data PatternMatch a = PatternMatch (TyHintExpression a) [Case a] a
 data MultiplePatternMatch a = MultiMatch [MultiplePatternCase a] a
 
+instance Functor SymbolName where
+    fmap f (SymName text x) = SymName text $ f x
+
+instance Functor TypeConName where
+    fmap f (TyConName text x) = TyConName text $ f x
+
+instance Functor DataConName where
+    fmap f (DataConName text x) = DataConName text $ f x
+
+instance Functor ConstraintName where
+    fmap f (ConstrName text x) = ConstrName text $ f x
+
+instance Functor TypeVarName where
+    fmap f (TyVarName text x) = TyVarName text $ f x
+
 {- |
 Tokens which encapsulate a list of `Declaration`.
 -}
