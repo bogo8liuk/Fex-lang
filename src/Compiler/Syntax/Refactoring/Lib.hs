@@ -17,7 +17,9 @@ module Compiler.Syntax.Refactoring.Lib
     , applicationLast
 ) where
 
-import Text.Parsec (ParsecT, lookAhead, try, Stream, many)
+import Text.Parsec (ParsecT, lookAhead, try, Stream, many, sourceLine, sourceColumn, sourceName)
+import Compiler.Lib.Pos (ProgramPos (Pos), PhysicalPos(..))
+import Text.ParserCombinators.Parsec (getPosition)
 
 {- |
 `nextMustBe p` pretends `p` to not fail without consuming input regardless it
@@ -65,3 +67,42 @@ applicationLast applier applied = do
     h <- many applier
     t <- applied
     return (h, t)
+
+{- |
+`withPos p` behaves as `p`, returning also the "ProgramPos" which encloses what
+`p` parsed.
+-}
+withPos
+    :: Monad m
+    => ParsecT s u m a
+    -> ParsecT s u m (a, ProgramPos)
+withPos parse = do
+    -- Getting the starting position
+    srcPosStart <- getPosition
+    let startLine = sourceLine srcPosStart
+    let startColumn = sourceColumn srcPosStart
+    -- Consuming the input
+    x <- parse
+    -- Getting the ending position
+    srcPosEnd <- getPosition
+    let endLine = sourceLine srcPosEnd
+    let endColumn = sourceColumn srcPosEnd
+    let srcName = sourceName srcPosEnd
+    let startPos = (startLine, startColumn)
+    let endPos = (endLine, endColumn)
+    let progPos = Pos $ PhysicalPos srcName startPos endPos
+    return (x, progPos)
+
+{- |
+`track t` behaves like `t` and a `ProgramPos` position value is injected into
+the token parsed by `t`. A common usage can be building the token parsed by `t`
+with an inner value of type `()`, since it will be discarded by this function.
+-}
+track
+    :: (Functor t, Monad m)
+    => ParsecT s u m (t a)
+    -- ^ The token parser, it could be thought as `ParsecT s u m (t ())`
+    -> ParsecT s u m (t ProgramPos)
+track parse = do
+    (token, pos) <- withPos parse
+    return $ fmap (const pos) token
