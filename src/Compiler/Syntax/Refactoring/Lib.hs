@@ -102,6 +102,9 @@ withPos parse = do
 `track t` behaves like `t` and a `ProgramPos` position value is injected into
 the token parsed by `t`. A common usage can be building the token parsed by `t`
 with an inner value of type `()`, since it will be discarded by this function.
+
+NB: do not use this for recursive data structure since it injects the actual
+program position in the whole data structure.
 -}
 track
     :: (Functor t, Monad m)
