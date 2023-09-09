@@ -15,6 +15,11 @@ module Compiler.Syntax.Refactoring.Lib
     , application
     , applicationSepBy
     , applicationLast
+    -- * Positions
+    --
+    -- | Parsing tokens with position in the source
+    , withPos
+    , track
 ) where
 
 import Text.Parsec (ParsecT, lookAhead, try, Stream, many, sourceLine, sourceColumn, sourceName)
