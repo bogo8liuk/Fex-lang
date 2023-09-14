@@ -1,5 +1,5 @@
 {- |
-Module : Compiler.Lib.Types
+Module : Lib.Types
 Description : General compiler types
 Copyright : (c) Luca Borghi, 2023
 License : GPL-3
@@ -8,7 +8,7 @@ Stability : experimental
 General types and data structures.
 -}
 
-module Compiler.Lib.Types
+module Lib.Types
     (
     -- * Applications
       LeftApplication(..)

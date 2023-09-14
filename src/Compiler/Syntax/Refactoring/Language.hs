@@ -62,9 +62,9 @@ import Utils.Fancy ((<|))
 import Compiler.Syntax.Refactoring.TextLiterals(validCharLiteral
     , validStringLiteral
     )
-import Compiler.Lib.Types(LeftApplication(..), LeftAutoApplication
-    , leftToAutoLeft, RightApplication(..), RightAutoApplication
-    , rightToAutoRight, buildLeftApplication, buildRightApplication
+import Lib.Types(LeftApplication(..), LeftAutoApplication, leftToAutoLeft
+    , RightApplication(..), RightAutoApplication, rightToAutoRight
+    , buildLeftApplication, buildRightApplication
     )
 
 reservedIds, reservedOps :: [String]

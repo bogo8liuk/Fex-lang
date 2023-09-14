@@ -59,8 +59,6 @@ library
       Compiler.Desugar.Scrutinee
       Compiler.Desugar.Sigs
       Compiler.Desugar.TyVars
-      Compiler.Lib.Pos
-      Compiler.Lib.Types
       Compiler.Names.Check
       Compiler.Names.Check.Correct
       Compiler.Names.Check.Fetch
@@ -98,8 +96,10 @@ library
       Compiler.Types.Prepare.Recursion
       Compiler.Types.Prepare.Sort
       Compiler.Types.Tables
+      Lib.Pos
       Lib.Result
       Lib.Table
+      Lib.Types
       ModuleSys.HsModl
   other-modules:
       Paths_Fex

@@ -23,7 +23,7 @@ module Compiler.Syntax.Refactoring.Lib
 ) where
 
 import Text.Parsec (ParsecT, lookAhead, try, Stream, many, sourceLine, sourceColumn, sourceName)
-import Compiler.Lib.Pos (ProgramPos (Pos), PhysicalPos(..))
+import Lib.Pos (ProgramPos (Pos), PhysicalPos(..))
 import Text.ParserCombinators.Parsec (getPosition)
 
 {- |

@@ -64,7 +64,7 @@ import Data.Text (Text)
 import Data.List.NonEmpty (NonEmpty)
 import Utils.Data.Filter (Filter)
 import Compiler.Ast.Common (Item (..))
-import Compiler.Lib.Types (AutoApplication, RightApplication, LeftApplication)
+import Lib.Types (AutoApplication, RightApplication, LeftApplication)
 
 {- |
 Parametric token along with an expression. There are two cases:
