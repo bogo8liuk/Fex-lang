@@ -20,11 +20,13 @@ module Compiler.Syntax.Refactoring.Lib
     -- | Parsing tokens with position in the source
     , withPos
     , track
+    , track'
 ) where
 
 import Text.Parsec (ParsecT, lookAhead, try, Stream, many, sourceLine, sourceColumn, sourceName)
 import Lib.Pos (ProgramPos (Pos), PhysicalPos(..))
 import Text.ParserCombinators.Parsec (getPosition)
+import Utils.Data.Root (Root (rootMap))
 
 {- |
 `nextMustBe p` pretends `p` to not fail without consuming input regardless it
@@ -104,7 +106,7 @@ the token parsed by `t`. A common usage can be building the token parsed by `t`
 with an inner value of type `()`, since it will be discarded by this function.
 
 NB: do not use this for recursive data structure since it injects the actual
-program position in the whole data structure.
+program position in the whole data structure. Use "track'" instead.
 -}
 track
     :: (Functor t, Monad m)
@@ -114,3 +116,16 @@ track
 track parse = do
     (token, pos) <- withPos parse
     return $ fmap (const pos) token
+
+{- |
+`track' t` behaves like `t` and a `ProgramPos` position value is injected into
+the root element parsed by `t`.
+-}
+track'
+    :: (Root t, Monad m)
+    => ParsecT s u m (t ProgramPos)
+    -- ^ The token parser
+    -> ParsecT s u m (t ProgramPos)
+track' parse = do
+    (token, pos) <- withPos parse
+    return $ rootMap (const pos) token
