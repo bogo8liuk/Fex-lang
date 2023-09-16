@@ -13,7 +13,7 @@ module Compiler.Syntax.Refactoring.Grammar
 
 import Compiler.Syntax.Refactoring.Types (LangParser)
 import qualified Compiler.Ast.Raw.Tree as Raw
-import Compiler.Lib.Pos as With (ProgramPos)
+import Lib.Pos as With (ProgramPos)
 import Compiler.Syntax.Refactoring.Lib (track)
 import Compiler.Syntax.Refactoring.Language (lowerIdentifier, upperIdentifier)
 import Data.Text (Text)
