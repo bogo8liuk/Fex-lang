@@ -1,6 +1,5 @@
 .stack-work/
 *~
-Test.txt
 *.asm
 *.ll
 *.s

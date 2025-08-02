@@ -3,7 +3,7 @@ version:             0.1.0.0
 github:              bogo8liuk/Fex-lang
 license:             GPL-3
 author:              Luca Borghi
-copyright:           "2022 Luca Borghi"
+copyright:           "2025 Luca Borghi"
 
 extra-source-files:
 - README.md
@@ -21,15 +21,7 @@ description:         Please see the README.md on GitHub at https://github.com/bo
 dependencies:
 - base >= 4.7 && < 5
 - text
-- transformers
-- mtl
-- ghc
 - parsec
-- containers >= 0.6.5.1
-- array >= 0.5.4.0
-- pretty-simple >= 4.0.0.0
-- hs-utils
-- core-comp-unit
 
 ghc-options:
 - -Wall

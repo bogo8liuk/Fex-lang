@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -11,7 +11,7 @@ homepage:       https://github.com/bogo8liuk/Fex-lang#readme
 bug-reports:    https://github.com/bogo8liuk/Fex-lang/issues
 author:         Luca Borghi
 maintainer:     Luca Borghi
-copyright:      2022 Luca Borghi
+copyright:      2025 Luca Borghi
 license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
@@ -25,99 +25,18 @@ source-repository head
 
 library
   exposed-modules:
-      Cli
+      Ast
       Compiler
-      Compiler.Args.Check
-      Compiler.Args.Check.Correct
-      Compiler.Args.Check.Count
-      Compiler.Ast.Common
-      Compiler.Ast.Raw.Operations
-      Compiler.Ast.Raw.Tree
-      Compiler.Ast.Tree
-      Compiler.Ast.Typed
-      Compiler.Builtin.Tokens
-      Compiler.Codegen.Env
-      Compiler.Codegen.IO
-      Compiler.Codegen.Lib
-      Compiler.Codegen.ToCore
-      Compiler.Codegen.Type
-      Compiler.Config.Lexer
-      Compiler.Config.Props
-      Compiler.Config.Rep
-      Compiler.Config.Types
-      Compiler.Constraints.Check
-      Compiler.Desugar.AdHoc
-      Compiler.Desugar.AdHoc.Accumulate
-      Compiler.Desugar.AdHoc.Create
-      Compiler.Desugar.AdHoc.Lib
-      Compiler.Desugar.Alias
-      Compiler.Desugar.BreadthPM
-      Compiler.Desugar.DeepPM
-      Compiler.Desugar.Lambda
-      Compiler.Desugar.Names
-      Compiler.Desugar.Nested
-      Compiler.Desugar.Scrutinee
-      Compiler.Desugar.Sigs
-      Compiler.Desugar.TyVars
-      Compiler.Names.Check
-      Compiler.Names.Check.Correct
-      Compiler.Names.Check.Fetch
-      Compiler.Names.Check.Lib
-      Compiler.NameSpace
-      Compiler.Phase
-      Compiler.State
-      Compiler.Syntax.Grammar
-      Compiler.Syntax.Lib.Info
-      Compiler.Syntax.Lib.Lex
-      Compiler.Syntax.Lib.SimpleParser
-      Compiler.Syntax.NonTranzitInsertion
-      Compiler.Syntax.Operators
-      Compiler.Syntax.Parser
-      Compiler.Syntax.Refactoring.Grammar
-      Compiler.Syntax.Refactoring.Language
-      Compiler.Syntax.Refactoring.Lib
-      Compiler.Syntax.Refactoring.TextLiterals
-      Compiler.Syntax.Refactoring.Types
-      Compiler.Types.Builder.Cons
-      Compiler.Types.Builder.Constraints
-      Compiler.Types.Builder.Instances
-      Compiler.Types.Builder.Kind
-      Compiler.Types.Builder.New
-      Compiler.Types.Builder.Type
-      Compiler.Types.Lib.Create
-      Compiler.Types.Lib.Error
-      Compiler.Types.Lib.FreeVars
-      Compiler.Types.Lib.InferKind
-      Compiler.Types.Lib.SpecialExpr
-      Compiler.Types.Lib.State
-      Compiler.Types.Make
-      Compiler.Types.Prepare
-      Compiler.Types.Prepare.Lib
-      Compiler.Types.Prepare.Recursion
-      Compiler.Types.Prepare.Sort
-      Compiler.Types.Tables
-      Lib.Pos
-      Lib.Result
-      Lib.Table
-      Lib.Types
-      ModuleSys.HsModl
+      Parser
   other-modules:
       Paths_Fex
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind
   build-depends:
-      array >=0.5.4.0
-    , base >=4.7 && <5
-    , containers >=0.6.5.1
-    , core-comp-unit
-    , ghc
-    , hs-utils
-    , mtl
+      base >=4.7 && <5
     , parsec
-    , pretty-simple >=4.0.0.0
     , text
-    , transformers
   default-language: Haskell2010
 
 executable fexc
@@ -129,17 +48,9 @@ executable fexc
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Fex
-    , array >=0.5.4.0
     , base >=4.7 && <5
-    , containers >=0.6.5.1
-    , core-comp-unit
-    , ghc
-    , hs-utils
-    , mtl
     , parsec
-    , pretty-simple >=4.0.0.0
     , text
-    , transformers
   default-language: Haskell2010
 
 test-suite mylang-test
@@ -158,15 +69,7 @@ test-suite mylang-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Fex
-    , array >=0.5.4.0
     , base >=4.7 && <5
-    , containers >=0.6.5.1
-    , core-comp-unit
-    , ghc
-    , hs-utils
-    , mtl
     , parsec
-    , pretty-simple >=4.0.0.0
     , text
-    , transformers
   default-language: Haskell2010
