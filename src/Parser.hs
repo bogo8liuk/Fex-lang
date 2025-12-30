@@ -38,7 +38,7 @@ languageDef =
     , opStart = oneOf ":!#$%&*+./<=>?@\\^|-~"
     , opLetter = oneOf ":!#$%&*+./<=>?@\\^|-~"
     , reservedNames = ["let", "type"]
-    , reservedOpNames = ["+", "-", "*", "/"]
+    , reservedOpNames = ["+", "-", "*", "/", "%"]
     , caseSensitive = True
     }
 
@@ -50,7 +50,8 @@ identifierStart = try letter <|> char '_'
 
 operatorsTable =
   [ [prefix "-" Negate]
-  , [infix' "*" Times AssocLeft, infix' "/" Divide AssocLeft]
+  , [infix' "*" Times AssocLeft, infix' "/" Divide AssocLeft,
+    infix' "%" Modulo AssocLeft]
   , [infix' "+" Plus AssocLeft, infix' "-" Minus AssocLeft]
   ]
 

@@ -3,11 +3,16 @@ module Compiler
 ) where
 
 import Parser
-import Data.Text.IO
 import Prelude hiding (readFile)
 import Ast (Ast)
+import Codegen (rustGen)
+import Data.Text.Lazy (Text, pack)
+import Data.Text.IO (readFile)
 
-compile :: FilePath -> IO (Either ParseError Ast)
+compile :: FilePath -> IO Text--(Either ParseError Ast)
 compile path = do
   src <- readFile path
-  return $ parse src
+  let parseRes = parse src
+  case parseRes of
+    Left err -> return . pack $ show err
+    Right ast -> return $ rustGen ast

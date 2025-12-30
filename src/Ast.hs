@@ -13,6 +13,7 @@ data NumberExpression
   | Minus NumberExpression NumberExpression
   | Times NumberExpression NumberExpression
   | Divide NumberExpression NumberExpression
+  | Modulo NumberExpression NumberExpression
   | Negate NumberExpression
   | Literal NumberLiteral
   deriving Show
