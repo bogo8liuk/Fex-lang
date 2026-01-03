@@ -8,9 +8,10 @@ import Data.Text.Lazy (Text, concat, pack)
 
 rustGen :: Ast -> Text
 rustGen (NumberExpression expr) =
-  let exprGen = genFromNumberExpr expr in
   rustNumberExprMain exprGen
   where
+    exprGen = genFromNumberExpr expr
+
     genFromNumberExpr :: NumberExpression -> Text
     genFromNumberExpr (Literal (NumberLiteral n)) = pack $ show n 
     genFromNumberExpr (Negate e) = Data.Text.Lazy.concat
@@ -18,38 +19,16 @@ rustGen (NumberExpression expr) =
       , genFromNumberExpr e
       , ")" :: Text
       ]
-    genFromNumberExpr (Plus e1 e2) = Data.Text.Lazy.concat
+    genFromNumberExpr (Plus e1 e2) = genFromBinaryNumberExpr " + " e1 e2
+    genFromNumberExpr (Minus e1 e2) = genFromBinaryNumberExpr " - " e1 e2
+    genFromNumberExpr (Times e1 e2) = genFromBinaryNumberExpr " * " e1 e2
+    genFromNumberExpr (Divide e1 e2) = genFromBinaryNumberExpr " / " e1 e2
+    genFromNumberExpr (Modulo e1 e2) = genFromBinaryNumberExpr " % " e1 e2
+
+    genFromBinaryNumberExpr op e1 e2 = Data.Text.Lazy.concat
       [ "(" :: Text
       , genFromNumberExpr e1
-      , " + " :: Text
-      , genFromNumberExpr e2
-      , ")" :: Text
-      ]
-    genFromNumberExpr (Minus e1 e2) = Data.Text.Lazy.concat
-      [ "(" :: Text
-      , genFromNumberExpr e1
-      , " - " :: Text
-      , genFromNumberExpr e2
-      , ")" :: Text
-      ]
-    genFromNumberExpr (Times e1 e2) = Data.Text.Lazy.concat
-      [ "(" :: Text
-      , genFromNumberExpr e1
-      , " * " :: Text
-      , genFromNumberExpr e2
-      , ")" :: Text
-      ]
-    genFromNumberExpr (Divide e1 e2) = Data.Text.Lazy.concat
-      [ "(" :: Text
-      , genFromNumberExpr e1
-      , " / " :: Text
-      , genFromNumberExpr e2
-      , ")" :: Text
-      ]
-    genFromNumberExpr (Modulo e1 e2) = Data.Text.Lazy.concat
-      [ "(" :: Text
-      , genFromNumberExpr e1
-      , " % " :: Text
+      , op
       , genFromNumberExpr e2
       , ")" :: Text
       ]

@@ -8,8 +8,7 @@ import Data.Text.Lazy (Text, concat, pack)
 
 llvmGen :: Ast -> Text
 llvmGen (NumberExpression expr) =
-  let (e, var) = exprGen in
-    llvmNumberExprMain e var
+  uncurry llvmNumberExprMain exprGen
   where
     exprGen :: (Text, Text)
     exprGen =
@@ -25,34 +24,23 @@ llvmGen (NumberExpression expr) =
         (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
         " = sub i32 0, %res" :: Text, pack $ show (newIndex - 1)], newIndex + 1)
     genFromNumberExpr accExpr index (Plus e1 e2) =
-      let (tmpExpr, tmpIndex) = genFromNumberExpr accExpr index e1 in
-      let (subExpr, newIndex) = genFromNumberExpr tmpExpr tmpIndex e2 in
-        (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
-        " = add i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
-        pack $ show (newIndex - 1)], newIndex + 1)
+      genFromBinaryNumberExpr ("add" :: Text) accExpr index e1 e2
     genFromNumberExpr accExpr index (Minus e1 e2) =
-      let (tmpExpr, tmpIndex) = genFromNumberExpr accExpr index e1 in
-      let (subExpr, newIndex) = genFromNumberExpr tmpExpr tmpIndex e2 in
-        (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
-        " = sub i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
-        pack $ show (newIndex - 1)], newIndex + 1)
+      genFromBinaryNumberExpr ("sub" :: Text) accExpr index e1 e2
     genFromNumberExpr accExpr index (Times e1 e2) =
-      let (tmpExpr, tmpIndex) = genFromNumberExpr accExpr index e1 in
-      let (subExpr, newIndex) = genFromNumberExpr tmpExpr tmpIndex e2 in
-        (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
-        " = mul i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
-        pack $ show (newIndex - 1)], newIndex + 1)
+      genFromBinaryNumberExpr ("mul" :: Text) accExpr index e1 e2
     genFromNumberExpr accExpr index (Divide e1 e2) =
-      let (tmpExpr, tmpIndex) = genFromNumberExpr accExpr index e1 in
-      let (subExpr, newIndex) = genFromNumberExpr tmpExpr tmpIndex e2 in
-        (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
-        " = udiv i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
-        pack $ show (newIndex - 1)], newIndex + 1)
+      genFromBinaryNumberExpr ("udiv" :: Text) accExpr index e1 e2
     genFromNumberExpr accExpr index (Modulo e1 e2) =
+      genFromBinaryNumberExpr ("urem" :: Text) accExpr index e1 e2
+
+    genFromBinaryNumberExpr :: Text -> Text -> Int -> NumberExpression ->
+      NumberExpression -> (Text, Int)
+    genFromBinaryNumberExpr op accExpr index e1 e2 =
       let (tmpExpr, tmpIndex) = genFromNumberExpr accExpr index e1 in
       let (subExpr, newIndex) = genFromNumberExpr tmpExpr tmpIndex e2 in
         (Data.Text.Lazy.concat [subExpr, "\n%res" :: Text, pack $ show newIndex,
-        " = urem i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
+        " = " :: Text, op, " i32 %res" :: Text, pack $ show (tmpIndex - 1), ", %res" :: Text,
         pack $ show (newIndex - 1)], newIndex + 1)
 
 llvmNumberExprMain :: Text -> Text -> Text
@@ -64,8 +52,8 @@ llvmNumberExprMain expr var = Data.Text.Lazy.concat ["\
   \define i32 @main(i32 %argc, i8** %argv) {\n\
   \entry:\n" :: Text,
   expr,
-  "\n  %fmt = getelementptr [4 x i8], [4 x i8]* @.result, i32 0, i32 0\n\
-  \  call i32 (i8*, ...) @printf(i8* %fmt, i32 " :: Text, var, ")\n\
-  \  ret i32 0\n\
+  "\n%fmt = getelementptr [4 x i8], [4 x i8]* @.result, i32 0, i32 0\n\
+  \call i32 (i8*, ...) @printf(i8* %fmt, i32 " :: Text, var, ")\n\
+  \ret i32 0\n\
   \}\n\
   \" :: Text]

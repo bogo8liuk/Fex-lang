@@ -16,4 +16,4 @@ compile path = do
   let parseRes = parse src
   case parseRes of
     Left err -> return . pack $ show err
-    Right ast -> return $ llvmGen ast
+    Right ast -> return $ rustGen ast
