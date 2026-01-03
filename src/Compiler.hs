@@ -6,6 +6,7 @@ import Parser
 import Prelude hiding (readFile)
 import Ast (Ast)
 import Codegen (rustGen)
+import Llvm (llvmGen)
 import Data.Text.Lazy (Text, pack)
 import Data.Text.IO (readFile)
 
@@ -15,4 +16,4 @@ compile path = do
   let parseRes = parse src
   case parseRes of
     Left err -> return . pack $ show err
-    Right ast -> return $ rustGen ast
+    Right ast -> return $ llvmGen ast

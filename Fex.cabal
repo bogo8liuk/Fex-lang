@@ -28,6 +28,7 @@ library
       Ast
       Codegen
       Compiler
+      Llvm
       Parser
   other-modules:
       Paths_Fex
