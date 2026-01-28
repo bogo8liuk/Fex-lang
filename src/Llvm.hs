@@ -16,7 +16,7 @@ llvmGen (NumberExpression expr) =
         (e, Data.Text.Lazy.concat ["%res" :: Text, pack $ show (i - 1)])
 
     genFromNumberExpr :: Text -> Int -> NumberExpression -> (Text, Int)
-    genFromNumberExpr accExpr index (Literal (NumberLiteral n)) =
+    genFromNumberExpr accExpr index (NumLiteral (NumberLiteral n)) =
       (Data.Text.Lazy.concat [accExpr, "\n%res" :: Text, pack $ show index,
       " = add i32 0, " :: Text, pack $ show n], index + 1)
     genFromNumberExpr accExpr index (Negate e) =

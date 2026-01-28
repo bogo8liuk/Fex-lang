@@ -3,7 +3,7 @@
 module Codegen
   ( rustGen
 ) where
-import Ast (Ast (..), NumberExpression (..), NumberLiteral (..))
+import Ast (Ast (..), NumberExpression (..), NumberLiteral (..), StringLiteral (..), StringExpression (..))
 import Data.Text.Lazy (Text, concat, pack)
 
 rustGen :: Ast -> Text
@@ -13,7 +13,7 @@ rustGen (NumberExpression expr) =
     exprGen = genFromNumberExpr expr
 
     genFromNumberExpr :: NumberExpression -> Text
-    genFromNumberExpr (Literal (NumberLiteral n)) = pack $ show n 
+    genFromNumberExpr (NumLiteral (NumberLiteral n)) = pack $ show n
     genFromNumberExpr (Negate e) = Data.Text.Lazy.concat
       [ "-(" :: Text
       , genFromNumberExpr e
@@ -32,6 +32,8 @@ rustGen (NumberExpression expr) =
       , genFromNumberExpr e2
       , ")" :: Text
       ]
+rustGen (StringExpression (StrLiteral (StringLiteral txt))) =
+  rustNumberExprMain $ Data.Text.Lazy.concat ["\"", txt, "\""]
 
 rustNumberExprMain :: Text -> Text
 rustNumberExprMain expr = Data.Text.Lazy.concat ["fn main() {\n\

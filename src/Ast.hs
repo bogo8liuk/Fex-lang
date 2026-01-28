@@ -1,12 +1,22 @@
 module Ast
   ( Ast(..)
+  , StringExpression(..)
+  , StringLiteral(..)
   , NumberExpression(..)
   , NumberLiteral(..)
 ) where
+import Data.Text.Lazy (Text)
 
 data Ast
   = NumberExpression NumberExpression
+  | StringExpression StringExpression
   deriving Show
+
+data StringExpression
+  = StrLiteral StringLiteral deriving Show
+
+data StringLiteral
+  = StringLiteral Text deriving Show
 
 data NumberExpression
   = Plus NumberExpression NumberExpression
@@ -15,7 +25,7 @@ data NumberExpression
   | Divide NumberExpression NumberExpression
   | Modulo NumberExpression NumberExpression
   | Negate NumberExpression
-  | Literal NumberLiteral
+  | NumLiteral NumberLiteral
   deriving Show
 
 data NumberLiteral

@@ -6,7 +6,7 @@ module Parser
 ) where
 
 import Ast
-import Data.Text
+import Data.Text.Lazy (Text, pack)
 import Text.Parsec hiding (parse, letter)
 import Text.Parsec.Token
 import Text.Parsec.Char
@@ -18,13 +18,30 @@ parse = runParser astParser () ""
 
 astParser :: ParsecT Text u Identity Ast
 astParser = do
-  expr <- buildExpressionParser operatorsTable parseNumberLiteral
-  return $ NumberExpression expr
+  ast <- choice
+    [ try parseStringExpression
+    , parseNumberExpression
+    ]
+  eof
+  return ast
+  where
+    parseNumberExpression :: ParsecT Text u Identity Ast
+    parseNumberExpression = do
+      expr <- buildExpressionParser operatorsTable parseNumberLiteral
+      return $ NumberExpression expr
+
+    parseStringExpression :: ParsecT Text u Identity Ast
+    parseStringExpression = StringExpression <$> parseStringLiteral
 
 parseNumberLiteral :: ParsecT Text u Identity NumberExpression
 parseNumberLiteral = do
   n <- natural genTokenParser
-  return . Literal $ NumberLiteral n
+  return . NumLiteral $ NumberLiteral n
+
+parseStringLiteral :: ParsecT Text u Identity StringExpression
+parseStringLiteral = do
+  s <- stringLiteral genTokenParser
+  return . StrLiteral . StringLiteral $ pack s
 
 languageDef :: GenLanguageDef Text u Identity
 languageDef =
@@ -48,6 +65,7 @@ genTokenParser = makeTokenParser languageDef
 identifierStart :: Stream s m Char => ParsecT s u m Char
 identifierStart = try letter <|> char '_'
 
+operatorsTable :: [[Operator Text u Identity NumberExpression]]
 operatorsTable =
   [ [prefix "-" Negate]
   , [infix' "*" Times AssocLeft, infix' "/" Divide AssocLeft,
