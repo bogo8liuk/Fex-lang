@@ -7,17 +7,38 @@ import Compiler ( compile, Target(..) )
 main :: IO ()
 main = do
   args <- getArgs
-  path <- getPath $ getOpt RequireOrder [] args
-  res <- compile path Rust
+  let call = getOpt RequireOrder options args
+  path <- getPath call
+  target <- getTarget call
+  res <- compile path target
   Data.Text.Lazy.IO.putStrLn res
 
 printUsage :: IO ()
 printUsage = do
     compilerName <- getProgName
-    print $ "USAGE: " ++ compilerName ++ " <file-path>"
+    Prelude.putStrLn $ usageInfo compilerName options
 
-getPath :: ([a], [String], [String]) -> IO String
+getPath :: ([Maybe Target], [String], [String]) -> IO String
 getPath (_, [path], _) = return path
 getPath _ = do
     printUsage
     exitFailure
+
+getTarget :: ([Maybe Target], [String], [String]) -> IO Target
+getTarget ([], _, _) = return Rust
+getTarget ([Just Rust], _, _) = return Rust
+getTarget ([Just Llvm], _, _) = return Llvm
+getTarget _ = do
+    printUsage
+    exitFailure
+
+options =
+    [ targetOption
+    ]
+
+targetOption = Option ['t'] ["target"] (ReqArg target "TARGET")
+    "The compilation target code"
+    where
+        target "rust" = Just Rust
+        target "llvm" = Just Llvm
+        target _ = Nothing
